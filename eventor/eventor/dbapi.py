@@ -149,12 +149,13 @@ class DbApi(object):
         
     def add_task_if_not_exists(self, step_id, sequence, status=TaskStatus.ready):
         found=self.session.query(Task).filter(Task.sequence==sequence, Task.step_id == step_id).first()
+        task=None
         if found is None:
             task=Task(step_id=step_id, sequence=sequence, status=status,)
             module_logger.debug('DBAPI - add_task_if_not_exists: %s' % (repr(task), ))
             self.session.add(task)
             self.commit_db()
-        return found is None
+        return task
         
     def update_task(self, task):
         updated=datetime.datetime.utcnow()

@@ -85,6 +85,6 @@ def traces(trace):
     return result
 
 
-def calling_module():
+def calling_module(depth=2):
     frame_records = inspect.stack()[2]
     return frame_records.filename

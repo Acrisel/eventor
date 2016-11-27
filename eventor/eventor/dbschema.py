@@ -56,6 +56,7 @@ class Event(Base):
             self.id,  self.expr, self.created, self.resolved)
    
         
+'''
 class Assoc(Base):
     __tablename__ = 'Assoc'
     
@@ -72,7 +73,7 @@ class Assoc(Base):
     def __repr__(self):
         return "<Assoc(assoc_id='%s', event_id='%s', obj_type='%s', obj_id='%s', created='%s')>" % (
             self.id, self.event_id, self.obj_type, self.obj_id, self.created)
-
+'''
 
 class Trigger(Base):
     __tablename__ = 'Trigger'
@@ -149,11 +150,12 @@ if __name__ == '__main__':
     session.flush() 
     session.commit() 
     
+    '''
     db_assoc=Assoc(event_id='34', obj_type=AssocType.step, obj_id='56')
     session.add(db_assoc)
     session.flush() 
     session.commit() 
-    
+    '''
     db_trigger=Trigger(event_id='46' , sequence='45')
     session.add(db_trigger)
     session.flush() 

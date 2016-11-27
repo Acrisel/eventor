@@ -8,7 +8,7 @@ from .utils import get_event_id, is_require_op, op_to_lambda
 from .step import Step
 from collections import OrderedDict
 import logging
-from .dbschema import Assoc as AssocDb
+#from .dbschema import Assoc as AssocDb
 from .step import Step
 from .event import Event
 from .eventor_types import EventorError
@@ -33,7 +33,7 @@ class Assoc(object):
     def __str__(self):
         return "Assoc(%s, %s)" % (str(self.event), str(self.assoc_obj))
 
-    def db_write(self, db):
-        db.add_assoc(event_id=self.event.id, obj_type=type(self.assoc_obj), obj_id=self.assoc_obj.id)
+    #def db_write(self, db):
+    #    db.add_assoc(event_id=self.event.id, obj_type=type(self.assoc_obj), obj_id=self.assoc_obj.id)
         
  

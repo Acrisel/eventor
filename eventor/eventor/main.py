@@ -19,7 +19,7 @@ from eventor.event import Event
 from eventor.assoc import Assoc
 from eventor.dbapi import DbApi
 from eventor.utils import calling_module, traces
-from eventor.eventor_types import AssocType, EventorError, TaskStatus, step_status_to_trigger, LoopControl
+from eventor.eventor_types import AssocType, EventorError, TaskStatus, step_status_to_trigger, LoopControl, StepTriggers, StepReplay
 #from eventor.loop_event import LoopEvent
 
 module_logger=logging.getLogger(__name__)
@@ -117,9 +117,12 @@ class Eventor(object):
         self.logger=MpLogger(logging_level=logging_level, logging_root=logging_root, logdir=self.config['logdir'])
         self.logger.start()
         
-        if not filename:
-            filename=self.get_filename(calling_module())
-        self.filename=filename
+        self.calling_module=calling_module()
+        self.filename=self.get_filename(filename, self.calling_module)
+        
+        #if not filename:
+        #    filename=self.get_filename(calling_module())
+        #self.filename=filename
 
         module_logger.info("Eventor store file: %s" % self.filename)
         self.db=DbApi(self.filename)
@@ -139,18 +142,19 @@ class Eventor(object):
         result="Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )  )".format(self.path, events, steps)
         return result
     
-    def get_filename(self, module,):
-        parts=module.rpartition('.')
-        if parts[0]:
-            if parts[2] == 'py':
-                module_runner_file=parts[0]
+    def get_filename(self, filename, module,):
+        if not filename:
+            parts=module.rpartition('.')
+            if parts[0]:
+                if parts[2] == 'py':
+                    module_runner_file=parts[0]
+                else:
+                    module_runner_file=module
             else:
-                module_runner_file=module
-        else:
-            module_runner_file=parts[2]
-        module_runner_file='.'.join([module_runner_file, 'run.db'])  
+                module_runner_file=parts[2]
+            filename='.'.join([module_runner_file, 'run.db'])  
         
-        return module_runner_file
+        return filename
 
     def add_event(self, name, expr=None):
         """add a event to Eventor object
@@ -166,7 +170,7 @@ class Eventor(object):
         event.db_write(self.db)
         return event
     
-    def add_step(self, name, func, args=(), kwargs={}, config={}, triggers={}):
+    def add_step(self, name, func, args=(), kwargs={}, triggers={}, recovery=None, config={}):
         """add a step to steps object
     
         config parameters can include the following keys:
@@ -177,6 +181,10 @@ class Eventor(object):
             func_args: args to pass step when executing
             func_kwargs: keyword args to pass step when executing
             config: additional dict of keywords configuration 
+            triggers: set of events to trigger once step processing is done
+            recovery: instructions on how to deal with 
+                default: {TaskStatus.failure: StepReplay.rerun, 
+                          TaskStatus.success: StepReplay.skip}
             
         returns:
             new step that was added to Eventor; this step can be used further in assoc method
@@ -186,7 +194,9 @@ class Eventor(object):
         """
         
         config=ChainMap(config, self.config, os.environ,)
-        step=Step(name, func, args, kwargs, config, triggers)
+        if not recovery:
+            recovery={TaskStatus.failure: StepReplay.rerun, TaskStatus.success: StepReplay.skip,}
+        step=Step(name=name, func=func, func_args=args, func_kwargs=kwargs, config=config, triggers=triggers, recovery=recovery)
         self.steps[step.id]=step
         step.db_write(self.db)
         return step
@@ -258,8 +268,10 @@ class Eventor(object):
                 EventorError
                 
         """
-        added=step.trigger_if_not_exists(self.db, sequence)
-        return added
+        task=step.trigger_if_not_exists(self.db, sequence)
+        if task:
+            triggered=self.triggers_at_task_change(task)
+        return task is not None
           
     def assoc_loop(self, event, sequence):
         ''' Fetches event associations and trigger them.
@@ -390,27 +402,17 @@ class Eventor(object):
                 proc.join()
                 del self.task_proc[task.id]  
                 self.db.update_task(task=task)
-                step=self.steps[task.step_id]
-                status=step_status_to_trigger(task.status)
                 if task.status == TaskStatus.success:
                     successes['count'].append( (task.step_id, task.sequence) )
+                    target=successes['triggered']
                 else:
                     failures['count'].append( (task.step_id, task.sequence) )
-                #self.evaluate_result(task)
-                triggers=step.triggers.get(status)
-                added=False
-                if triggers:
-                    if task.status == TaskStatus.success:
-                        target=successes['triggered']
-                    else:
-                        target=failures['triggered']
+                    target=failures['triggered']
                     
-                    for event in triggers: 
-                        result=event.trigger_if_not_exists(self.db, task.sequence)
-                        if result: 
-                            target.append( (event.id, task.sequence) )
-                        added=added or result
-                elif task.status == TaskStatus.failure:
+                triggered=self.triggers_at_task_change(task)
+                target.extend(triggered)
+                
+                if len(triggered) == 0 and task.status == TaskStatus.failure:
                     module_logger.info("Stopping running processes") 
                     self.state=EventorState.shutdown
                     # TODO: stop running processes
@@ -420,7 +422,19 @@ class Eventor(object):
                 pass
              
         return successes, failures
-                 
+    
+    def triggers_at_task_change(self, task):
+        step=self.steps[task.step_id]
+        status=step_status_to_trigger(task.status)
+        triggers=step.triggers.get(status)
+        triggered=list()
+        if triggers:
+            for event in triggers: 
+                result=event.trigger_if_not_exists(self.db, task.sequence)
+                if result: 
+                    triggered.append( (event.id, task.sequence) )
+        return triggered
+            
     def initiate_task(self, task):
         ''' Playing synchronous action.
             
@@ -431,6 +445,7 @@ class Eventor(object):
                 
         task.status=TaskStatus.active
         self.db.update_task(task)
+        triggered=self.triggers_at_task_change(task)
         step=self.steps[task.step_id]
         kwds={'task':task, 'step': self.steps[task.step_id], 'resultq':self.resultq}
         task_construct=step.config['task_construct']
@@ -443,7 +458,8 @@ class Eventor(object):
         else:
             module_logger.debug('Going to run step action pool [%s]:\n    %s'% (max_concurrent, repr(task), ))
             self.procpool.apply_async(func=task_wrapper, kwds=kwds)    
-
+        return triggered
+    
     def loop_task(self,):
         loop_seq=Sequence('TaskLoop')
         self.loop_id=loop_seq() 
@@ -452,7 +468,7 @@ class Eventor(object):
         if self.state==EventorState.active:
             tasks=self.db.get_task_iter()
             for task in tasks:
-                self.initiate_task(task)
+                triggered=self.initiate_task(task)
         
         successes, failures=self.collect_results()
         
@@ -517,3 +533,7 @@ class Eventor(object):
     
     def loop_session_stop(self):
         self.controlq.put(LoopControl.stop)
+        
+    def __call__(self, filename='', logging_level=logging.INFO, config={}):
+        self.filename=self.get_filename(filename, self.calling_module)
+        self.loop_session_start()

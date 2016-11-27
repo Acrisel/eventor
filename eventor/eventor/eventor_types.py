@@ -13,11 +13,13 @@ class AssocType(Enum):
     event=1
     step=2
     
+    
 class TaskStatus(Enum):
     ready=1
     active=2
     success=3
     failure=4
+    
     
 class StepTriggers(Enum):
     at_ready=1
@@ -25,6 +27,12 @@ class StepTriggers(Enum):
     at_success=3
     at_failure=4
     at_complete=5
+   
+    
+class StepReplay(Enum):
+    rerun=1
+    skip=2
+    
     
 def step_status_to_trigger(status):
     value=status.value
