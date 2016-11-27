@@ -6,6 +6,7 @@ Created on Oct 18, 2016
 
 import eventor as evr
 import logging
+import time
 
 module_logger=logging.getLogger(__name__)
 
@@ -24,4 +25,10 @@ def step2_multiple_data(infile="source.txt", outfile="multi.txt"):
         for item in ifile:
             ofile.write(str(int(item)*2)+'\n')
     module_logger.info("done writing into %s" % outfile)        
+    return True
+
+def step3():
+    module_logger.info("start processing step 3"  )
+    time.sleep(5)
+    module_logger.info("done processing step 3" )        
     return True

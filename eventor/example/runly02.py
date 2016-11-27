@@ -53,14 +53,13 @@ API DOC:
 import eventor as evr
 import logging
 import example.program as prog
-import time
 
 logger=logging.getLogger(__name__)
 
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 #ev=evr.Eventor(filename=':memory:')
-ev=evr.Eventor()
+ev=evr.Eventor(logging_level=logging.INFO)
 
 ev1s=ev.add_event('run_step1')
 ev1d=ev.add_event('done_step1')
@@ -77,11 +76,4 @@ ev.add_assoc(ev2s, s2)
 ev.add_assoc(ev3s, s3)
 
 ev.trigger_event(ev1s, 3)
-ev.loop_once()
-ev.loop_once()
-ev.loop_once()
-ev.loop_once()
-ev.loop_once()
-ev.loop_once()
-time.sleep(5)
-ev.loop_once()
+ev.loop_session_start()

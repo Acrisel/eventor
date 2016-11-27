@@ -18,7 +18,7 @@ class Info(Base):
     __tablename__ = 'Info'
 
     info_id = Column(Integer, Sequence('info_id_seq'), primary_key=True)
-    version = Column(String(50), primary_key=True)
+    version = Column(String, primary_key=True)
 
     def __repr__(self):
         return "<Info(id='%s', version='%s')>" % (
@@ -27,23 +27,7 @@ class Info(Base):
 class Step(Base):
     __tablename__ = 'Step'
     
-    step_id = Column(Integer, Sequence('step_id_seq'), primary_key=True)
-    name=Column(String(50), primary_key=True)
-    created=Column(DateTime(), nullable=False, default=datetime.datetime.utcnow) 
-    
-    __table_args__ = (
-            UniqueConstraint('name'),
-            )
-
-    def __repr__(self):
-        return "<Step(step_id='%s', name='%s', created='%s')>" % (
-            self.step_id, self.name, self.created)
-    
-        
-class Event(Base):
-    __tablename__ = 'Event'
-    
-    event_id=Column(Integer, Sequence('event_id_seq'), primary_key=True)
+    id = Column(String, primary_key=True)
     name=Column(String, primary_key=True)
     created=Column(DateTime(), nullable=False, default=datetime.datetime.utcnow) 
     
@@ -52,36 +36,52 @@ class Event(Base):
             )
 
     def __repr__(self):
+        return "<Step(id='%s', name='%s', created='%s')>" % (
+            self.id, self.name, self.created)
+    
+        
+class Event(Base):
+    __tablename__ = 'Event'
+    
+    id=Column(String, primary_key=True)
+    name=Column(String, nullable=False,)
+    created=Column(DateTime(), nullable=False, default=datetime.datetime.utcnow) 
+    
+    __table_args__ = (
+            UniqueConstraint('name'),
+            )
+
+    def __repr__(self):
         return "<event_id='%s', name='%s', created='%s'')>" % (
-            self.event_id,  self.expr, self.created, self.resolved)
+            self.id,  self.expr, self.created, self.resolved)
    
         
 class Assoc(Base):
     __tablename__ = 'Assoc'
     
-    assoc_id=Column(Integer, Sequence('assoc_id_seq'), primary_key=True)
-    event_id=Column(Integer, )
-    obj_type=Column(SQLEnum(AssocType), )
-    obj_id=Column(Integer, ) 
+    id=Column(Integer, Sequence('assoc_id_seq'), primary_key=True)
+    event_id=Column(String, nullable=False)
+    obj_type=Column(SQLEnum(AssocType), nullable=False)
+    obj_id=Column(String, nullable=False) 
     created=Column(DateTime(), nullable=False, default=datetime.datetime.utcnow) 
     
     __table_args__ = (
-            UniqueConstraint('assoc_id', 'obj_type', 'obj_id'),
+            UniqueConstraint('id', 'obj_type', 'obj_id'),
             )
 
     def __repr__(self):
         return "<Assoc(assoc_id='%s', event_id='%s', obj_type='%s', obj_id='%s', created='%s')>" % (
-            self.assoc_id, self.event_id, self.obj_type, self.obj_id, self.created)
+            self.id, self.event_id, self.obj_type, self.obj_id, self.created)
 
 
 class Trigger(Base):
     __tablename__ = 'Trigger'
     
-    trigger_id=Column(Integer, Sequence('trigger_id_seq'), primary_key=True)
-    event_id=Column(Integer, )
-    sequence=Column(Integer, )
+    id=Column(Integer, Sequence('trigger_id_seq'), primary_key=True)
+    event_id=Column(String, nullable=False)
+    sequence=Column(Integer, nullable=True)
     created=Column(DateTime(), default=datetime.datetime.utcnow) 
-    tasked=Column(DateTime(), nullable=True) 
+    acted=Column(DateTime(), nullable=True) 
 
     def __repr__(self):
         return "<Trigger(id='%s', event_id='%s', sequence='%s', created='%s', tasked='%s')>" % (
@@ -91,10 +91,11 @@ class Trigger(Base):
 class Task(Base):
     __tablename__ = 'Task'
     
-    task_id=Column(Integer, Sequence('task_id_seq'), primary_key=True)
+    id=Column(Integer, Sequence('task_id_seq'), primary_key=True)
     sequence=Column(Integer, )
     step_id=Column(String(50), )
     status=Column(SQLEnum(TaskStatus), ) 
+    result=Column(PickleType() , nullable=True,)
     created=Column(DateTime(), default=datetime.datetime.utcnow) 
     updated=Column(DateTime(), nullable=True, ) 
     
@@ -104,7 +105,7 @@ class Task(Base):
 
     def __repr__(self):
         return "<Task(id='%s', sequence='%s', step_id='%s', status='%s', created='%s', updated='%s')>" % (
-            self.task_id, self.sequence, self.step_id, self.status, self.created, self.updated)
+            self.id, self.sequence, self.step_id, self.status, self.created, self.updated)
         
 class Registry(Base):
     __tablename__ = 'Registry'
@@ -148,12 +149,12 @@ if __name__ == '__main__':
     session.flush() 
     session.commit() 
     
-    db_assoc=Assoc(event_id='34', assoc_type=AssocType.step, obj_id='56')
+    db_assoc=Assoc(event_id='34', obj_type=AssocType.step, obj_id='56')
     session.add(db_assoc)
     session.flush() 
     session.commit() 
     
-    db_trigger=Trigger(trigger_id='34',event_id='46' , sequence='45')
+    db_trigger=Trigger(event_id='46' , sequence='45')
     session.add(db_trigger)
     session.flush() 
     session.commit() 
