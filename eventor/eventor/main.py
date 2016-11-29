@@ -518,6 +518,10 @@ class Eventor(object):
         return triggered
     
     def loop_task(self,):
+        ''' evaluate ready tasks to initiate.
+        
+        loop_task will do its work only if eventor state is active.
+        '''
         loop_seq=Sequence('TaskLoop')
         self.loop_id=loop_seq() 
         
