@@ -32,7 +32,10 @@ class StepTriggers(Enum):
 class StepReplay(Enum):
     rerun=1
     skip=2
-    
+
+class RunMode(Enum):  
+    recover=1
+    restart=2  
     
 def step_status_to_trigger(status):
     value=status.value

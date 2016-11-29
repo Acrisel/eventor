@@ -51,31 +51,51 @@ API DOC:
 
 import eventor as evr
 import logging
-import example.program as prog
+import math
 
 logger=logging.getLogger(__name__)
 
 logger.setLevel(logging.INFO)
 
-#ev=evr.Eventor(filename=':memory:')
-ev=evr.Eventor(run_mode=evr.RunMode.restart, logging_level=logging.DEBUG)
+def square(x):
+    y=x*x/0
+    return y
 
-ev1s=ev.add_event('run_step1')
-ev1d=ev.add_event('done_step1')
-ev2s=ev.add_event('run_step2')
-ev2d=ev.add_event('done_step2')
-ev3s=ev.add_event('run_step3', expr=(ev1d,ev2d)) 
+def square_root(x):
+    y=math.sqrt(x)
+    return y
 
-s1=ev.add_step('s1', func=prog.step1_create_data, kwargs={'outfile': 'source.txt'}, 
-               triggers={evr.StepTriggers.at_complete: (ev1d, ev2s,)}, 
-               recovery={evr.StepTriggers.at_failure: evr.StepReplay.rerun, 
-                         evr.StepTriggers.at_success: evr.StepReplay.skip}) 
-s2=ev.add_step('s2', prog.step2_multiple_data, triggers={evr.StepTriggers.at_complete: (ev2d,), })
-s3=ev.add_step('s3', prog.step3,)
+def divide(x,y):
+    z=x/y
+    return z
 
-ev.add_assoc(ev1s, s1)
-ev.add_assoc(ev2s, s2)
-ev.add_assoc(ev3s, s3)
+def build_eventor(run_mode=evr.RunMode.restart):
+    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.DEBUG)
+    
+    ev1s=ev.add_event('run_step1')
+    ev1d=ev.add_event('done_step1')
+    ev2s=ev.add_event('run_step2')
+    ev2d=ev.add_event('done_step2')
+    ev3s=ev.add_event('run_step3', expr=(ev1d,ev2d)) 
+    
+    s1=ev.add_step('s1', func=square, kwargs={'x': 3}, 
+                   triggers={evr.StepTriggers.at_success: (ev1d, ev2s,)}, 
+                   recovery={evr.StepTriggers.at_failure: evr.StepReplay.rerun, 
+                             evr.StepTriggers.at_success: evr.StepReplay.skip}) 
+    s2=ev.add_step('s2', square_root, kwargs={'x': 9}, triggers={evr.StepTriggers.at_complete: (ev2d,), })
+    s3=ev.add_step('s3', divide, kwargs={'x': 9, 'y': 3},)
+    
+    ev.add_assoc(ev1s, s1)
+    ev.add_assoc(ev2s, s2)
+    ev.add_assoc(ev3s, s3)
+    ev.trigger_event(ev1s, 3)    
+    return ev
 
-ev.trigger_event(ev1s, 3)
-ev.loop_session_start()
+# start regularly; it would fail in step 2
+ev=build_eventor()
+ev()
+
+# rerun in recovery
+ev=build_eventor(evr.RunMode.recover)
+ev()
+

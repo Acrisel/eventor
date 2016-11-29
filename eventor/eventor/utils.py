@@ -24,6 +24,10 @@ def op_to_lambda(op):
 StepId=Sequence('StepId')
 EventId=Sequence('EventId')
 
+def rest_sequences():
+    StepId.reset()
+    EventId.reset()
+
 def get_step_id():
     return "S%s" % StepId()
 

@@ -69,6 +69,30 @@ class DbApi(object):
         # TODO: fix to serve resume
         self.create_engine(runfile)
         
+    def write_info(self, **info):
+        for name, value in info.items():
+            db_info=Info(name=name, value=value)
+            self.session.add(db_info)
+            self.commit_db()
+        
+    def read_info(self, ):
+        rows = self.session.query(Info).all()
+        info=dict()
+        for row in rows:
+            info[row.name]=row.value
+        return info
+        
+    def update_info(self, **info):
+        for name, value in info.items():
+            self.session.query(Info).filter(Info.name==name).update({Info.name:name, Info.value:value}, synchronize_session=False)
+            #stmt=Info.update().where(Info.name==name).values(value=value)
+            #try:
+            #    rows=self.session.execute(stmt)
+            #except Exception:
+            #    raise
+            #else:
+            #    self.commit_db()
+        
     def add_step(self, step_id, name):
         db_step=Step(id=step_id, name=name)
         self.session.add(db_step)
@@ -79,9 +103,11 @@ class DbApi(object):
         self.session.add(db_event) 
         self.commit_db()
         
+    '''
     def add_assoc(self, event_id, obj_type, obj_id):
         db_assoc=Assoc(event_id=event_id, obj_type=obj_type, obj_id=obj_id)
         self.session.add(db_assoc)
+    '''
         
     def get_trigger_iter(self, ):
         rows = self.session.query(Trigger).all()
@@ -108,20 +134,21 @@ class DbApi(object):
             self.commit_db()
         return rows
         
-    def add_trigger(self, event_id, sequence):
+    def add_trigger(self, event_id, sequence, recovery):
         #print("add_trigger", event_id, self.session)
-        trigger=Trigger(event_id=event_id, sequence=sequence)
+        trigger=Trigger(event_id=event_id, sequence=sequence, recovery=recovery)
         self.session.add(trigger)
         self.commit_db()
         
-    def add_trigger_if_not_exists(self, event_id, sequence):
-        found=self.session.query(Trigger).filter(Trigger.sequence==sequence, Trigger.event_id==event_id).first()
-        #print("add_trigger", event_id, sequence, found)
-        if found is None:
-            trigger=Trigger(event_id=event_id, sequence=sequence)
+    def add_trigger_if_not_exists(self, event_id, sequence, recovery):
+        found=self.session.query(Trigger).filter(Trigger.event_id==event_id, Trigger.sequence==sequence, Trigger.recovery==recovery).first()
+        #print("add_trigger", event_id, sequence, recovery, found)
+        found=found is None
+        if found:
+            trigger=Trigger(event_id=event_id, sequence=sequence, recovery=recovery)
             self.session.add(trigger)
             self.commit_db()
-        return found is None
+        return found
     
     def acted_trigger(self, trigger):
         trigger.acted=datetime.datetime.utcnow()
@@ -132,26 +159,28 @@ class DbApi(object):
         count=self.session.query(Trigger).filter(Trigger.acted == None).count()
         return count
         
+    '''
     def get_assoc_iter(self, event):
         rows = self.session.query(Assoc).filter(Assoc.event_id==event.event_id).all()
         # rows = query.statement.execute().fetchall()
-        return rows    
+        return rows  
+    '''  
     
     def get_step(self, step_id):
         row=self.session.query(Step).filter(Step.step_id==step_id).first()
         #row = query.statement.execute().fetchone()
         return row
         
-    def add_task(self, step_id, sequence, status=TaskStatus.ready):
+    def add_task(self, step_id, sequence, status=TaskStatus.ready, recovery=None):
         task=Task(step_id=step_id, sequence=sequence, status=status,)
         self.session.add(task)
         self.commit_db()
         
-    def add_task_if_not_exists(self, step_id, sequence, status=TaskStatus.ready):
-        found=self.session.query(Task).filter(Task.sequence==sequence, Task.step_id == step_id).first()
+    def add_task_if_not_exists(self, step_id, sequence, status=TaskStatus.ready, recovery=None):
+        found=self.session.query(Task).filter(Task.sequence==sequence, Task.step_id == step_id, Task.recovery==recovery).first()
         task=None
         if found is None:
-            task=Task(step_id=step_id, sequence=sequence, status=status,)
+            task=Task(step_id=step_id, sequence=sequence, status=status, recovery=recovery)
             module_logger.debug('DBAPI - add_task_if_not_exists: %s' % (repr(task), ))
             self.session.add(task)
             self.commit_db()

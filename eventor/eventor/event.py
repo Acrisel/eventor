@@ -72,8 +72,8 @@ class Event(object):
     def trigger_(self, db, sequence):
         db.add_trigger(event_id=self.id, sequence=sequence)
     
-    def trigger_if_not_exists(self, db, sequence):
-        added=db.add_trigger_if_not_exists(event_id=self.id, sequence=sequence)
+    def trigger_if_not_exists(self, db, sequence, recovery):
+        added=db.add_trigger_if_not_exists(event_id=self.id, sequence=sequence, recovery=recovery)
         return added
     
 if __name__ == '__main__':

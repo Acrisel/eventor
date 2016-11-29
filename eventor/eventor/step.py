@@ -35,14 +35,12 @@ class Step(object):
         self.func=func
         self.func_args=func_args
         self.func_kwargs=func_kwargs
+        self.triggers=triggers
         self.recovery=recovery
         self.config=config
         
         if not callable(func):
             raise EventorError('func must be callable: %s' % repr(func))
-        
-        self.triggers=self.convert_trigger_at_complete(triggers)
-        self.recovery=self.convert_recovery_at_complete(recovery)
         
         self.path=None
         self.iter_path=None
@@ -57,30 +55,6 @@ class Step(object):
     
     def __str__(self):
         return repr(self)
-
-    def convert_trigger_at_complete(self, triggers):
-        at_compete=triggers.get(StepTriggers.at_complete)
-        if at_compete:
-            del triggers[StepTriggers.at_complete]
-            at_fail=triggers.get(StepTriggers.at_failure, list())
-            at_success=triggers.get(StepTriggers.at_success, list())
-            at_fail.extend(at_compete)
-            at_success.extend(at_compete)
-            triggers[StepTriggers.at_failure]=at_fail
-            triggers[StepTriggers.at_success]=at_success
-        return triggers
-          
-    def convert_recovery_at_complete(self, recovery):
-        at_compete=recovery.get(StepTriggers.at_complete)
-        if at_compete:
-            del recovery[StepTriggers.at_complete]
-            at_fail=recovery.get(StepTriggers.at_failure, list())
-            at_success=recovery.get(StepTriggers.at_success, list())
-            at_fail.extend(at_compete)
-            at_success.extend(at_compete)
-            recovery[StepTriggers.at_failure]=at_fail
-            recovery[StepTriggers.at_success]=at_success
-        return recovery
           
     def db_write(self, db):
         db.add_step(step_id=self.id, name=self.name)
@@ -88,8 +62,8 @@ class Step(object):
     def trigger_(self, db, sequence):
         db.add_task(event_id=self.id, sequence=sequence)
     
-    def trigger_if_not_exists(self, db, sequence, status=TaskStatus.ready):
-        added=db.add_task_if_not_exists(step_id=self.id, sequence=sequence, status=status)
+    def trigger_if_not_exists(self, db, sequence, status=TaskStatus.ready, recovery=None):
+        added=db.add_task_if_not_exists(step_id=self.id, sequence=sequence, status=status, recovery=recovery)
         return added
     
     def __call__(self, seq_path=None, loop_value=None):

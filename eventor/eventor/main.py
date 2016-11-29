@@ -5,9 +5,9 @@ Created on Nov 23, 2016
 '''
 
 import logging
-from acris import Sequence, MpLogger
+from acris import Sequence, MpLogger, MergedChainedDict
 import multiprocessing as mp
-from collections import ChainMap, namedtuple
+from collections import namedtuple
 import inspect
 from enum import Enum
 import os
@@ -18,8 +18,9 @@ from eventor.step import Step
 from eventor.event import Event
 from eventor.assoc import Assoc
 from eventor.dbapi import DbApi
-from eventor.utils import calling_module, traces
-from eventor.eventor_types import AssocType, EventorError, TaskStatus, step_status_to_trigger, LoopControl, StepTriggers, StepReplay
+from eventor.utils import calling_module, traces, rest_sequences
+from eventor.eventor_types import EventorError, TaskStatus, step_status_to_trigger, LoopControl, StepTriggers, StepReplay, RunMode, DbMode
+from eventor.VERSION import __version__
 #from eventor.loop_event import LoopEvent
 
 module_logger=logging.getLogger(__name__)
@@ -75,15 +76,21 @@ class Eventor(object):
         add_step: 
     
     """
-    defaults={'workdir':'/tmp', 
+    config_defaults={'workdir':'/tmp', 
               'logdir': '/tmp', 
               'task_construct': mp.Process, 
               'max_concurrent': -1, 
               'stop_on_exception': True,
               'sleep_between_loops': 1,
-          }    
+          }  
+    
+    recovery_defaults={StepTriggers.at_ready: StepReplay.rerun, 
+                       StepTriggers.at_active: StepReplay.rerun, 
+                       StepTriggers.at_failure: StepReplay.rerun, 
+                       StepTriggers.at_success: StepReplay.skip, 
+                       StepTriggers.at_complete: StepReplay.skip,}  
         
-    def __init__(self, name='', filename='', logging_level=logging.INFO, config={}):
+    def __init__(self, name='', filename='', run_mode=RunMode.restart, logging_level=logging.INFO, config={}):
         """initializes steps object
         
             Args:
@@ -107,7 +114,7 @@ class Eventor(object):
                 N/A
         """
         self.name=''
-        self.config=ChainMap(config, os.environ, Eventor.defaults) 
+        self.config=MergedChainedDict(config, os.environ, Eventor.config_defaults) 
         self.controlq=mp.Queue()
         self.steps=dict() 
         self.events=dict() 
@@ -119,16 +126,22 @@ class Eventor(object):
         
         self.calling_module=calling_module()
         self.filename=self.get_filename(filename, self.calling_module)
-        
-        #if not filename:
-        #    filename=self.get_filename(calling_module())
-        #self.filename=filename
 
         module_logger.info("Eventor store file: %s" % self.filename)
-        self.db=DbApi(self.filename)
+        #self.db=DbApi(self.filename)
         self.resultq=mp.Queue()
         self.task_proc=dict()
         self.state=EventorState.active
+        
+        db_mode=DbMode.write if run_mode==RunMode.restart else DbMode.append
+        self.db=DbApi(self.filename, mode=db_mode)
+        
+        rest_sequences()
+        
+        if run_mode == RunMode.restart:
+            self.write_info()
+        else: # recover
+            self.read_info()
         
     def __repr__(self):
         steps=', '.join([ repr(step) for step in self.steps.values()])
@@ -141,6 +154,23 @@ class Eventor(object):
         events=', '.join([ repr(event) for event in self.events.values()])
         result="Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )  )".format(self.path, events, steps)
         return result
+    
+    def write_info(self):
+        info={'version': __version__,
+              'program': self.calling_module,
+              'recovery': None,
+              }
+        self.db.write_info(**info)
+        self.recovery=None
+    
+    def read_info(self):
+        self.info=self.db.read_info()
+        recovery=self.info['recovery']
+        if not recovery:
+            recovery=0
+        recovery=str(int(recovery) + 1)
+        self.db.update_info(recovery=recovery)
+        self.recovery=recovery
     
     def get_filename(self, filename, module,):
         if not filename:
@@ -156,6 +186,29 @@ class Eventor(object):
         
         return filename
 
+    def convert_trigger_at_complete(self, triggers):
+        at_compete=triggers.get(StepTriggers.at_complete)
+        if at_compete:
+            del triggers[StepTriggers.at_complete]
+            at_fail=triggers.get(StepTriggers.at_failure, list())
+            at_success=triggers.get(StepTriggers.at_success, list())
+            at_fail.extend(at_compete)
+            at_success.extend(at_compete)
+            triggers[StepTriggers.at_failure]=at_fail
+            triggers[StepTriggers.at_success]=at_success
+        return triggers
+          
+    def convert_recovery_at_complete(self, recovery):
+        at_compete=recovery.get(StepTriggers.at_complete)
+        if at_compete is not None:
+            print(at_compete, recovery)
+            del recovery[StepTriggers.at_complete]
+            at_fail=recovery.get(StepTriggers.at_failure, at_compete)
+            at_success=recovery.get(StepTriggers.at_success, at_compete)
+            recovery[StepTriggers.at_failure]=at_fail
+            recovery[StepTriggers.at_success]=at_success
+        return recovery
+
     def add_event(self, name, expr=None):
         """add a event to Eventor object
         
@@ -167,10 +220,10 @@ class Eventor(object):
         """
         event=Event(name, expr=expr)
         self.events[event.id]=event
-        event.db_write(self.db)
+        #event.db_write(self.db)
         return event
     
-    def add_step(self, name, func, args=(), kwargs={}, triggers={}, recovery=None, config={}):
+    def add_step(self, name, func, args=(), kwargs={}, triggers={}, recovery={}, config={}):
         """add a step to steps object
     
         config parameters can include the following keys:
@@ -193,12 +246,14 @@ class Eventor(object):
             EventorError: if func is not callable
         """
         
-        config=ChainMap(config, self.config, os.environ,)
-        if not recovery:
-            recovery={TaskStatus.failure: StepReplay.rerun, TaskStatus.success: StepReplay.skip,}
+        triggers=self.convert_trigger_at_complete(triggers)
+        recovery=self.convert_recovery_at_complete(recovery)
+        recovery=MergedChainedDict(recovery, Eventor.recovery_defaults)
+        
+        config=MergedChainedDict(config, self.config, os.environ,)
         step=Step(name=name, func=func, func_args=args, func_kwargs=kwargs, config=config, triggers=triggers, recovery=recovery)
         self.steps[step.id]=step
-        step.db_write(self.db)
+        #step.db_write(self.db)
         return step
         
     def add_assoc(self, event, *objs):
@@ -249,7 +304,7 @@ class Eventor(object):
                 EventorError
                 
         """
-        added=event.trigger_if_not_exists(self.db, sequence)
+        added=event.trigger_if_not_exists(self.db, sequence, self.recovery)
         return added
         
     def trigger_step(self, step, sequence):
@@ -268,7 +323,7 @@ class Eventor(object):
                 EventorError
                 
         """
-        task=step.trigger_if_not_exists(self.db, sequence)
+        task=step.trigger_if_not_exists(self.db, sequence, status=TaskStatus.ready, recovery=self.recovery)
         if task:
             triggered=self.triggers_at_task_change(task)
         return task is not None
@@ -372,6 +427,7 @@ class Eventor(object):
         logutil("%s" % (repr(err_exception), ))
         logutil("%s" % ('/n'.join([line.rstrip() for line in err_trace]), ) )
 
+    '''
     def evaluate_result(self, task):
         step=self.steps[task.step_id]
         stop_on_exception=step.config['stop_on_exception']
@@ -383,7 +439,8 @@ class Eventor(object):
                 module_logger.info("Stopping running processes") 
             else:
                 module_logger.debug("Bypassing task failure")
-
+    '''
+        
     def collect_results(self,):
         module_logger.debug('Collecting results') 
         successes=dict([('count', list()), ('triggered', list())])
@@ -430,7 +487,7 @@ class Eventor(object):
         triggered=list()
         if triggers:
             for event in triggers: 
-                result=event.trigger_if_not_exists(self.db, task.sequence)
+                result=event.trigger_if_not_exists(self.db, task.sequence, self.recovery)
                 if result: 
                     triggered.append( (event.id, task.sequence) )
         return triggered
@@ -468,28 +525,20 @@ class Eventor(object):
         if self.state==EventorState.active:
             tasks=self.db.get_task_iter()
             for task in tasks:
-                triggered=self.initiate_task(task)
+                self.initiate_task(task)
         
         successes, failures=self.collect_results()
         
-        # if there were failures and there no triggered events for these failures
-        #act=(len(failures['count'])==0 or len(failures['triggered'])>0) and act
         return successes, failures
 
     def loop_once(self, ):
         ''' run single iteration over triggers to see if other events and associations needs to be launched.
         
-        Algorithm:
-            1. collect triggers in tow layered dict.  
-            1.1. the top layer is indexed by iteration
-            1.2. the lower layer is indexed by event id.
-            
-            2. for each iteration with triggers, we evaluate all events to find fit
-            2.1. 
-            
+        loop event: to see if new triggers matured
+        loop task: to see if there is anything to run 
         '''
-        added_triggers, added_tasks=self.loop_event()
-        successes, failures=self.loop_task()
+        self.loop_event()
+        self.loop_task()
         return 
     
     def __check_control(self):
@@ -502,6 +551,15 @@ class Eventor(object):
         return loop
 
     def loop_session_start(self):
+        ''' loops until there is no work to do
+        
+        Each loop is consist from:
+            1. one processing log, 
+            2. check if there is still work to do, 
+            3. sleep give CPU a break
+            4. check if forced to stop
+        
+        '''
         module_logger.debug('Starting loop session')
         sleep_loop=self.config['sleep_between_loops']
         loop=True
@@ -525,9 +583,10 @@ class Eventor(object):
                     time.sleep(sleep_loop)
                     loop=self.__check_control()
                 if not loop:
-                    module_logger.debug('Processing halted: instructed')
+                    module_logger.info('Processing stopped')
             else:
-                module_logger.debug('Processing finished')
+                module_logger.info('Processing finished')
+        self.logger.stop()
             
         return True
     
@@ -535,5 +594,5 @@ class Eventor(object):
         self.controlq.put(LoopControl.stop)
         
     def __call__(self, filename='', logging_level=logging.INFO, config={}):
-        self.filename=self.get_filename(filename, self.calling_module)
+        #self.filename=self.get_filename(filename, self.calling_module)
         self.loop_session_start()
