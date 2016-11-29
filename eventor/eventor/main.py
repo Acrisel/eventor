@@ -138,6 +138,7 @@ class Eventor(object):
         
         rest_sequences()
         
+        self.recovery=0
         if run_mode == RunMode.restart:
             self.write_info()
         else: # recover
@@ -158,16 +159,13 @@ class Eventor(object):
     def write_info(self):
         info={'version': __version__,
               'program': self.calling_module,
-              'recovery': None,
+              'recovery': self.recovery,
               }
         self.db.write_info(**info)
-        self.recovery=None
     
     def read_info(self):
         self.info=self.db.read_info()
         recovery=self.info['recovery']
-        if not recovery:
-            recovery=0
         recovery=str(int(recovery) + 1)
         self.db.update_info(recovery=recovery)
         self.recovery=recovery
