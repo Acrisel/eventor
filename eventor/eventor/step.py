@@ -31,7 +31,7 @@ class Step(object):
         '''
         
         self.name=name
-        self.id=get_step_id()
+        self.id=name #get_step_id()
         self.func=func
         self.func_args=func_args
         self.func_kwargs=func_kwargs

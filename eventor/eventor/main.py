@@ -211,7 +211,7 @@ class Eventor(object):
         """add a event to Eventor object
         
         Args:
-            name: string human readable identifier
+            name: (string) unique identifier provided by caller
             
         returns:
             new event that was added to Eventor; this event can be used further in assoc method
@@ -228,7 +228,7 @@ class Eventor(object):
             - stop_on_exception=True
             
         Args:
-            name: string human readable identifier
+            name: (string) unique identifier
             func_args: args to pass step when executing
             func_kwargs: keyword args to pass step when executing
             config: additional dict of keywords configuration 

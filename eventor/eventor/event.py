@@ -58,7 +58,7 @@ class Event(object):
         self.expr=expr
         if expr:
             self.expr=expr_to_str(expr)
-        self.id=get_event_id()
+        self.id=name #get_event_id()
                     
     def __repr__(self):
         return "Event(%s, %s)" % (self.id, self.name)
