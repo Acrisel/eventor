@@ -109,10 +109,22 @@ class DbApi(object):
         self.session.add(db_assoc)
     '''
         
-    def get_trigger_iter(self, ):
-        rows = self.session.query(Trigger).all()
+    def get_trigger_iter(self, recovery):
+        rows = self.session.query(Trigger).filter(Trigger.recovery==recovery)
         #rows = query.statement.execute().fetchall()
         return rows
+    
+    def get_trigger_map(self, recovery=0):
+        triggers = self.session.query(Trigger).filter(recovery==recovery)
+        trigger_map=dict()
+        for trigger in triggers:
+            try:
+                sequence_map=trigger_map[trigger.sequence]
+            except KeyError:
+                sequence_map=dict()
+                trigger_map[trigger.sequence]=sequence_map
+            sequence_map[trigger.event_id]=trigger
+        return trigger_map
         
     def get_event_iter(self, ):
         rows = self.session.query(Event).all() #.filter(Event.name==u'john')
@@ -197,6 +209,18 @@ class DbApi(object):
     def get_task_iter(self, status=[TaskStatus.ready,]):
         rows = self.session.query(Task).filter(Task.status.in_(status)).all()
         return rows  
+    
+    def get_task_map(self, recovery=0):
+        tasks = self.session.query(Task).filter(recovery==recovery)
+        task_map=dict()
+        for task in tasks:
+            try:
+                sequence_map=task_map[task.sequence]
+            except KeyError:
+                sequence_map=dict()
+                task_map[task.sequence]=sequence_map
+            sequence_map[task.step_id]=task
+        return task_map
     
     def count_tasks(self, status=[TaskStatus.active, TaskStatus.ready,]):
         count=self.session.query(Task).filter(Task.status.in_(status)).count()

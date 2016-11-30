@@ -58,7 +58,7 @@ logger=logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 def square(x):
-    y=x*x/0
+    y=x*x
     return y
 
 def square_root(x):
@@ -69,7 +69,7 @@ def divide(x,y):
     z=x/y
     return z
 
-def build_eventor(run_mode=evr.RunMode.restart):
+def build_eventor(run_mode=evr.RunMode.restart, param=9):
     ev=evr.Eventor(run_mode=run_mode, logging_level=logging.DEBUG)
     
     ev1s=ev.add_event('run_step1')
@@ -80,9 +80,9 @@ def build_eventor(run_mode=evr.RunMode.restart):
     
     s1=ev.add_step('s1', func=square, kwargs={'x': 3}, 
                    triggers={evr.StepTriggers.at_success: (ev1d, ev2s,)}, 
-                   recovery={evr.StepTriggers.at_failure: evr.StepReplay.rerun, 
-                             evr.StepTriggers.at_success: evr.StepReplay.skip}) 
-    s2=ev.add_step('s2', square_root, kwargs={'x': 9}, triggers={evr.StepTriggers.at_complete: (ev2d,), })
+                   recovery={evr.TaskStatus.failure: evr.StepReplay.rerun, 
+                             evr.TaskStatus.success: evr.StepReplay.skip}) 
+    s2=ev.add_step('s2', square_root, kwargs={'x': param}, triggers={evr.StepTriggers.at_complete: (ev2d,), })
     s3=ev.add_step('s3', divide, kwargs={'x': 9, 'y': 3},)
     
     ev.add_assoc(ev1s, s1)
@@ -92,10 +92,10 @@ def build_eventor(run_mode=evr.RunMode.restart):
     return ev
 
 # start regularly; it would fail in step 2
-ev=build_eventor()
+ev=build_eventor(param=-9)
 ev()
 
 # rerun in recovery
-ev=build_eventor(evr.RunMode.recover)
+ev=build_eventor(evr.RunMode.recover, param=9)
 ev()
 
