@@ -85,13 +85,6 @@ class DbApi(object):
     def update_info(self, **info):
         for name, value in info.items():
             self.session.query(Info).filter(Info.name==name).update({Info.name:name, Info.value:value}, synchronize_session=False)
-            #stmt=Info.update().where(Info.name==name).values(value=value)
-            #try:
-            #    rows=self.session.execute(stmt)
-            #except Exception:
-            #    raise
-            #else:
-            #    self.commit_db()
         
     def add_step(self, step_id, name):
         db_step=Step(id=step_id, name=name)
@@ -201,8 +194,10 @@ class DbApi(object):
     def update_task(self, task):
         updated=datetime.datetime.utcnow()
         updates={Task.status:task.status, Task.updated: updated,}
+        if task.pid:
+            updates[Task.pid]=task.pid                            
         if task.result:
-            updates['result']=Task.result                                                                   
+            updates[Task.result]=task.result                                                                   
         self.session.query(Task).filter(Task.id==task.id).update(updates, synchronize_session=False)
         self.commit_db()
         

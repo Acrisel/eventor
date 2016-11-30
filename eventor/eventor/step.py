@@ -7,8 +7,7 @@ from inspect import isfunction
 import logging
 
 from .dbapi import DbApi
-from .utils import get_step_id
-from .eventor_types import EventorError, StepTriggers, TaskStatus
+from .eventor_types import EventorError, TaskStatus
 
 module_logger=logging.getLogger(__name__)
 

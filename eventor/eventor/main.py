@@ -31,13 +31,17 @@ class TaskResultType(Enum):
     
 TaskResult=namedtuple('TaskResult', ['type', 'value', ])
 
-def task_wrapper(task, step, resultq):
+def task_wrapper(dbfile, task, step, resultq):
     ''' 
     Args:
         func: object with action method with the following signature:
             action(self, action, unit, group, sequencer)    
         action: object with taskid, unit, group: id of the unit to pass
         sqid: sequencer id to pass to action '''
+    
+    db=DbApi(runfile=dbfile, mode=DbMode.append)
+    task.pid=os.getpid()
+    db.update_task(task)
     
     module_logger.info('Running step {}[{}]'.format(step.name, task.sequence))
     result_info=None
@@ -524,7 +528,7 @@ class Eventor(object):
             task.status=TaskStatus.active
             self.db.update_task(task)
             triggered=self.triggers_at_task_change(task)
-            kwds={'task':task, 'step': self.steps[task.step_id], 'resultq':self.resultq}
+            kwds={'dbfile':self.db.runfile, 'task':task, 'step': self.steps[task.step_id], 'resultq':self.resultq}
             task_construct=step.config['task_construct']
             max_concurrent=step.config['max_concurrent']
             if max_concurrent <1:

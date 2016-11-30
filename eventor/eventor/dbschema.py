@@ -101,6 +101,7 @@ class Task(Base):
     step_id=Column(String, )
     sequence=Column(Integer, )
     recovery=Column(Integer, nullable=True)
+    pid=Column(Integer, nullable=True)
     status=Column(SQLEnum(TaskStatus), ) 
     result=Column(PickleType() , nullable=True,)
     created=Column(DateTime(), default=datetime.datetime.utcnow) 
@@ -111,8 +112,8 @@ class Task(Base):
             )
 
     def __repr__(self):
-        return "<Task(id='%s', step_id='%s', sequence='%s', recovery='%s', status='%s', created='%s', updated='%s')>" % (
-            self.id, self.step_id, self.sequence, self.recovery, self.status, self.created, self.updated)
+        return "<Task(id='%s', step_id='%s', sequence='%s', recovery='%s', pid='%s', status='%s', created='%s', updated='%s')>" % (
+            self.id, self.step_id, self.sequence, self.recovery, self.pid, self.status, self.created, self.updated)
         
 class Registry(Base):
     __tablename__ = 'Registry'
@@ -162,6 +163,7 @@ if __name__ == '__main__':
     session.flush() 
     session.commit() 
     '''
+    
     db_trigger=Trigger(event_id='46' , sequence='45')
     session.add(db_trigger)
     session.flush() 

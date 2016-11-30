@@ -70,7 +70,7 @@ def divide(x,y):
     return z
 
 def build_eventor(run_mode=evr.RunMode.restart, param=9):
-    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.DEBUG)
+    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.INFO)
     
     ev1s=ev.add_event('run_step1')
     ev1d=ev.add_event('done_step1')
@@ -82,7 +82,7 @@ def build_eventor(run_mode=evr.RunMode.restart, param=9):
                    triggers={evr.StepTriggers.at_success: (ev1d, ev2s,)}, 
                    recovery={evr.TaskStatus.failure: evr.StepReplay.rerun, 
                              evr.TaskStatus.success: evr.StepReplay.skip}) 
-    s2=ev.add_step('s2', square_root, kwargs={'x': param}, triggers={evr.StepTriggers.at_complete: (ev2d,), })
+    s2=ev.add_step('s2', square_root, kwargs={'x': param}, triggers={evr.StepTriggers.at_success: (ev2d,), })
     s3=ev.add_step('s3', divide, kwargs={'x': 9, 'y': 3},)
     
     ev.add_assoc(ev1s, s1)
