@@ -4,12 +4,8 @@ Created on Oct 19, 2016
 @author: arnon
 '''
 
-from threading import Lock
 from acris import Sequence
-import logging
-from logging.handlers import QueueListener, QueueHandler
-import os
-import multiprocessing as mp
+from logging.handlers import QueueListener
 import inspect
 
 
@@ -21,8 +17,8 @@ def is_require_op(op):
 def op_to_lambda(op):
     return "lambda x,y: x {} y".format(op)
 
-StepId=Sequence('StepId')
-EventId=Sequence('EventId')
+StepId=Sequence('_EventorStepId')
+EventId=Sequence('_EventorEventId')
 
 def rest_sequences():
     StepId.reset()

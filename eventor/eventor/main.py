@@ -19,7 +19,7 @@ from eventor.event import Event
 from eventor.assoc import Assoc
 from eventor.dbapi import DbApi
 from eventor.utils import calling_module, traces, rest_sequences
-from eventor.eventor_types import EventorError, TaskStatus, step_status_to_trigger, LoopControl, StepTriggers, StepReplay, RunMode, DbMode
+from eventor.eventor_types import EventorError, TaskStatus, task_to_step_statusr, LoopControl, StepStatus, StepReplay, RunMode, DbMode
 from eventor.VERSION import __version__
 #from eventor.loop_event import LoopEvent
 
@@ -98,7 +98,7 @@ class Eventor(object):
         
             Args:
                 name: human readable identifying eventor among other eventors
-                filename: file in which Enetor data would be stored and managed for reply/restart 
+                store: file in which Enetor data would be stored and managed for reply/restart 
                     if the value is blank, filename will be based on calling module 
                     if the value is :memory:, an in-memory temporary structures will be used
                 run_mode: (RunMode) set Eventor to operate in recovery or as restart
@@ -122,7 +122,7 @@ class Eventor(object):
         self.name=''
         self.config=MergedChainedDict(config, os.environ, Eventor.config_defaults) 
         self.controlq=mp.Queue()
-        self.steps=dict() 
+        self.__steps=dict() 
         self.events=dict() 
         self.assocs=dict()
         
@@ -150,13 +150,13 @@ class Eventor(object):
             self.read_info(recovery_run)
         
     def __repr__(self):
-        steps=', '.join([ repr(step) for step in self.steps.values()])
+        steps=', '.join([ repr(step) for step in self.__steps.values()])
         events=', '.join([ repr(event) for event in self.events.values()])
         result="Steps( name( {} ), events( {} ), steps( {} )  )".format(self.path, events, steps)
         return result
         
     def __str__(self):
-        steps='\n    '.join([ str(step) for step in self.steps.values()])
+        steps='\n    '.join([ str(step) for step in self.__steps.values()])
         events=', '.join([ repr(event) for event in self.events.values()])
         result="Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )  )".format(self.path, events, steps)
         return result
@@ -196,26 +196,26 @@ class Eventor(object):
         return filename
 
     def convert_trigger_at_complete(self, triggers):
-        at_compete=triggers.get(StepTriggers.at_complete)
+        at_compete=triggers.get(StepStatus.complete)
         if at_compete:
-            del triggers[StepTriggers.at_complete]
-            at_fail=triggers.get(StepTriggers.at_failure, list())
-            at_success=triggers.get(StepTriggers.at_success, list())
+            del triggers[StepStatus.complete]
+            at_fail=triggers.get(StepStatus.failure, list())
+            at_success=triggers.get(StepStatus.success, list())
             at_fail.extend(at_compete)
             at_success.extend(at_compete)
-            triggers[StepTriggers.at_failure]=at_fail
-            triggers[StepTriggers.at_success]=at_success
+            triggers[StepStatus.failure]=at_fail
+            triggers[StepStatus.success]=at_success
         return triggers
           
     def convert_recovery_at_complete(self, recovery):
-        at_compete=recovery.get(StepTriggers.at_complete)
+        at_compete=recovery.get(StepStatus.complete)
         if at_compete is not None:
             print(at_compete, recovery)
-            del recovery[StepTriggers.at_complete]
-            at_fail=recovery.get(StepTriggers.at_failure, at_compete)
-            at_success=recovery.get(StepTriggers.at_success, at_compete)
-            recovery[StepTriggers.at_failure]=at_fail
-            recovery[StepTriggers.at_success]=at_success
+            del recovery[StepStatus.complete]
+            at_fail=recovery.get(StepStatus.failure, at_compete)
+            at_success=recovery.get(StepStatus.success, at_compete)
+            recovery[StepStatus.failure]=at_fail
+            recovery[StepStatus.success]=at_success
         return recovery
 
     def add_event(self, name, expr=None):
@@ -232,6 +232,9 @@ class Eventor(object):
         #event.db_write(self.db)
         return event
     
+    def get_step(self, name):
+        return self.__steps.get(name, None)
+    
     def add_step(self, name, func, args=(), kwargs={}, triggers={}, recovery={}, config={}):
         """add a step to steps object
     
@@ -240,10 +243,15 @@ class Eventor(object):
             
         Args:
             name: (string) unique identifier
+            
             func_args: args to pass step when executing
+            
             func_kwargs: keyword args to pass step when executing
+            
             config: additional dict of keywords configuration 
+            
             triggers: set of events to trigger once step processing is done
+            
             recovery: instructions on how to deal with 
                 default: {TaskStatus.failure: StepReplay.rerun, 
                           TaskStatus.success: StepReplay.skip}
@@ -261,7 +269,7 @@ class Eventor(object):
         
         config=MergedChainedDict(config, self.config, os.environ,)
         step=Step(name=name, func=func, func_args=args, func_kwargs=kwargs, config=config, triggers=triggers, recovery=recovery)
-        self.steps[step.id]=step
+        self.__steps[step.id]=step
         #step.db_write(self.db)
         return step
         
@@ -460,12 +468,13 @@ class Eventor(object):
         module_logger.debug('Collecting results') 
         #successes=dict([('count', list()), ('triggered', list())])
         #failures=dict([('count', list()), ('triggered', list())])
+        result=True
         while True:   
             try:
                 act_result=self.resultq.get_nowait() 
             except queue.Empty:
                 act_result=None
-                return None, None
+                return result
                 
             module_logger.debug('Result collected: \n    {}'.format( repr(act_result)) )  
             if act_result.type == TaskResultType.task:  
@@ -473,6 +482,7 @@ class Eventor(object):
                 proc=self.task_proc[task.id]
                 proc.join()
                 del self.task_proc[task.id]  
+                
                 #self.db.update_task(task=task)
                 #if task.status == TaskStatus.success:
                 #    successes['count'].append( (task.step_id, task.sequence) )
@@ -487,17 +497,18 @@ class Eventor(object):
                 if len(triggered) == 0 and task.status == TaskStatus.failure:
                     module_logger.info("Stopping running processes") 
                     self.state=EventorState.shutdown
+                    result=False
                     # TODO: stop running processes
                     
             else:
                 # TODO: need to deal with action
                 pass
              
-        return
+        return result
     
     def triggers_at_task_change(self, task):
-        step=self.steps[task.step_id]
-        status=step_status_to_trigger(task.status)
+        step=self.__steps[task.step_id]
+        status=task_to_step_statusr(task.status)
         triggers=step.triggers.get(status)
         triggered=list()
         if triggers:
@@ -518,7 +529,7 @@ class Eventor(object):
             task: (Task) task to run
             previous_task: (Task), will be populated if in recovery and an instance of task exists.
         '''
-        step=self.steps[task.step_id]
+        step=self.__steps[task.step_id]
         step_recovery=StepReplay.rerun
         if previous_task:
             step_recovery=step.recovery[previous_task.status]
@@ -528,7 +539,7 @@ class Eventor(object):
             task.status=TaskStatus.active
             self.db.update_task(task)
             triggered=self.triggers_at_task_change(task)
-            kwds={'dbfile':self.db.runfile, 'task':task, 'step': self.steps[task.step_id], 'resultq':self.resultq}
+            kwds={'dbfile':self.db.runfile, 'task':task, 'step': self.__steps[task.step_id], 'resultq':self.resultq}
             task_construct=step.config['task_construct']
             max_concurrent=step.config['max_concurrent']
             if max_concurrent <1:
@@ -551,7 +562,7 @@ class Eventor(object):
         
         loop_task will do its work only if eventor state is active.
         '''
-        loop_seq=Sequence('TaskLoop')
+        loop_seq=Sequence('_EventorTaskLoop')
         self.loop_id=loop_seq() 
         
         # all items are pulled so active can also be monitored for timely end
@@ -565,9 +576,9 @@ class Eventor(object):
 
                 self.initiate_task(task, previous_task)
         
-        self.collect_results()
+        result=self.collect_results()
         
-        return
+        return result
 
     def loop_once(self, ):
         ''' run single iteration over triggers to see if other events and associations needs to be launched.
@@ -576,8 +587,8 @@ class Eventor(object):
         loop task: to see if there is anything to run 
         '''
         self.loop_event()
-        self.loop_task()
-        return 
+        result = self.loop_task()
+        return result
     
     def __check_control(self):
         loop=True
@@ -604,7 +615,7 @@ class Eventor(object):
         
         task_to_count=[TaskStatus.active, TaskStatus.ready,]
         while loop:
-            self.loop_once()
+            result=self.loop_once()
             # count ready triggers only if state is active
             # count ready tasks only if active
             todo_triggers=0
@@ -623,14 +634,15 @@ class Eventor(object):
                 if not loop:
                     module_logger.info('Processing stopped')
             else:
-                module_logger.info('Processing finished')
+                module_logger.info('Processing finished: %s' % result)
         self.logger.stop()
             
-        return True
+        return result
     
     def loop_session_stop(self):
         self.controlq.put(LoopControl.stop)
         
-    def __call__(self, filename='', logging_level=logging.INFO, config={}):
+    def __call__(self, ):
         #self.filename=self.get_filename(filename, self.calling_module)
-        self.loop_session_start()
+        result=self.loop_session_start()
+        return result

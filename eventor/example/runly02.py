@@ -67,10 +67,10 @@ ev2d=ev.add_event('done_step2')
 ev3s=ev.add_event('run_step3', expr=(ev1d,ev2d)) 
 
 s1=ev.add_step('s1', func=prog.step1_create_data, kwargs={'outfile': 'source.txt'}, 
-               triggers={evr.StepTriggers.at_complete: (ev1d, ev2s,)}, 
-               recovery={evr.StepTriggers.at_failure: evr.StepReplay.rerun, 
-                         evr.StepTriggers.at_success: evr.StepReplay.skip}) 
-s2=ev.add_step('s2', prog.step2_multiple_data, triggers={evr.StepTriggers.at_complete: (ev2d,), })
+               triggers={evr.StepStatus.complete: (ev1d, ev2s,)}, 
+               recovery={evr.StepStatus.failure: evr.StepReplay.rerun, 
+                         evr.StepStatus.success: evr.StepReplay.skip}) 
+s2=ev.add_step('s2', prog.step2_multiple_data, triggers={evr.StepStatus.complete: (ev2d,), })
 s3=ev.add_step('s3', prog.step3,)
 
 ev.add_assoc(ev1s, s1)

@@ -65,8 +65,8 @@ ev1s=ev.add_event('run_step1')
 ev2s=ev.add_event('run_step2')
 ev3s=ev.add_event('run_step3')
 
-s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepTriggers.at_success: (ev2s,),}) 
-s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepTriggers.at_success: (ev3s,), })
+s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
+s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
 s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
 
 ev.add_assoc(ev1s, s1)

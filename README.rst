@@ -32,9 +32,9 @@ Simple Example
         ev3s=ev.add_event('run_step3')
         
         s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, 
-                       triggers={evr.StepTriggers.at_success: (ev2s,),}) 
+                       triggers={evr.StepStatus.success: (ev2s,),}) 
         s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, 
-                       triggers={evr.StepTriggers.at_success: (ev3s,), })
+                       triggers={evr.StepStatus.success: (ev3s,), })
         s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
         
         ev.add_assoc(ev1s, s1)
@@ -179,34 +179,34 @@ Args
     
     *triggers*: mapping of step statuses to set of events to be triggered as in the following table:
     
-        +-------------+-------------------------------------------+
-        | status      | description                               |
-        +=============+===========================================+
-        | at_ready    | set when task is ready to run (triggered) |
-        +-------------+-------------------------------------------+
-        | at_active   | set when task is running                  |
-        +-------------+-------------------------------------------+
-        | at_success  | set when task is successful               |
-        +-------------+-------------------------------------------+
-        | at_failure  | set when task fails                       |
-        +-------------+-------------------------------------------+
-        | at_complete | stands for success or failure of task     |
-        +-------------+-------------------------------------------+
+        +--------------------+-------------------------------------------+
+        | status             | description                               |
+        +====================+===========================================+
+        | StepState.ready    | set when task is ready to run (triggered) |
+        +--------------------+-------------------------------------------+
+        | StepState.active   | set when task is running                  |
+        +--------------------+-------------------------------------------+
+        | StepState.success  | set when task is successful               |
+        +--------------------+-------------------------------------------+
+        | StepState.failure  | set when task fails                       |
+        +--------------------+-------------------------------------------+
+        | StepState.complete | stands for success or failure of task     |
+        +--------------------+-------------------------------------------+
         
         
     *recovery*: mapping of state status to how step should be handled in recovery:
     
-        +----------+------------------+------------------------------------------------------+
-        | status   | default          | description                                          |
-        +==========+==================+======================================================+
-        | ready    | StepReplay.rerun | if in recovery and previous status is ready, rerun   |
-        +----------+------------------+------------------------------------------------------+
-        | active   | StepReplay.rerun | if in recovery and previous status is active, rerun  |
-        +----------+------------------+------------------------------------------------------+
-        | failure  | StepReplay.rerun | if in recovery and previous status is failure, rerun |
-        +----------+------------------+------------------------------------------------------+
-        | success  | StepReplay.skip  | if in recovery and previous status is success, skip  |
-        +----------+------------------+------------------------------------------------------+
+        +---------------------+------------------+------------------------------------------------------+
+        | status              | default          | description                                          |
+        +=====================+==================+======================================================+
+        | TaskStatus.ready    | StepReplay.rerun | if in recovery and previous status is ready, rerun   |
+        +---------------------+------------------+------------------------------------------------------+
+        | TaskStatus.active   | StepReplay.rerun | if in recovery and previous status is active, rerun  |
+        +---------------------+------------------+------------------------------------------------------+
+        | TaskStatus.failure  | StepReplay.rerun | if in recovery and previous status is failure, rerun |
+        +---------------------+------------------+------------------------------------------------------+
+        | TaskStatus.success  | StepReplay.skip  | if in recovery and previous status is success, skip  |
+        +---------------------+------------------+------------------------------------------------------+
     
     *config*: keywords mapping overrides for step configuration.
     

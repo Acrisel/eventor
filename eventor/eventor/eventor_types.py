@@ -21,12 +21,16 @@ class TaskStatus(Enum):
     failure=4
     
     
-class StepTriggers(Enum):
-    at_ready=1
-    at_active=2
-    at_success=3
-    at_failure=4
-    at_complete=5
+class StepStatus(Enum):
+    ready=1
+    active=2
+    success=3
+    failure=4
+    complete=5
+    
+def task_to_step_statusr(status):
+    value=status.value
+    return StepStatus(value)
    
     
 class StepReplay(Enum):
@@ -36,10 +40,6 @@ class StepReplay(Enum):
 class RunMode(Enum):  
     recover=1
     restart=2  
-    
-def step_status_to_trigger(status):
-    value=status.value
-    return StepTriggers(value)
     
 class DbMode(Enum):
     write=1

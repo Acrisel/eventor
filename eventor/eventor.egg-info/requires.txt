@@ -1,0 +1,7 @@
+SQLAlchemy>=1.1.4
+acris>=1.1.4
+
+[dev]
+
+
+[test]
