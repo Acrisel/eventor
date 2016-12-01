@@ -10,7 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base
 import datetime
 from sqlalchemy import Enum as SQLEnum
 
-from eventor.eventor_types import AssocType, TaskStatus
+from eventor.eventor_types import TaskStatus
 
 Base = declarative_base()
 
@@ -28,6 +28,7 @@ class Info(Base):
     def __repr__(self):
         return "<Info(id='%s', name='%s', value='%s')>" % (self.id, self.name, self.value)
 
+'''
 class Step(Base):
     __tablename__ = 'Step'
     
@@ -58,9 +59,7 @@ class Event(Base):
     def __repr__(self):
         return "<event_id='%s', name='%s', created='%s'')>" % (
             self.id,  self.expr, self.created, self.resolved)
-   
-        
-'''
+
 class Assoc(Base):
     __tablename__ = 'Assoc'
     
@@ -115,12 +114,14 @@ class Task(Base):
         return "<Task(id='%s', step_id='%s', sequence='%s', recovery='%s', pid='%s', status='%s', created='%s', updated='%s')>" % (
             self.id, self.step_id, self.sequence, self.recovery, self.pid, self.status, self.created, self.updated)
         
+'''
 class Registry(Base):
     __tablename__ = 'Registry'
     registry_id=Column(Integer, Sequence('registry_id_seq'), primary_key=True)
     task_id=Column(Integer, primary_key=True)
     value=Column(PickleType())
-
+'''
+        
 if __name__ == '__main__':
     #engine = create_engine('sqlite:///:memory:', echo=True)
     file='/var/acrisel/sand/eventor/eventor/eventor/eventor/schema.db'
@@ -134,6 +135,7 @@ if __name__ == '__main__':
     engine = create_engine(dns, echo=True)
     Base.metadata.create_all(engine)
     
+    '''
     from sqlalchemy import MetaData
     from sqlalchemy_schemadisplay import create_schema_graph
     
@@ -146,6 +148,7 @@ if __name__ == '__main__':
     )
 
     graph.write_png('schema.png')
+    '''
     
     from sqlalchemy.orm import sessionmaker
     
@@ -156,13 +159,6 @@ if __name__ == '__main__':
     session.add(db_task)
     session.flush() 
     session.commit() 
-    
-    '''
-    db_assoc=Assoc(event_id='34', obj_type=AssocType.step, obj_id='56')
-    session.add(db_assoc)
-    session.flush() 
-    session.commit() 
-    '''
     
     db_trigger=Trigger(event_id='46' , sequence='45')
     session.add(db_trigger)

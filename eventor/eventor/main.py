@@ -93,7 +93,7 @@ class Eventor(object):
                        TaskStatus.failure: StepReplay.rerun, 
                        TaskStatus.success: StepReplay.skip,}  
         
-    def __init__(self, name='', filename='', run_mode=RunMode.restart, recovery_run=None, logging_level=logging.INFO, config={}):
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, logging_level=logging.INFO, config={}):
         """initializes steps object
         
             Args:
@@ -131,7 +131,7 @@ class Eventor(object):
         self.logger.start()
         
         self.calling_module=calling_module()
-        self.filename=self.get_filename(filename, self.calling_module)
+        self.filename=self.get_filename(store, self.calling_module)
 
         module_logger.info("Eventor store file: %s" % self.filename)
         #self.db=DbApi(self.filename)
@@ -265,7 +265,7 @@ class Eventor(object):
         #step.db_write(self.db)
         return step
         
-    def add_assoc(self, event, *objs):
+    def add_assoc(self, event, *assocs):
         """add a assoc to Eventor object
         
         Associates event with one or more objects of steps and events
@@ -281,14 +281,14 @@ class Eventor(object):
             EnventorError: if event is not of event type or obj is not instance of Event or Step
         """
         try:
-            assocs=self.assocs[event.id]
+            objs=self.assocs[event.id]
         except KeyError:
-            assocs=list()
-            self.assocs[event.id]=assocs
+            objs=list()
+            self.assocs[event.id]=objs
 
-        for obj in objs:
+        for obj in assocs:
             assoc=Assoc(event, obj)
-            assocs.append(assoc)
+            objs.append(assoc)
     
     def trigger_event(self, event, sequence=None):
         """Activates event 

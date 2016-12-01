@@ -84,7 +84,6 @@ setup_info={'name': NAME,
  'install_requires': [
      'SQLAlchemy>=1.1.4',
      'acris>=1.1.4',
-     'sqlalchemy-schemadisplay>=1.3',
      ],
  'extras_require': {'dev': [], 'test': []},
  'classifiers': ['Development Status :: 5 - Production/Stable',

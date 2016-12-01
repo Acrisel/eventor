@@ -10,6 +10,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 import logging
 import os
+import sys
+import sqlite3
 
 from eventor.dbschema import *
 from eventor.eventor_types import DbMode
@@ -41,15 +43,27 @@ class DbApi(object):
                 self.create_engine(runfile)
             self.set_session() 
        
-    def get_dns(self, runfile):
-        dns='sqlite://'
-        if runfile != ':memory:':
-            dns= dns + '/' + runfile
-        return dns
+    def get_create_params(self, runfile):
+        if runfile.startswith(':memory:'):
+            PY2 = sys.version_info.major == 2
+            if PY2:
+                params = {}
+            else:
+                params = {'uri': True}
+            dns='sqlite:///:memory:'
+            DB_URI = 'file::memory:?cache=shared'
+            creator = lambda: sqlite3.connect(DB_URI, **params)
+        else:    
+            dns= 'sqlite:///' + runfile
+            creator=None
+        return dns, creator
     
     def create_engine(self, runfile):
-        dns=self.get_dns(runfile)
-        self.engine = create_engine(dns, echo=False)
+        dns, creator=self.get_create_params(runfile)
+        if creator:
+            self.engine = create_engine(dns, creator=creator, echo=False)
+        else:
+            self.engine = create_engine(dns, echo=False) 
     
     def set_session(self):
         if not self.session:
@@ -86,6 +100,7 @@ class DbApi(object):
         for name, value in info.items():
             self.session.query(Info).filter(Info.name==name).update({Info.name:name, Info.value:value}, synchronize_session=False)
         
+    '''
     def add_step(self, step_id, name):
         db_step=Step(id=step_id, name=name)
         self.session.add(db_step)
@@ -96,7 +111,6 @@ class DbApi(object):
         self.session.add(db_event) 
         self.commit_db()
         
-    '''
     def add_assoc(self, event_id, obj_type, obj_id):
         db_assoc=Assoc(event_id=event_id, obj_type=obj_type, obj_id=obj_id)
         self.session.add(db_assoc)
@@ -119,6 +133,7 @@ class DbApi(object):
             sequence_map[trigger.event_id]=trigger
         return trigger_map
         
+    '''
     def get_event_iter(self, ):
         rows = self.session.query(Event).all() #.filter(Event.name==u'john')
         # rows = query.statement.execute().fetchall()
@@ -138,6 +153,7 @@ class DbApi(object):
         else:
             self.commit_db()
         return rows
+    '''
         
     def add_trigger(self, event_id, sequence, recovery):
         #print("add_trigger", event_id, self.session)
@@ -168,13 +184,13 @@ class DbApi(object):
     def get_assoc_iter(self, event):
         rows = self.session.query(Assoc).filter(Assoc.event_id==event.event_id).all()
         # rows = query.statement.execute().fetchall()
-        return rows  
-    '''  
-    
+        return rows
+        
     def get_step(self, step_id):
         row=self.session.query(Step).filter(Step.step_id==step_id).first()
         #row = query.statement.execute().fetchone()
         return row
+    '''
         
     def add_task(self, step_id, sequence, status=TaskStatus.ready, recovery=None):
         task=Task(step_id=step_id, sequence=sequence, status=status,)

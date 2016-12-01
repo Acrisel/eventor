@@ -1,3 +1,4 @@
+
 # -*- encoding: utf-8 -*-
 ##############################################################################
 #
@@ -51,51 +52,26 @@ API DOC:
 
 import eventor as evr
 import logging
-import math
 
 logger=logging.getLogger(__name__)
 
-logger.setLevel(logging.DEBUG)
+def prog(progname):
+    logger.info("doing what %s is doing" % progname)
+    return progname
 
-def square(x):
-    y=x*x
-    return y
+ev=evr.Eventor(store=':memory:', logging_level=logging.INFO)
 
-def square_root(x):
-    y=math.sqrt(x)
-    return y
+ev1s=ev.add_event('run_step1')
+ev2s=ev.add_event('run_step2')
+ev3s=ev.add_event('run_step3')
 
-def divide(x,y):
-    z=x/y
-    return z
+s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepTriggers.at_success: (ev2s,),}) 
+s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepTriggers.at_success: (ev3s,), })
+s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
 
-def build_eventor(run_mode=evr.RunMode.restart, param=9):
-    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.DEBUG)
-    
-    ev1s=ev.add_event('run_step1')
-    ev1d=ev.add_event('done_step1')
-    ev2s=ev.add_event('run_step2')
-    ev2d=ev.add_event('done_step2')
-    ev3s=ev.add_event('run_step3', expr=(ev1d,ev2d)) 
-    
-    s1=ev.add_step('s1', func=square, kwargs={'x': 3}, 
-                   triggers={evr.StepTriggers.at_success: (ev1d, ev2s,)}, 
-                   recovery={evr.TaskStatus.failure: evr.StepReplay.rerun, 
-                             evr.TaskStatus.success: evr.StepReplay.skip}) 
-    s2=ev.add_step('s2', square_root, kwargs={'x': param}, triggers={evr.StepTriggers.at_success: (ev2d,), })
-    s3=ev.add_step('s3', divide, kwargs={'x': 9, 'y': 3},)
-    
-    ev.add_assoc(ev1s, s1)
-    ev.add_assoc(ev2s, s2)
-    ev.add_assoc(ev3s, s3)
-    ev.trigger_event(ev1s, 3)    
-    return ev
+ev.add_assoc(ev1s, s1)
+ev.add_assoc(ev2s, s2)
+ev.add_assoc(ev3s, s3)
 
-# start regularly; it would fail in step 2
-ev=build_eventor(param=-9)
+ev.trigger_event(ev1s, 1)
 ev()
-
-# rerun in recovery
-ev=build_eventor(evr.RunMode.recover, param=9)
-ev()
-
