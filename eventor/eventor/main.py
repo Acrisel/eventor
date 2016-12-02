@@ -49,8 +49,8 @@ def task_wrapper(dbfile, task, step, resultq):
         result=step(seq_path=task.sequence)
     except Exception as e:
         trace=inspect.trace()
-        trace=traces(trace)
-        task.result=(e, pickle.dumps(trace[2:]))
+        trace=traces(trace)[2:]
+        task.result=(e, pickle.dumps(trace))
         task.status=TaskStatus.failure
     else:
         task.result=result
@@ -269,6 +269,9 @@ class Eventor(object):
         
         config=MergedChainedDict(config, self.config, os.environ,)
         step=Step(name=name, func=func, func_args=args, func_kwargs=kwargs, config=config, triggers=triggers, recovery=recovery)
+        found=self.__steps.get(step.id)
+        if found:
+            raise EventorError("Step with similar name alreay defined: %s" % step.id)
         self.__steps[step.id]=step
         #step.db_write(self.db)
         return step
@@ -457,7 +460,8 @@ class Eventor(object):
         
         logutil('Exception in run_action: \n    {}'.format(task,)) #)
         logutil("%s" % (repr(err_exception), ))
-        logutil("%s" % ('/n'.join([line.rstrip() for line in err_trace]), ) )
+        trace='\n'.join([line.rstrip() for line in err_trace])
+        if trace: logutil("%s" % (trace, ) )
 
     def apply_task_result(self, task):
         self.db.update_task(task=task)
@@ -494,7 +498,10 @@ class Eventor(object):
                 #triggered=self.triggers_at_task_change(task)
                 #target.extend(triggered)
                 triggered=self.apply_task_result(task)
-                if len(triggered) == 0 and task.status == TaskStatus.failure:
+                shutdown=len(triggered) == 0 and task.status == TaskStatus.failure
+                if task.status==TaskStatus.failure:
+                    self.log_error(task, shutdown)
+                if shutdown:
                     module_logger.info("Stopping running processes") 
                     self.state=EventorState.shutdown
                     result=False
