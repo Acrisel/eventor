@@ -7,6 +7,8 @@ Created on Nov 23, 2016
 import logging
 from acris import Sequence, MpLogger, MergedChainedDict
 import multiprocessing as mp
+import threading
+import queue
 from collections import namedtuple
 import inspect
 from enum import Enum
@@ -21,17 +23,19 @@ from eventor.dbapi import DbApi
 from eventor.utils import calling_module, traces, rest_sequences
 from eventor.eventor_types import EventorError, TaskStatus, task_to_step_statusr, LoopControl, StepStatus, StepReplay, RunMode, DbMode
 from eventor.VERSION import __version__
+from eventor.dbschema import Task
 #from eventor.loop_event import LoopEvent
 
 module_logger=logging.getLogger(__name__)
 
-class TaskResultType(Enum):
-    task=1
-    control=2
+class TaskAdminMsgType(Enum):
+    result=1
+    update=2
     
-TaskResult=namedtuple('TaskResult', ['type', 'value', ])
+TaskAdminMsg=namedtuple('TaskAdminMsg', ['msg_type', 'value', ])
+TriggerRequest=namedtuple('TriggerRequest', ['type', 'value'])
 
-def task_wrapper(dbfile, task, step, resultq):
+def task_wrapper(db, task=None, step=None, adminq=None):
     ''' 
     Args:
         func: object with action method with the following signature:
@@ -39,9 +43,15 @@ def task_wrapper(dbfile, task, step, resultq):
         action: object with taskid, unit, group: id of the unit to pass
         sqid: sequencer id to pass to action '''
     
-    db=DbApi(runfile=dbfile, mode=DbMode.append)
+    #db=db.initialize()
+        
+    #db=DbApi(runfile=dbfile, mode=DbMode.append)
     task.pid=os.getpid()
-    db.update_task(task)
+    #db.update_task(task)
+    #db.close()
+    update=TaskAdminMsg(msg_type=TaskAdminMsgType.update, value=task) 
+    adminq.put( update )
+    
     
     module_logger.info('Running step {}[{}]'.format(step.name, task.sequence))
     result_info=None
@@ -57,9 +67,9 @@ def task_wrapper(dbfile, task, step, resultq):
         task.status=TaskStatus.success
         result_info=result
         
-    result=TaskResult(type=TaskResultType.task, value=task) 
+    result=TaskAdminMsg(msg_type=TaskAdminMsgType.result, value=task) 
     module_logger.info('Step completed {}[{}], status: {}, result {}'.format(step.name, task.sequence, task.status.name, repr(result_info),))
-    resultq.put( result )
+    adminq.put( result )
     return True
 
 class EventorState(Enum):
@@ -135,7 +145,8 @@ class Eventor(object):
 
         module_logger.info("Eventor store file: %s" % self.filename)
         #self.db=DbApi(self.filename)
-        self.resultq=mp.Queue()
+        self.adminq=mp.Queue()
+        self.requestq=queue.Queue()
         self.task_proc=dict()
         self.state=EventorState.active
         
@@ -301,7 +312,7 @@ class Eventor(object):
             assoc=Assoc(event, obj)
             objs.append(assoc)
     
-    def trigger_event(self, event, sequence=None):
+    def trigger_event(self, event, sequence=None, db=None):
         """Activates event 
         
             Activate event by registering it in trigger table. 
@@ -324,8 +335,14 @@ class Eventor(object):
                 EventorError
                 
         """
-        added=event.trigger_if_not_exists(self.db, sequence, self.recovery)
+        if not db:
+            db=self.db
+        added=event.trigger_if_not_exists(db, sequence, self.recovery)
         return added
+        
+    def remote_trigger_event(self, event, sequence=None,):
+        trigger_request=TriggerRequest(type='event', value=(event, sequence))
+        self.requestq.put(trigger_request)
         
     def trigger_step(self, step, sequence):
         """Activates step 
@@ -347,6 +364,17 @@ class Eventor(object):
         if task:
             self.triggers_at_task_change(task)
         return task is not None
+    
+    def loop_triger_request(self):
+        while True:   
+            try:
+                request=self.requestq.get_nowait() 
+            except queue.Empty:
+                return 
+            if request.type=='event':
+                event, sequence = request.value
+                self.trigger_event(event, sequence)
+        
           
     def assoc_loop(self, event, sequence):
         ''' Fetches event associations and trigger them.
@@ -475,38 +503,29 @@ class Eventor(object):
         result=True
         while True:   
             try:
-                act_result=self.resultq.get_nowait() 
+                act_result=self.adminq.get_nowait() 
             except queue.Empty:
                 act_result=None
                 return result
                 
             module_logger.debug('Result collected: \n    {}'.format( repr(act_result)) )  
-            if act_result.type == TaskResultType.task:  
+            if isinstance(act_result.value, Task):  
                 task=act_result.value   
-                proc=self.task_proc[task.id]
-                proc.join()
-                del self.task_proc[task.id]  
-                
-                #self.db.update_task(task=task)
-                #if task.status == TaskStatus.success:
-                #    successes['count'].append( (task.step_id, task.sequence) )
-                #    target=successes['triggered']
-                #else:
-                #    failures['count'].append( (task.step_id, task.sequence) )
-                #    target=failures['triggered']
-                    
-                #triggered=self.triggers_at_task_change(task)
-                #target.extend(triggered)
-                triggered=self.apply_task_result(task)
-                shutdown=len(triggered) == 0 and task.status == TaskStatus.failure
-                if task.status==TaskStatus.failure:
-                    self.log_error(task, shutdown)
-                if shutdown:
-                    module_logger.info("Stopping running processes") 
-                    self.state=EventorState.shutdown
-                    result=False
-                    # TODO: stop running processes
-                    
+                if act_result.msg_type==TaskAdminMsgType.result:
+                    proc=self.task_proc[task.id]
+                    proc.join()
+                    del self.task_proc[task.id]  
+                    triggered=self.apply_task_result(task)
+                    shutdown=len(triggered) == 0 and task.status == TaskStatus.failure
+                    if task.status==TaskStatus.failure:
+                        self.log_error(task, shutdown)
+                    if shutdown:
+                        module_logger.info("Stopping running processes") 
+                        self.state=EventorState.shutdown
+                        result=False
+                elif act_result.msg_type==TaskAdminMsgType.update: 
+                    self.db.update_task(task=task)
+                    # TODO: stop running processes            
             else:
                 # TODO: need to deal with action
                 pass
@@ -546,15 +565,17 @@ class Eventor(object):
             task.status=TaskStatus.active
             self.db.update_task(task)
             triggered=self.triggers_at_task_change(task)
-            kwds={'dbfile':self.db.runfile, 'task':task, 'step': self.__steps[task.step_id], 'resultq':self.resultq}
             task_construct=step.config['task_construct']
             max_concurrent=step.config['max_concurrent']
-            if max_concurrent <1:
+            #dbreplica=self.db.replicate(target=mp.Process) #task_construct)
+            dbreplica=self.db.replicate(target=task_construct)
+            kwds={'db':dbreplica, 'task':task, 'step': self.__steps[task.step_id], 'adminq':self.adminq}
+            if max_concurrent <1: # no-limit
                 module_logger.debug('Going to run step action process:\n    {}'.format(repr(task), ))
                 proc=task_construct(target=task_wrapper, kwargs=kwds)
                 proc.start()
                 self.task_proc[task.id]=proc
-            else:
+            else: # TODO: fix limit processing total and per step
                 module_logger.debug('Going to run step action pool [%s]:\n    %s'% (max_concurrent, repr(task), ))
                 self.procpool.apply_async(func=task_wrapper, kwds=kwds)  
         else:
@@ -595,6 +616,7 @@ class Eventor(object):
         '''
         self.loop_event()
         result = self.loop_task()
+        self.loop_triger_request()
         return result
     
     def __check_control(self):

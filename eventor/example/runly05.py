@@ -39,11 +39,11 @@ def prog(progname):
     return progname
 
 class MetaProg(object):
-    def __init__(self, ev, progname, loop=[1,], triggers=()):
+    def __init__(self, ev, progname, loop=[1,], loopers=(), enders=()):
         self.ev=ev
         self.progname=progname
-        self.triggers=triggers
-        print('loop:', loop)
+        self.loopers=loopers
+        self.enders=enders
         if isinstance(loop, collections.Iterable):
             loop=IterGen(loop)
         self.loop=loop
@@ -59,8 +59,12 @@ class MetaProg(object):
             item=None
         if item:
             self.loop_index+=1
-            for trigger in self.triggers:
+            for trigger in self.loopers:
                 ev.remote_trigger_event(trigger, self.loop_index,)
+        else:
+            for trigger in self.enders:
+                ev.remote_trigger_event(trigger, self.loop_index,)
+            
         return True
         
 
@@ -68,20 +72,28 @@ ev=evr.Eventor( logging_level=logging.DEBUG) # store=':memory:',
 
 ev0first=ev.add_event('run_s0first')
 ev0next=ev.add_event('run_s0next')
+ev00first=ev.add_event('run_s00first')
+ev00next=ev.add_event('run_s00next')
 ev1s=ev.add_event('run_s1')
 ev2s=ev.add_event('run_s2')
 ev3s=ev.add_event('run_s3')
 
-metaprog=MetaProg(ev=ev, progname='', loop=[1,2,], triggers=(ev1s,))
+metaprog=MetaProg(ev=ev, progname='0', loop=[1,2,], loopers=(ev00first,))
 s0first=ev.add_step('s0first', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
 s0next=ev.add_step('s0next', func=metaprog, config={'task_construct': threading.Thread})
 
+metaprog=MetaProg(ev=ev, progname='00', loop=[1,2,], loopers=(ev1s,), enders=(ev0next,))
+s00first=ev.add_step('s00first', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
+s00next=ev.add_step('s00next', func=metaprog, config={'task_construct': threading.Thread})
+
 s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
 s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
-s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.success: (ev0next,), })
+s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.success: (ev00next,), })
 
 ev.add_assoc(ev0first, s0first)
 ev.add_assoc(ev0next, s0next)
+ev.add_assoc(ev00first, s00first)
+ev.add_assoc(ev00next, s00next)
 ev.add_assoc(ev1s, s1)
 ev.add_assoc(ev2s, s2)
 ev.add_assoc(ev3s, s3)

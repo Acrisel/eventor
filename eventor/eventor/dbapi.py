@@ -7,26 +7,45 @@ Created on Oct 21, 2016
 from sqlalchemy import create_engine
 from sqlalchemy.sql.expression import update
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.scoping import scoped_session
 from sqlalchemy.exc import IntegrityError
 import logging
 import os
 import sys
 import sqlite3
+import multiprocessing 
+import threading
+from enum import Enum
 
 from eventor.dbschema import *
 from eventor.eventor_types import DbMode
 
 module_logger=logging.getLogger(__name__)
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
+class DbApiReplca(object):
+    def __init__(self, mode='proess', value=None):
+        self.mode=mode
+        self.value=value
+        
+    def initialize(self):
+        if self.mode=='process':
+            return DbApi(runfile=self.value, mode=DbMode.append)
+        else:
+            #session=scoped_session(sessionmaker(bind=self.value)) 
+            return DbApi(session=self.value)
 
 class DbApi(object):
 
-    def __init__(self, runfile=None, mode=DbMode.write):
+    def __init__(self, runfile=None, session=None, mode=DbMode.write):
         self.engine=None
         self.session=None
         self.runfile=None
         
         if runfile:
-            self.open(runfile, mode=mode)    
+            self.open(runfile, mode=mode) 
+        elif session:
+            self.session = session()   
     
     def open(self, runfile, mode=DbMode.write):
         if self.runfile != runfile:
@@ -67,9 +86,22 @@ class DbApi(object):
     
     def set_session(self):
         if not self.session:
-            Session = sessionmaker(bind=self.engine)
-            self.session = Session()
+            self.session_factory=sessionmaker(bind=self.engine)
+            self.Session = scoped_session(self.session_factory)
+            self.session = self.Session()
         return self.session
+    
+    def close(self):
+        self.session.remove()
+    
+    def replicate(self, target=multiprocessing.Process):
+        if target == multiprocessing.Process:
+            mode='process'
+            value=self.runfile
+        elif target==threading.Thread:
+            mode='thread'
+            value=self.Session
+        return DbApiReplca(mode=mode, value=value)
         
     def create_db(self, runfile):
         self.create_engine(runfile)
@@ -207,7 +239,9 @@ class DbApi(object):
             self.commit_db()
         return task
         
-    def update_task(self, task):
+    def update_task(self, task, session=None):
+        if not session:
+            session=self.session
         updated=datetime.datetime.utcnow()
         updates={Task.status:task.status, Task.updated: updated,}
         if task.pid:
