@@ -90,6 +90,20 @@ def calling_module(depth=2):
     frame_records = inspect.stack()[2]
     return frame_records.filename
 
+def store_from_module(module,):
+    parts=module.rpartition('.')
+    if parts[0]:
+        if parts[2] == 'py':
+            module_runner_file=parts[0]
+        else:
+            module_runner_file=module
+    else:
+        module_runner_file=parts[2]
+    filename='.'.join([module_runner_file, 'run.db'])  
+    
+    return filename
+
+
 
 from types import FunctionType
 

@@ -20,7 +20,7 @@ from eventor.step import Step
 from eventor.event import Event
 from eventor.assoc import Assoc
 from eventor.dbapi import DbApi
-from eventor.utils import calling_module, traces, rest_sequences
+from eventor.utils import calling_module, traces, rest_sequences, store_from_module
 from eventor.eventor_types import EventorError, TaskStatus, task_to_step_status, LoopControl, StepStatus, StepReplay, RunMode, DbMode
 from eventor.VERSION import __version__
 from eventor.dbschema import Task
@@ -107,7 +107,7 @@ class Eventor(object):
                        TaskStatus.failure: StepReplay.rerun, 
                        TaskStatus.success: StepReplay.skip,}  
         
-    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, logging_level=logging.INFO, config={}):
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, logging_level=logging.INFO, config={},):
         """initializes steps object
         
             Args:
@@ -145,7 +145,7 @@ class Eventor(object):
         self.logger.start()
         
         self.calling_module=calling_module()
-        self.filename=self.get_filename(store, self.calling_module)
+        self.filename=store if store else store_from_module(self.calling_module)
 
         module_logger.info("Eventor store file: %s" % self.filename)
         #self.db=DbApi(self.filename)
@@ -198,7 +198,7 @@ class Eventor(object):
         self.previous_triggers=self.db.get_trigger_map(recovery=recovery)
         self.previous_tasks=self.db.get_task_map(recovery=recovery)
     
-    def get_filename(self, filename, module,):
+    '''def get_filename(self, filename, module,):
         if not filename:
             parts=module.rpartition('.')
             if parts[0]:
@@ -211,6 +211,7 @@ class Eventor(object):
             filename='.'.join([module_runner_file, 'run.db'])  
         
         return filename
+        '''
 
     def convert_trigger_at_complete(self, triggers):
         at_compete=triggers.get(StepStatus.complete)
