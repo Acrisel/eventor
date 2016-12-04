@@ -28,10 +28,10 @@ class StepStatus(Enum):
     failure=4
     complete=5
     
-def task_to_step_statusr(status):
+def task_to_step_status(status):
     value=status.value
-    return StepStatus(value)
-   
+    result=StepStatus(value)
+    return result  
     
 class StepReplay(Enum):
     rerun=1

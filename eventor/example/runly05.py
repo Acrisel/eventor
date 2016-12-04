@@ -60,10 +60,10 @@ class MetaProg(object):
         if item:
             self.loop_index+=1
             for trigger in self.loopers:
-                ev.remote_trigger_event(trigger, self.loop_index,)
+                self.ev.remote_trigger_event(trigger, self.loop_index,)
         else:
             for trigger in self.enders:
-                ev.remote_trigger_event(trigger, self.loop_index,)
+                self.ev.remote_trigger_event(trigger, self.loop_index,)
             
         return True
         
@@ -74,9 +74,9 @@ ev0first=ev.add_event('run_s0first')
 ev0next=ev.add_event('run_s0next')
 ev00first=ev.add_event('run_s00first')
 ev00next=ev.add_event('run_s00next')
-ev1s=ev.add_event('run_s1')
-ev2s=ev.add_event('run_s2')
-ev3s=ev.add_event('run_s3')
+ev1s=ev.add_event('run_s1first')
+ev2s=ev.add_event('run_s2first')
+ev3s=ev.add_event('run_s3first')
 
 metaprog=MetaProg(ev=ev, progname='0', loop=[1,2,], loopers=(ev00first,))
 s0first=ev.add_step('s0first', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})

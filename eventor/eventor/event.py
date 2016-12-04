@@ -61,7 +61,10 @@ class Event(object):
         self.id=name #get_event_id()
                     
     def __repr__(self):
-        return "Event(%s, %s)" % (self.id, self.name)
+        expr=''
+        if self.expr:
+            expr=", %s" % self.expr
+        return "Event(%s%s)" % (self.id, expr)
         
     def __str__(self):
         return repr(self)
@@ -77,10 +80,10 @@ class Event(object):
         return added
     
 if __name__ == '__main__':
-    e1=Event('S1')
-    e2=Event('S2')
-    e3=Event('S3')
-    e4=Event('S4')
+    e1=Event('E1')
+    e2=Event('E2')
+    e3=Event('E3')
+    e4=Event('E4')
     
     expr=expr_to_str(or_(e1,e2),or_(e3,e4))
     print(expr, eval(expr, globals(), 

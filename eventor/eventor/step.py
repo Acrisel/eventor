@@ -5,12 +5,15 @@ Created on Oct 19, 2016
 '''
 from inspect import isfunction
 import logging
+import pprint
 
 from .dbapi import DbApi
 from .eventor_types import EventorError, TaskStatus
+from .utils import decorate_all, print_method_name
 
 module_logger=logging.getLogger(__name__)
 
+#class Step(metaclass=decorate_all(print_method_name)):
 class Step(object):
     """A step in steps structure.  
        
@@ -49,8 +52,10 @@ class Step(object):
             fname=self.func.__name__
         else:
             fname=self.func.__class__.__name__
-            
-        return "Step( name({}), func({}),)".format(self.name, fname,)
+        
+        #triggers=', '.join([pprint.pformat(t) for t in self.triggers])
+        triggers=pprint.pformat(self.triggers)
+        return "Step( name({}), func({}), triggers({}))".format(self.name, fname, triggers)
     
     def __str__(self):
         return repr(self)

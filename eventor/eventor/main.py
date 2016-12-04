@@ -21,12 +21,14 @@ from eventor.event import Event
 from eventor.assoc import Assoc
 from eventor.dbapi import DbApi
 from eventor.utils import calling_module, traces, rest_sequences
-from eventor.eventor_types import EventorError, TaskStatus, task_to_step_statusr, LoopControl, StepStatus, StepReplay, RunMode, DbMode
+from eventor.eventor_types import EventorError, TaskStatus, task_to_step_status, LoopControl, StepStatus, StepReplay, RunMode, DbMode
 from eventor.VERSION import __version__
 from eventor.dbschema import Task
 #from eventor.loop_event import LoopEvent
 
 module_logger=logging.getLogger(__name__)
+
+from .utils import decorate_all, print_method_name
 
 class TaskAdminMsgType(Enum):
     result=1
@@ -76,6 +78,7 @@ class EventorState(Enum):
     active=1
     shutdown=2
     
+#class Eventor(metaclass=decorate_all(print_method_name)):
 class Eventor(object):
     """Eventor manages events and steps that needs to be taken when raised.
     
@@ -90,6 +93,7 @@ class Eventor(object):
         add_step: 
     
     """
+    
     config_defaults={'workdir':'/tmp', 
               'logdir': '/tmp', 
               'task_construct': mp.Process, 
@@ -161,15 +165,17 @@ class Eventor(object):
             self.read_info(recovery_run)
         
     def __repr__(self):
-        steps=', '.join([ repr(step) for step in self.__steps.values()])
-        events=', '.join([ repr(event) for event in self.events.values()])
-        result="Steps( name( {} ), events( {} ), steps( {} )  )".format(self.path, events, steps)
+        steps='\n'.join([ repr(step) for step in self.__steps.values()])
+        events='\n'.join([ repr(event) for event in self.events.values()])
+        assocs='\n'.join([ repr(assoc) for assoc in self.assocs.values()])
+        result="Steps( name( {} ) events( {} ) steps( {} ) assocs( {} )  )".format(self.path, events, steps, assocs)
         return result
         
     def __str__(self):
         steps='\n    '.join([ str(step) for step in self.__steps.values()])
-        events=', '.join([ repr(event) for event in self.events.values()])
-        result="Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )  )".format(self.path, events, steps)
+        events='\n    '.join([ str(event) for event in self.events.values()])
+        assocs='\n    '.join([ str(assoc) for assoc in self.assocs.values()])
+        result="Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )\n    assocs( \n    {}\n   )  )".format(self.name, events, steps, assocs)
         return result
     
     def write_info(self):
@@ -221,7 +227,6 @@ class Eventor(object):
     def convert_recovery_at_complete(self, recovery):
         at_compete=recovery.get(StepStatus.complete)
         if at_compete is not None:
-            print(at_compete, recovery)
             del recovery[StepStatus.complete]
             at_fail=recovery.get(StepStatus.failure, at_compete)
             at_success=recovery.get(StepStatus.success, at_compete)
@@ -365,7 +370,7 @@ class Eventor(object):
             self.triggers_at_task_change(task)
         return task is not None
     
-    def loop_triger_request(self):
+    def loop_trigger_request(self):
         while True:   
             try:
                 request=self.requestq.get_nowait() 
@@ -403,21 +408,6 @@ class Eventor(object):
                 assoc_events.append(sequence)
             elif isinstance(assoc_obj, Step):
                 # Check if there is previous task for this step
-                '''
-                try:
-                    previous_task=self.previous_tasks[sequence][assoc_obj.id]
-                except (KeyError, TypeError):
-                    previous_task=None
-                if not previous_task:
-                    # trigger task
-                    module_logger.debug('Processing event association step [%s]: %s' % (sequence, repr(assoc_obj)))
-                    self.trigger_step(assoc_obj, sequence)
-                    assoc_steps.append(sequence)
-                else:
-                    # in recovery, and task has history; 
-                    # check step action on recovery
-                    pass
-                '''
                 module_logger.debug('Processing event association step [%s]: %s' % (sequence, repr(assoc_obj)))
                 self.trigger_step(assoc_obj, sequence)
                 assoc_steps.append(sequence)
@@ -494,10 +484,12 @@ class Eventor(object):
     def apply_task_result(self, task):
         self.db.update_task(task=task)
         triggered=self.triggers_at_task_change(task)
+        #triggered=None
         return triggered
     
     def collect_results(self,):
         module_logger.debug('Collecting results') 
+        stop_on_exception=self.config['stop_on_exception']
         #successes=dict([('count', list()), ('triggered', list())])
         #failures=dict([('count', list()), ('triggered', list())])
         result=True
@@ -516,7 +508,7 @@ class Eventor(object):
                     proc.join()
                     del self.task_proc[task.id]  
                     triggered=self.apply_task_result(task)
-                    shutdown=len(triggered) == 0 and task.status == TaskStatus.failure
+                    shutdown=(len(triggered) == 0 or stop_on_exception) and task.status == TaskStatus.failure 
                     if task.status==TaskStatus.failure:
                         self.log_error(task, shutdown)
                     if shutdown:
@@ -534,8 +526,8 @@ class Eventor(object):
     
     def triggers_at_task_change(self, task):
         step=self.__steps[task.step_id]
-        status=task_to_step_statusr(task.status)
-        triggers=step.triggers.get(status)
+        status=task_to_step_status(task.status)
+        triggers=step.triggers.get(status, None)
         triggered=list()
         if triggers:
             for event in triggers: 
@@ -616,7 +608,7 @@ class Eventor(object):
         '''
         self.loop_event()
         result = self.loop_task()
-        self.loop_triger_request()
+        self.loop_trigger_request()
         return result
     
     def __check_control(self):
@@ -673,5 +665,6 @@ class Eventor(object):
         
     def __call__(self, ):
         #self.filename=self.get_filename(filename, self.calling_module)
+        module_logger.debug(str(self))
         result=self.loop_session_start()
         return result

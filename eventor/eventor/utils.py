@@ -7,6 +7,7 @@ Created on Oct 19, 2016
 from acris import Sequence
 from logging.handlers import QueueListener
 import inspect
+import datetime
 
 
 def is_require_op(op):
@@ -88,3 +89,65 @@ def traces(trace):
 def calling_module(depth=2):
     frame_records = inspect.stack()[2]
     return frame_records.filename
+
+
+from types import FunctionType
+
+# check if an object should be decorated
+def do_decorate(attr, value):
+    # result = ('__' not in attr and
+    result = (isinstance(value, FunctionType) and
+              getattr(value, 'decorate', True))
+    return result
+
+# decorate all instance methods (unless excluded) with the same decorator
+def decorate_all(decorator):
+    class DecorateAll(type):
+        def __new__(cls, name, bases, dct):
+            for attr, value in dct.items():
+                if do_decorate(attr, value):
+                    decorated=decorator(name, value)
+                    dct[attr] = decorated
+                    #print('decorated', attr, decorated)
+            return super(DecorateAll, cls).__new__(cls, name, bases, dct)
+    return DecorateAll
+
+# decorator to exclude methods
+def dont_decorate(f):
+    f.decorate = False
+    return f
+
+def print_method_name(name, f):
+    def wrapper(*args, **kwargs):
+        print('entering method: %s.%s' % (name, f.__name__, ))
+        start=datetime.datetime.now()
+        result=f(*args, **kwargs)
+        finish=datetime.datetime.now()
+        print('exiting method: %s.%s, time span: %s' % (name, f.__name__, str(finish-start)))
+        return result
+    return wrapper
+
+if __name__ == '__main__':
+
+    meta_decorator=decorate_all(print_method_name)
+    
+    class Foo(metaclass=meta_decorator):
+
+        def __init__(self):
+            pass
+        
+        def bar(self):
+            pass
+        
+        @dont_decorate
+        def baz(self):
+            pass
+        
+        @classmethod
+        def test(self):
+            pass
+     
+    foo=Foo()
+    foo.bar()   
+    foo.bar()   
+    
