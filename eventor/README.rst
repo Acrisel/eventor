@@ -259,6 +259,15 @@ Returns
 
     N/A
     
+----------------------
+Additional Information
+----------------------
+
+    Eventor github project (https://github.com/Acrisel/eventor) has additional examples with more complicated flows.
+    
+    
+    
+
 
 
  

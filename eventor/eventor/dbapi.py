@@ -38,10 +38,11 @@ class DbApiReplca(object):
 
 class DbApi(object):
 
-    def __init__(self, runfile=None, session=None, mode=DbMode.write):
+    def __init__(self, runfile=None, session=None, mode=DbMode.write, thread_sync=False):
         self.engine=None
         self.session=None
         self.runfile=None
+        self.thread_sync=thread_sync
         
         if runfile:
             self.open(runfile, mode=mode) 
@@ -49,11 +50,16 @@ class DbApi(object):
             self.session = session()   
         self.db_transaction_lock=threading.Lock()
     
+    def set_thread_synchronization(self):
+        self.thread_sync=True
+        
     def lock(self):
-        self.db_transaction_lock.acquire()
+        if self.thread_sync:
+            self.db_transaction_lock.acquire()
             
     def release(self):
-        self.db_transaction_lock.release()
+        if self.thread_sync:
+            self.db_transaction_lock.release()
     
     def open(self, runfile, mode=DbMode.write):
         if self.runfile != runfile:

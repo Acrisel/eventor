@@ -30,12 +30,15 @@ module_logger=logging.getLogger(__name__)
 
 from .utils import decorate_all, print_method
 
+
 class TaskAdminMsgType(Enum):
     result=1
     update=2
     
 TaskAdminMsg=namedtuple('TaskAdminMsg', ['msg_type', 'value', ])
 TriggerRequest=namedtuple('TriggerRequest', ['type', 'value'])
+
+
 
 def task_wrapper(db, task=None, step=None, adminq=None):
     ''' 
@@ -49,6 +52,7 @@ def task_wrapper(db, task=None, step=None, adminq=None):
         
     #db=DbApi(runfile=dbfile, mode=DbMode.append)
     task.pid=os.getpid()
+    os.environ['EVENTOR_TASK_SEQUENCE']=str(task.sequence)
     #db.update_task(task)
     #db.close()
     update=TaskAdminMsg(msg_type=TaskAdminMsgType.update, value=task) 
@@ -232,6 +236,14 @@ class Eventor(object):
         returns:
             new event that was added to Eventor; this event can be used further in assoc method
         """
+        try:
+            event=self.events[name]
+        except:
+            pass
+        else:
+            if expr == event.expr:
+                return event
+            
         event=Event(name, expr=expr)
         self.events[event.id_]=event
         #event.db_write(self.db)
@@ -649,7 +661,7 @@ class Eventor(object):
         module_logger.debug('Starting loop session')
         sleep_loop=self.config['sleep_between_loops']
         loop=True
-        
+        self.db.set_thread_synchronization()
         
         while loop:
             result=self.loop_once()
@@ -672,6 +684,10 @@ class Eventor(object):
     
     def loop_session_stop(self):
         self.controlq.put(LoopControl.stop)
+        
+    def get_task_sequence(self):
+        result=os.getenv('EVENTOR_TASK_SEQUENCE', 0)
+        return result
         
     def __call__(self, ):
         #self.filename=self.get_filename(filename, self.calling_module)

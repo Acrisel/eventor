@@ -48,11 +48,13 @@ class Container(object):
             loop=IterGen(loop)
         self.loop=loop
         self.loop_index=0
+        self.initiating_sequence=None
         
     def __call__(self, initial=False): 
-        todos=2
         if initial:
             self.iter=self.loop()
+            todos=1
+            self.initiating_sequence=self.ev.get_task_sequence()
         else:
             todos=self.ev.count_todos() 
         
