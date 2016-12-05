@@ -131,19 +131,21 @@ def dont_decorate(f):
     f.decorate = False
     return f
 
-def print_method_name(name, f):
-    def wrapper(*args, **kwargs):
-        print('entering method: %s.%s' % (name, f.__name__, ))
-        start=datetime.datetime.now()
-        result=f(*args, **kwargs)
-        finish=datetime.datetime.now()
-        print('exiting method: %s.%s, time span: %s' % (name, f.__name__, str(finish-start)))
-        return result
-    return wrapper
+def print_method(print_func):
+    def print_method_name(name, f):
+        def wrapper(*args, **kwargs):
+            print_func('entering method: %s.%s' % (name, f.__name__, ))
+            start=datetime.datetime.now()
+            result=f(*args, **kwargs)
+            finish=datetime.datetime.now()
+            print_func('exiting method: %s.%s, time span: %s' % (name, f.__name__, str(finish-start)))
+            return result
+        return wrapper
+    return print_method_name
 
 if __name__ == '__main__':
 
-    meta_decorator=decorate_all(print_method_name)
+    meta_decorator=decorate_all(print_method(print))
     
     class Foo(metaclass=meta_decorator):
 

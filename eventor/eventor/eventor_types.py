@@ -44,6 +44,7 @@ class RunMode(Enum):
 class DbMode(Enum):
     write=1
     append=2
+    read=3
     
 class LoopControl(Enum):
     stop=1

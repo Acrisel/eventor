@@ -20,7 +20,7 @@ def expr_to_str(*args):
         if type(arg) == str:
             result=arg
         elif isinstance(arg, Event):
-            result=arg.id
+            result=arg.id_
         elif type(arg) == tuple:
             result= "(" + expr_to_str(*arg) +")" 
         else:
@@ -58,25 +58,25 @@ class Event(object):
         self.expr=expr
         if expr:
             self.expr=expr_to_str(expr)
-        self.id=name #get_event_id()
+        self.id_=name #get_event_id()
                     
     def __repr__(self):
         expr=''
         if self.expr:
             expr=", %s" % self.expr
-        return "Event(%s%s)" % (self.id, expr)
+        return "Event(%s%s)" % (self.id_, expr)
         
     def __str__(self):
         return repr(self)
     
     def db_write(self, db):
-        db.add_event(event_id=self.id, name=self.name,)
+        db.add_event(event_id=self.id_, name=self.name,)
     
     def trigger_(self, db, sequence):
-        db.add_trigger(event_id=self.id, sequence=sequence)
+        db.add_trigger(event_id=self.id_, sequence=sequence)
     
     def trigger_if_not_exists(self, db, sequence, recovery):
-        added=db.add_trigger_if_not_exists(event_id=self.id, sequence=sequence, recovery=recovery)
+        added=db.add_trigger_if_not_exists(event_id=self.id_, sequence=sequence, recovery=recovery)
         return added
     
 if __name__ == '__main__':

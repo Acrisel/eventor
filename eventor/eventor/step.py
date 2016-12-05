@@ -9,7 +9,7 @@ import pprint
 
 from .dbapi import DbApi
 from .eventor_types import EventorError, TaskStatus
-from .utils import decorate_all, print_method_name
+from .utils import decorate_all
 
 module_logger=logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class Step(object):
         '''
         
         self.name=name
-        self.id=name #get_step_id()
+        self.id_=name #get_step_id()
         self.func=func
         self.func_args=func_args
         self.func_kwargs=func_kwargs
@@ -61,13 +61,13 @@ class Step(object):
         return repr(self)
           
     def db_write(self, db):
-        db.add_step(step_id=self.id, name=self.name)
+        db.add_step(step_id=self.id_, name=self.name)
     
     def trigger_(self, db, sequence):
-        db.add_task(event_id=self.id, sequence=sequence)
+        db.add_task(event_id=self.id_, sequence=sequence)
     
     def trigger_if_not_exists(self, db, sequence, status=TaskStatus.ready, recovery=None):
-        added=db.add_task_if_not_exists(step_id=self.id, sequence=sequence, status=status, recovery=recovery)
+        added=db.add_task_if_not_exists(step_id=self.id_, sequence=sequence, status=status, recovery=recovery)
         return added
     
     def __call__(self, seq_path=None, loop_value=None):
