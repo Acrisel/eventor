@@ -58,7 +58,7 @@ Example Output
         [ 2016-11-30 10:07:50,649 ][ INFO ][ Step completed s2[1], status: success, result 'prog2' ][ main.task_wrapper ]
         [ 2016-11-30 10:07:52,688 ][ INFO ][ Running step s3[1] ][ main.task_wrapper ]
         [ 2016-11-30 10:07:52,689 ][ INFO ][ Step completed s3[1], status: success, result 'prog3' ][ main.task_wrapper ]
-        [ 2016-11-30 10:07:53,700 ][ INFO ][ Processing finished ][ main.loop_session_start ]
+        [ 2016-11-30 10:07:53,700 ][ INFO ][ Processing finished with: success ][ main.loop_session_start ]
 
 Example Highlights
 ==================
@@ -357,7 +357,7 @@ Example Output
         File "/eventor/example/runly03.py", line 66, in square_root
                 y=math.sqrt(x) ]
         [ 2016-12-07 08:37:56,663 ][ INFO ][ Stopping running processes ]
-        [ 2016-12-07 08:37:56,667 ][ INFO ][ Processing finished: False ]
+        [ 2016-12-07 08:37:56,667 ][ INFO ][ Processing finished with: failure ]
         [ 2016-12-07 08:37:56,670 ][ INFO ][ Eventor store file: /eventor/example/runly03.run.db ]
         [ 2016-12-07 08:37:57,736 ][ INFO ][ [ Step s2/3 ] Trying to run ]
         [ 2016-12-07 08:37:57,739 ][ INFO ][ Square root of 9 is 3.0 ]
@@ -365,7 +365,7 @@ Example Output
         [ 2016-12-07 08:38:00,798 ][ INFO ][ [ Step s3/3 ] Trying to run ]
         [ 2016-12-07 08:38:00,800 ][ INFO ][ dividing 9 by 3 is 3.0 ]
         [ 2016-12-07 08:38:00,800 ][ INFO ][ [ Step s3/3 ] Completed, status: TaskStatus.success ]
-        [ 2016-12-07 08:38:01,824 ][ INFO ][ Processing finished: True ]
+        [ 2016-12-07 08:38:01,824 ][ INFO ][ Processing finished with: success ]
 
 Example Highlights
 ==================
