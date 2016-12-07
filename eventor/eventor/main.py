@@ -50,7 +50,8 @@ def task_wrapper(task=None, step=None, adminq=None):
         
     #db=DbApi(runfile=dbfile, mode=DbMode.append)
     task.pid=os.getpid()
-    os.environ['%s_EVENTOR_TASK_SEQUENCE' % task.sequence]=str(task.sequence)
+    os.environ['EVENTOR_STEP_SEQUENCE']=str(task.sequence)
+    os.environ['EVENTOR_STEP_NAME']=str(step.name)
     #db.update_task(task)
     #db.close()
     update=TaskAdminMsg(msg_type=TaskAdminMsgType.update, value=task) 
@@ -711,15 +712,18 @@ class Eventor(object):
             else:
                 human_result="success" if result else 'failure'
                 module_logger.info('Processing finished with: %s' % human_result)
-        self.logger.stop()
-            
+        self.logger.stop()     
         return result
     
     def loop_session_stop(self):
         self.controlq.put(LoopControl.stop)
         
-    def get_task_sequence(self):
-        result=os.getenv('EVENTOR_TASK_SEQUENCE', 0)
+    def get_step_sequence(self):
+        result=os.environ.get('EVENTOR_STEP_SEQUENCE', '')
+        return result
+    
+    def get_step_name(self):
+        result=os.environ.get('EVENTOR_STEP_NAME', '')
         return result
     
     def get_task_status(self, task_names, sequence,):

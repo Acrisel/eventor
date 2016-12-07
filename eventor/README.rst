@@ -89,8 +89,8 @@ Eventor Interface
 Eventor 
 =======
 
-Envtor Class Initiator
-----------------------
+Eventor Class Initiator
+-----------------------
 
     .. code-block:: python
         
@@ -135,8 +135,8 @@ Args
         |                     |            | triggers and tasks                               |
         +---------------------+------------+--------------------------------------------------+
           
-Envtor add_event method
------------------------
+Eventor add_event method
+------------------------
 
     .. code-block:: python
         
@@ -165,7 +165,7 @@ Returns
 
     Event object to use in other add_event expressions, add_assoc methods, or with add_step triggers.
     
-Envtor add_step method
+Eventor add_step method
 -----------------------
 
     .. code-block:: python
@@ -202,17 +202,17 @@ Args
         
     *recovery*: mapping of state status to how step should be handled in recovery:
     
-        +---------------------+------------------+------------------------------------------------------+
-        | status              | default          | description                                          |
-        +=====================+==================+======================================================+
-        | TaskStatus.ready    | StepReplay.rerun | if in recovery and previous status is ready, rerun   |
-        +---------------------+------------------+------------------------------------------------------+
-        | TaskStatus.active   | StepReplay.rerun | if in recovery and previous status is active, rerun  |
-        +---------------------+------------------+------------------------------------------------------+
-        | TaskStatus.failure  | StepReplay.rerun | if in recovery and previous status is failure, rerun |
-        +---------------------+------------------+------------------------------------------------------+
-        | TaskStatus.success  | StepReplay.skip  | if in recovery and previous status is success, skip  |
-        +---------------------+------------------+------------------------------------------------------+
+        +----------------------+------------------+------------------------------------------------------+
+        | status               | default          | description                                          |
+        +======================+==================+======================================================+
+        | StateStatus.ready    | StepReplay.rerun | if in recovery and previous status is ready, rerun   |
+        +----------------------+------------------+------------------------------------------------------+
+        | StateStatus.active   | StepReplay.rerun | if in recovery and previous status is active, rerun  |
+        +----------------------+------------------+------------------------------------------------------+
+        | StateStatus.failure  | StepReplay.rerun | if in recovery and previous status is failure, rerun |
+        +----------------------+------------------+------------------------------------------------------+
+        | StateStatus.success  | StepReplay.skip  | if in recovery and previous status is success, skip  |
+        +----------------------+------------------+------------------------------------------------------+
     
     *config*: keywords mapping overrides for step configuration.
     
@@ -227,8 +227,8 @@ Returns
 
     Step object to use in add_assoc method.
     
-Envtor add_assoc method
------------------------
+Eventor add_assoc method
+------------------------
 
     .. code-block:: python
         
@@ -370,11 +370,16 @@ Example Output
 Example Highlights
 ==================
     
-    The function *build_flow* (code line 24) build an eventor flow using three functions defined in advance.  Since no specific store is provided in Eventor instantiation, a default runner store is assigned (code line 25). In this build, step *s2* (lines 30-35) is being set with recovery directives.  
+    The function *build_flow* (code line 24) build an eventor flow using three functions defined in advance.  
+    Since no specific store is provided in Eventor instantiation, a default runner store is assigned (code line 25). 
+    In this build, step *s2* (lines 30-35) is being set with recovery directives.  
     
-    The first build and run is done in lines 47-48.  In this run, a parameter that would cause the second step to fail is being passed.  As a result, flow fails.  Output lines 1-17 is associated with the first run.  
+    The first build and run is done in lines 47-48.  In this run, a parameter that would cause the second 
+    step to fail is being passed.  As a result, flow fails.  Output lines 1-17 is associated with the first run.  
     
-    The second build and run is then initiated.  In this run, parameter is set to a value that ould pass step *s2* and run mode is set to recovery (code lines 51-52). Eventor skips successful steps and start executing from failed steps onwards.  Output lines 18-25 reflects successful second run.
+    The second build and run is then initiated.  In this run, parameter is set to a value that would pass 
+    step *s2* and run mode is set to recovery (code lines 51-52). Eventor skips successful steps and start 
+    executing from failed steps onwards.  Output lines 18-25 reflects successful second run.
     
 ----------------------
 Additional Information

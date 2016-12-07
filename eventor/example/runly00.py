@@ -52,11 +52,13 @@ API DOC:
 
 import eventor as evr
 import logging
+import os
 
 logger=logging.getLogger(__name__)
 
 def prog(progname):
     logger.info("doing what %s is doing" % progname)
+    logger.info("EVENTOR_TASK_SEQUENCE: %s" % os.getenv("EVENTOR_TASK_SEQUENCE"))
     return progname
 
 ev=evr.Eventor(store=':memory:', logging_level=logging.INFO)
