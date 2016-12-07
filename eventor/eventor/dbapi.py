@@ -18,11 +18,13 @@ import threading
 from enum import Enum
 
 from eventor.dbschema import *
-from eventor.eventor_types import DbMode
+from eventor.eventor_types import DbMode, Invoke
+from .utils import decorate_all, print_method
 
 module_logger=logging.getLogger(__name__)
 #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
+#class DbApiReplca(metaclass=decorate_all(print_method(module_logger.debug))):
 class DbApiReplca(object):
     def __init__(self, db_mode=DbMode.read, mode='proess', value=None):
         self.mode=mode
@@ -50,8 +52,8 @@ class DbApi(object):
             self.session = session()   
         self.db_transaction_lock=threading.Lock()
     
-    def set_thread_synchronization(self):
-        self.thread_sync=True
+    def set_thread_synchronization(self, value=True):
+        self.thread_sync=value
         
     def lock(self):
         if self.thread_sync:
@@ -113,6 +115,9 @@ class DbApi(object):
             mode='process'
             value=self.runfile
         elif target==threading.Thread:
+            mode='thread'
+            value=self.Session
+        elif target==Invoke:
             mode='thread'
             value=self.Session
         return DbApiReplca(mode=mode, value=value)
@@ -238,11 +243,23 @@ class DbApi(object):
         self.commit_db()
         self.release()
     
-    def count_trigger_ready(self, sequence=None):
+    def count_trigger_ready(self, sequence=None, recovery=None ):
         self.lock()
-        members=self.session.query(Trigger).filter(Trigger.acted == None)
+        members=self.session.query(Trigger).filter(Trigger.acted == None, Trigger.recovery==recovery)
         if sequence:
             members=members.filter(Trigger.sequence==sequence)
+        count=members.count()
+        self.release()
+            
+        return count
+        
+    def count_trigger_ready_like(self, sequence, recovery):
+        self.lock()
+        try:
+            members=self.session.query(Trigger).filter(Trigger.sequence.like(sequence), Trigger.acted == None, Trigger.recovery==recovery)
+        except:
+            self.release()
+            raise
         count=members.count()
         self.release()
             
@@ -293,7 +310,7 @@ class DbApi(object):
         self.commit_db()
         self.release()
         
-    def get_task_iter(self, status=[TaskStatus.ready,]):
+    def get_task_iter(self, recovery, status=[TaskStatus.ready,]):
         self.lock()
         rows = self.session.query(Task).filter(Task.status.in_(status)).all()
         self.release()
@@ -313,15 +330,32 @@ class DbApi(object):
         self.release()
         return task_map
     
-    def count_tasks(self, status=[TaskStatus.active, TaskStatus.ready,], sequence=None):
+    def count_tasks(self, recovery, status=[TaskStatus.active, TaskStatus.ready,], sequence=None):
         self.lock()
         with self.session.no_autoflush:
-            members=self.session.query(Task).filter(Task.status.in_(status))
+            members=self.session.query(Task).filter(Task.status.in_(status), Task.recovery==recovery)
         if sequence:
             members=members.filter(Task.sequence==sequence)
         count=members.count()
         self.release()
         return count
+    
+    def count_tasks_like(self, sequence, recovery, status=[TaskStatus.active, TaskStatus.ready,]):
+        self.lock()
+        with self.session.no_autoflush:
+            members=self.session.query(Task).filter(Task.sequence.like(sequence), Task.status.in_(status), Task.recovery==recovery)
+        count=members.count()
+        self.release()
+        return count
+    
+    def get_task_status(self, task_names, sequence, recovery):
+        self.lock()
+        tasks=self.session.query(Task).filter(Task.step_id.in_(task_names), Task.sequence==sequence, Task.recovery==recovery).all()
+        result=dict()
+        for task in tasks:
+            result[task.step_id]=task.status        
+        self.release()
+        return result
   
 if __name__ == '__main__':
     file='/var/acrisel/sand/eventor/eventor/eventor/eventor/schema.db'

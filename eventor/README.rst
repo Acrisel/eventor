@@ -13,7 +13,7 @@ Overview
 Simple Example
 ==============
     
-    .. code::
+    .. code-block:: python
         :number-lines:
         
         import eventor as evr
@@ -60,8 +60,8 @@ Example Output
         [ 2016-11-30 10:07:52,689 ][ INFO ][ Step completed s3[1], status: success, result 'prog3' ][ main.task_wrapper ]
         [ 2016-11-30 10:07:53,700 ][ INFO ][ Processing finished ][ main.loop_session_start ]
 
-Code Highlights
-===============
+Example Highlights
+==================
 
     *Eventor* (line 10) defines an in-memory eventor object.  Note that in-memory eventors are none recoverable.
     
@@ -76,6 +76,12 @@ Code Highlights
     
     *ev()* (line 27) invoke eventor process that would looks for triggers and tasks to act upon.  It ends when there is nothing to do.
  
+Program Run File
+================
+ 
+    One important artifact used in Eventor is program's runner file.  Runner file database (sqlite) will be created at execution, if not directed otherwise, at the location of the run (UNIX's pwd).  
+    This file contains information on tasks and triggers that are used in the run and in recovery.
+ 
 -----------------
 Eventor Interface
 -----------------
@@ -86,7 +92,7 @@ Eventor
 Envtor Class Initiator
 ----------------------
 
-    .. code::
+    .. code-block:: python
         
         Eventor(name='', store='', run_mode=RunMode.restart, recovery_run=None, logging_level=logging.INFO, config={})
 
@@ -132,7 +138,7 @@ Args
 Envtor add_event method
 -----------------------
 
-    .. code::
+    .. code-block:: python
         
         add_event(name, expr=None)
 
@@ -162,7 +168,7 @@ Returns
 Envtor add_step method
 -----------------------
 
-    .. code::
+    .. code-block:: python
         
         add_step(name, func, args=(), kwargs={}, triggers={}, recovery={}, config={})
 
@@ -224,7 +230,7 @@ Returns
 Envtor add_assoc method
 -----------------------
 
-    .. code::
+    .. code-block:: python
         
         add_assoc(event, *assocs)
 
@@ -240,10 +246,10 @@ Returns
 
     N/A
     
-Envtor trigger_event method
----------------------------
+Eventor trigger_event method
+----------------------------
 
-    .. code::
+    .. code-block:: python
         
         trigger_event(event, sequence=None)
 
@@ -258,6 +264,117 @@ Returns
 ```````
 
     N/A
+
+--------
+Recovery
+--------
+
+    When running in recovery, unless indicated otherwise, latest run (initial or recovery) would be used.
+    
+    Note that when running a program with the intent to use its recovery capabilities, in-memory store **cannot** be use.
+    Instead, physical storage must be used.
+    
+    Here is an example for recovery program and run.
+    
+Recovery Example
+================
+
+    .. code-block:: python
+        :number-lines:
+    
+        import eventor as evr
+        import logging
+        import math
+
+        logger=logging.getLogger(__name__)
+
+        logger.setLevel(logging.DEBUG)
+
+        def square(x):
+            y=x*x
+            logger.info("Square of %s is %s" % (x, y))
+            return y
+
+        def square_root(x):
+            y=math.sqrt(x)
+            logger.info("Square root of %s is %s" % (x, y))
+            return y
+
+        def divide(x,y):
+            z=x/y
+            logger.info("dividing %s by %s is %s" % (x, y, z))
+            return z
+
+        def build_flow(run_mode=evr.RunMode.restart, param=9):
+            ev=evr.Eventor(run_mode=run_mode, logging_level=logging.INFO)
+    
+            ev1s=ev.add_event('run_step1')
+            ev1d=ev.add_event('done_step1')
+            ev2s=ev.add_event('run_step2')
+            ev2d=ev.add_event('done_step2')
+            ev3s=ev.add_event('run_step3', expr=(ev1d, ev2d)) 
+    
+            s1=ev.add_step('s1', func=square, kwargs={'x': 3}, 
+                           triggers={evr.StepStatus.success: (ev1d, ev2s,)},) 
+            s2=ev.add_step('s2', square_root, kwargs={'x': param}, triggers={evr.StepStatus.success: (ev2d,), },
+                           recovery={evr.StepStatus.failure: evr.StepReplay.rerun, 
+                                     evr.StepStatus.success: evr.StepReplay.skip})
+            s3=ev.add_step('s3', divide, kwargs={'x': 9, 'y': 3},)
+    
+            ev.add_assoc(ev1s, s1)
+            ev.add_assoc(ev2s, s2)
+            ev.add_assoc(ev3s, s3)
+            ev.trigger_event(ev1s, 3)    
+            return ev
+
+        # start regularly; it would fail in step 2
+        ev=build_eventor(param=-9)
+        ev()
+
+        # rerun in recovery
+        ev=build_eventor(evr.RunMode.recover, param=9)
+        ev()
+    
+Example Output
+==============
+
+    .. code:: 
+        :number-lines:
+
+        [ 2016-12-07 08:37:53,541 ][ INFO ][ Eventor store file: /eventor/example/runly03.run.db ]
+        [ 2016-12-07 08:37:53,586 ][ INFO ][ [ Step s1/3 ] Trying to run ]
+        [ 2016-12-07 08:37:53,588 ][ INFO ][ Square of 3 is 9 ]
+        [ 2016-12-07 08:37:53,588 ][ INFO ][ [ Step s1/3 ] Completed, status: TaskStatus.success ]
+        [ 2016-12-07 08:37:55,644 ][ INFO ][ [ Step s2/3 ] Trying to run ]
+        [ 2016-12-07 08:37:55,647 ][ INFO ][ [ Step s2/3 ] Completed, status: TaskStatus.failure ]
+        [ 2016-12-07 08:37:56,663 ][ ERROR ][ Exception in run_action: 
+            <Task(id='2', step_id='s2', sequence='3', recovery='0', pid='8112', status='TaskStatus.failure', created='2016-12-07 14:37:55.625870', updated='2016-12-07 14:37:55.633819')> ]
+        [ 2016-12-07 08:37:56,663 ][ ERROR ][ ValueError('math domain error',) ]
+        [ 2016-12-07 08:37:56,663 ][ ERROR ][ File "/sand/eventor/eventor/main.py", line 62, in task_wrapper
+                    result=step(seq_path=task.sequence)
+        File "/sand/eventor/eventor/step.py", line 82, in __call__
+                    result=func(*func_args, **func_kwargs)
+        File "/eventor/example/runly03.py", line 66, in square_root
+                y=math.sqrt(x) ]
+        [ 2016-12-07 08:37:56,663 ][ INFO ][ Stopping running processes ]
+        [ 2016-12-07 08:37:56,667 ][ INFO ][ Processing finished: False ]
+        [ 2016-12-07 08:37:56,670 ][ INFO ][ Eventor store file: /eventor/example/runly03.run.db ]
+        [ 2016-12-07 08:37:57,736 ][ INFO ][ [ Step s2/3 ] Trying to run ]
+        [ 2016-12-07 08:37:57,739 ][ INFO ][ Square root of 9 is 3.0 ]
+        [ 2016-12-07 08:37:57,739 ][ INFO ][ [ Step s2/3 ] Completed, status: TaskStatus.success ]
+        [ 2016-12-07 08:38:00,798 ][ INFO ][ [ Step s3/3 ] Trying to run ]
+        [ 2016-12-07 08:38:00,800 ][ INFO ][ dividing 9 by 3 is 3.0 ]
+        [ 2016-12-07 08:38:00,800 ][ INFO ][ [ Step s3/3 ] Completed, status: TaskStatus.success ]
+        [ 2016-12-07 08:38:01,824 ][ INFO ][ Processing finished: True ]
+
+Example Highlights
+==================
+    
+    The function *build_flow* (code line 24) build an eventor flow using three functions defined in advance.  Since no specific store is provided in Eventor instantiation, a default runner store is assigned (code line 25). In this build, step *s2* (lines 30-35) is being set with recovery directives.  
+    
+    The first build and run is done in lines 47-48.  In this run, a parameter that would cause the second step to fail is being passed.  As a result, flow fails.  Output lines 1-17 is associated with the first run.  
+    
+    The second build and run is then initiated.  In this run, parameter is set to a value that ould pass step *s2* and run mode is set to recovery (code lines 51-52). Eventor skips successful steps and start executing from failed steps onwards.  Output lines 18-25 reflects successful second run.
     
 ----------------------
 Additional Information

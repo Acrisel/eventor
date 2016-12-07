@@ -31,7 +31,15 @@ class StepStatus(Enum):
 def task_to_step_status(status):
     value=status.value
     result=StepStatus(value)
-    return result  
+    return result
+
+def step_to_task_status(status):  
+    '''
+    This assumes that complete status was already converted to failure and success
+    '''
+    value=status.value
+    result=TaskStatus(value)
+    return result
     
 class StepReplay(Enum):
     rerun=1
@@ -51,4 +59,16 @@ class LoopControl(Enum):
     pause=2
     start=3
     resume=4
-    kill=5    
+    kill=5  
+    
+class Invoke(object):
+    def __init__(self, target, args=(), kwargs={}):
+        self.target=target
+        self.args=args
+        self.kwargs=kwargs
+        
+    def start(self,):
+        return self.target(*self.args, **self.kwargs)
+    
+    def join(self):
+        return

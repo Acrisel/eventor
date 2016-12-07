@@ -8,6 +8,7 @@ from acris import Sequence
 from logging.handlers import QueueListener
 import inspect
 import datetime
+import os
 
 
 def is_require_op(op):
@@ -90,17 +91,24 @@ def calling_module(depth=2):
     frame_records = inspect.stack()[2]
     return frame_records.filename
 
-def store_from_module(module,):
-    parts=module.rpartition('.')
+def store_from_module(module, module_location=False):
+    location=os.path.dirname(module)
+    name=os.path.basename(module)
+    
+    parts=name.rpartition('.')
     if parts[0]:
         if parts[2] == 'py':
             module_runner_file=parts[0]
         else:
-            module_runner_file=module
+            module_runner_file=name
     else:
         module_runner_file=parts[2]
     filename='.'.join([module_runner_file, 'run.db'])  
     
+    if module_location:
+        filename=os.path.join(location, filename)
+    else:
+        filename=os.path.join(os.getcwd(), filename)  
     return filename
 
 

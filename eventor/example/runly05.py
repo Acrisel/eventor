@@ -25,6 +25,8 @@ import logging
 import collections
 import threading
 
+from eventor import Invoke
+
 logger=logging.getLogger(__name__)
 
 class IterGen(object):
@@ -66,10 +68,12 @@ class Container(object):
             if item:
                 self.loop_index+=1
                 for trigger in self.iter_triggers:
-                    self.ev.remote_trigger_event(trigger, self.loop_index,)
+                    self.ev.trigger_event(trigger, self.loop_index)
+                    #self.ev.remote_trigger_event(trigger, self.loop_index,)
             else:
                 for trigger in self.end_triggers:
-                    self.ev.remote_trigger_event(trigger, self.loop_index,)
+                    self.ev.trigger_event(trigger, self.loop_index)
+                    #self.ev.remote_trigger_event(trigger, self.loop_index,)
             
         return True
         
@@ -91,8 +95,11 @@ s0first=ev.add_step('s0_start', func=metaprog, kwargs={'initial': True}, config=
 s0next=ev.add_step('s0_next', func=metaprog, config={'task_construct': threading.Thread})
 
 metaprog=Container(ev=ev, progname='00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
-s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
-s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': threading.Thread})
+
+#s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
+#s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': threading.Thread})
+s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, pass_sequence=True, config={'task_construct': Invoke, 'synchrous_run':True})
+s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': Invoke, 'synchrous_run':True})
 
 s1=ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
 s2=ev.add_step('s0.s00.s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })

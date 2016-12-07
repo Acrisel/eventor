@@ -7,8 +7,6 @@ Created on Nov 23, 2016
 import logging
 from acris import Sequence, MpLogger, MergedChainedDict
 import multiprocessing as mp
-import threading
-import queue
 from collections import namedtuple
 import inspect
 from enum import Enum
@@ -21,7 +19,7 @@ from eventor.event import Event
 from eventor.assoc import Assoc
 from eventor.dbapi import DbApi
 from eventor.utils import calling_module, traces, rest_sequences, store_from_module
-from eventor.eventor_types import EventorError, TaskStatus, task_to_step_status, LoopControl, StepStatus, StepReplay, RunMode, DbMode
+from eventor.eventor_types import EventorError, TaskStatus, step_to_task_status, task_to_step_status, LoopControl, StepStatus, StepReplay, RunMode, DbMode, Invoke
 from eventor.VERSION import __version__
 from eventor.dbschema import Task
 #from eventor.loop_event import LoopEvent
@@ -40,7 +38,7 @@ TriggerRequest=namedtuple('TriggerRequest', ['type', 'value'])
 
 
 
-def task_wrapper(db, task=None, step=None, adminq=None):
+def task_wrapper(task=None, step=None, adminq=None):
     ''' 
     Args:
         func: object with action method with the following signature:
@@ -52,29 +50,27 @@ def task_wrapper(db, task=None, step=None, adminq=None):
         
     #db=DbApi(runfile=dbfile, mode=DbMode.append)
     task.pid=os.getpid()
-    os.environ['EVENTOR_TASK_SEQUENCE']=str(task.sequence)
+    os.environ['%s_EVENTOR_TASK_SEQUENCE' % task.sequence]=str(task.sequence)
     #db.update_task(task)
     #db.close()
     update=TaskAdminMsg(msg_type=TaskAdminMsgType.update, value=task) 
     adminq.put( update )
     
-    module_logger.info('Running step {}[{}]'.format(step.name, task.sequence))
-    result_info=None
+    module_logger.info('[ Step {}/{} ] Trying to run'.format(step.name, task.sequence))
+    
     try:
         result=step(seq_path=task.sequence)
     except Exception as e:
         trace=inspect.trace()
-        trace=traces(trace)[2:]
+        trace=traces(trace) #[2:]
         task.result=(e, pickle.dumps(trace))
         task.status=TaskStatus.failure
-        #print(repr(e))
     else:
         task.result=result
         task.status=TaskStatus.success
-        result_info=result
         
     result=TaskAdminMsg(msg_type=TaskAdminMsgType.result, value=task) 
-    module_logger.info('Step completed {}[{}], status: {}, result {}'.format(step.name, task.sequence, str(task.status), repr(result_info),))
+    module_logger.info('[ Step {}/{} ] Completed, status: {}'.format(step.name, task.sequence, str(task.status), ))
     adminq.put( result )
     return True
 
@@ -101,15 +97,16 @@ class Eventor(object):
     config_defaults={'workdir':'/tmp', 
               'logdir': '/tmp', 
               'task_construct': mp.Process, 
+              'synchrous_run': False, 
               'max_concurrent': -1, 
               'stop_on_exception': True,
-              'sleep_between_loops': 0.05,
+              'sleep_between_loops': 1,
           }  
     
-    recovery_defaults={TaskStatus.ready: StepReplay.rerun, 
-                       TaskStatus.active: StepReplay.rerun, 
-                       TaskStatus.failure: StepReplay.rerun, 
-                       TaskStatus.success: StepReplay.skip,}  
+    recovery_defaults={StepStatus.ready: StepReplay.rerun, 
+                       StepStatus.active: StepReplay.rerun, 
+                       StepStatus.failure: StepReplay.rerun, 
+                       StepStatus.success: StepReplay.skip,}  
         
     def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, dedicated_logging=False, logging_level=logging.INFO, config={},):
         """initializes steps object
@@ -127,6 +124,7 @@ class Eventor(object):
                 config parameters can include the following keys:
                     - logdir=/tmp, 
                     - workdir=/tmp, 
+                    - synchrous_run=False,
                     - task_construct=mp.Process, 
                     - stop_on_exception=True,
                     - sleep_between_loops=1
@@ -148,7 +146,11 @@ class Eventor(object):
             logging_root='.'.join(__name__.split('.')[:-1])
         else:
             logging_root=''
-        self.logger=MpLogger(logging_level=logging_level, logging_root=logging_root, logdir=self.config['logdir'])
+        level_formats={logging.DEBUG:"[ %(asctime)s ][ %(levelname)s ][ %(message)s ][ %(module)s.%(funcName)s.%(lineno)d ]",
+                        'default':   "[ %(asctime)s ][ %(levelname)s ][ %(message)s ]",
+                        }
+        
+        self.logger=MpLogger(logging_level=logging_level, level_formats=level_formats, logging_root=logging_root, logdir=self.config['logdir'])
         self.logger.start()
         
         self.calling_module=calling_module()
@@ -252,7 +254,7 @@ class Eventor(object):
     def get_step(self, name):
         return self.__steps.get(name, None)
     
-    def add_step(self, name, func, args=(), kwargs={}, triggers={}, recovery={}, config={}):
+    def add_step(self, name, func, args=(), kwargs={}, pass_sequence=False, triggers={}, recovery={}, config={}):
         """add a step to steps object
     
         config parameters can include the following keys:
@@ -267,6 +269,8 @@ class Eventor(object):
             
             config: additional dict of keywords configuration 
             
+            pass_sequence: when True, eventor_task_sequence argument will be added to provided kwargs.
+            
             triggers: set of events to trigger once step processing is done
             
             recovery: instructions on how to deal with 
@@ -279,16 +283,23 @@ class Eventor(object):
         raises:
             EventorError: if func is not callable
         """
+        try:
+            step=self.__steps[name]
+        except:
+            pass
+        else:
+            return step
         
         triggers=self.convert_trigger_at_complete(triggers)
         recovery=self.convert_recovery_at_complete(recovery)
         recovery=MergedChainedDict(recovery, Eventor.recovery_defaults)
+        recovery=dict([(step_to_task_status(status), replay) for status, replay in recovery.items()])
         
         config=MergedChainedDict(config, self.config, os.environ,)
-        step=Step(name=name, func=func, func_args=args, func_kwargs=kwargs, config=config, triggers=triggers, recovery=recovery)
+        step=Step(name=name, func=func, func_args=args, func_kwargs=kwargs, pass_sequence=pass_sequence, config=config, triggers=triggers, recovery=recovery)
         found=self.__steps.get(step.id_)
         if found:
-            raise EventorError("Step with similar name alreay defined: %s" % step.id_)
+            raise EventorError("Step with similar name already defined: %s" % step.id_)
         self.__steps[step.id_]=step
         #step.db_write(self.db)
         return step
@@ -380,7 +391,7 @@ class Eventor(object):
             if request.type=='event':
                 event, sequence = request.value
                 self.trigger_event(event, sequence)
-                module_logger.debug('triggered event %s [%s' % (repr(event), sequence))
+                module_logger.debug('[ %s/%s ] Triggering event' % (event.id_, sequence))
         
           
     def assoc_loop(self, event, sequence):
@@ -462,7 +473,7 @@ class Eventor(object):
                 except:
                     result=False
                     
-                module_logger.debug("Eval event %s expr: %s = %s\n    %s" % (event.id_, event.expr, result, trigger_map))
+                module_logger.debug("[ Event %s/%s ] Eval expr: %s = %s\n    %s" % (event.id_, sequence,event.expr, result, trigger_map))
                 
                 # update trigger map with result
                 #trigger_map[event.event_id]=result
@@ -472,7 +483,7 @@ class Eventor(object):
                     added=self.trigger_event(event, sequence,)   
                     #print('loop_event_iteration', event.event_id, iteration, added)  
                     if added:  
-                        module_logger.debug('Triggered event ({}):\n    {}'.format(sequence, repr(event))) 
+                        module_logger.debug('[ Event %s/%s] Triggered event (%s ):\n    {}' % (event.id_, sequence, repr(event))) 
                         event_seqs.append(sequence)
                         
         return list(set(event_seqs)), list(set(step_seqs))                  
@@ -493,20 +504,23 @@ class Eventor(object):
         return triggered
     
     def collect_results(self,):
-        module_logger.debug('Collecting results') 
+        #module_logger.debug('Collecting results') 
         stop_on_exception=self.config['stop_on_exception']
         #successes=dict([('count', list()), ('triggered', list())])
         #failures=dict([('count', list()), ('triggered', list())])
         result=True
-        while True:   
+        iterate=True
+        while iterate: 
+            module_logger.debug('Trying to read result queue')   
             try:
                 act_result=self.adminq.get_nowait() 
             except queue.Empty:
                 act_result=None
-                return result
+                iterate=False
+                break
                 
             module_logger.debug('Result collected: \n    {}'.format( repr(act_result)) )  
-            if isinstance(act_result.value, Task):  
+            if isinstance(act_result.value, Task): 
                 task=act_result.value   
                 if act_result.msg_type==TaskAdminMsgType.result:
                     proc=self.task_proc[task.id_]
@@ -565,18 +579,24 @@ class Eventor(object):
             triggered=self.triggers_at_task_change(task)
             task_construct=step.config['task_construct']
             max_concurrent=step.config['max_concurrent']
+            synchrous_run=step.config['synchrous_run']
+            # TODO: add join when synchronus
             #dbreplica=self.db.replicate(target=mp.Process) #task_construct)
-            dbreplica=self.db.replicate(target=task_construct)
-            kwds={'db':dbreplica, 'task':task, 'step': self.__steps[task.step_id], 'adminq':self.adminq}
+            #dbreplica=self.db.replicate(target=task_construct)
+            #kwds={'db':dbreplica, 'task':task, 'step': self.__steps[task.step_id], 'adminq':self.adminq}
+            #adminq=self.adminq if not isinstance(task_construct, Invoke) else None
+            kwds={'task':task, 'step': self.__steps[task.step_id], 'adminq': self.adminq, }
             if max_concurrent <1: # no-limit
-                module_logger.debug('Going to run step action process:\n    {}'.format(repr(task), ))
+                module_logger.debug('[ Task {} ] Going to construct ({}/{}) and run task:\n    {}'.format(task.step_id, task.sequence, task_construct, repr(task), ))
                 proc=task_construct(target=task_wrapper, kwargs=kwds)
                 try:
                     proc.start()
                 except Exception as e:
                     task.status=TaskStatus.failure
-                    module_logger.critical('Exception in run_action: \n    {}'.format(task,)) #)
-                    module_logger.critical("%s" % (repr(e), ))
+                    module_logger.critical('Exception in task execution: \n    {}'.format(task,)) #)
+                    trace=inspect.trace()
+                    trace=traces(trace)
+                    module_logger.critical("%s\n    %s" % (repr(e), '\n    '.join(trace)))
                     module_logger.info("Stopping running processes") 
                     self.state=EventorState.shutdown
                 else:
@@ -603,7 +623,7 @@ class Eventor(object):
         
         # all items are pulled so active can also be monitored for timely end
         if self.state==EventorState.active:
-            tasks=self.db.get_task_iter()
+            tasks=self.db.get_task_iter(recovery=self.recovery)
             for task in tasks:
                 try:
                     previous_task=self.previous_tasks[task.sequence][task.step_id]
@@ -640,10 +660,22 @@ class Eventor(object):
         todo_triggers=0
         task_to_count=[TaskStatus.active, TaskStatus.ready,]
         if self.state == EventorState.active:
-            todo_triggers=self.db.count_trigger_ready(sequence=sequence)
+            todo_triggers=self.db.count_trigger_ready(sequence=sequence, recovery=self.recovery)
         else:
             task_to_count=[TaskStatus.active,]                 
-        active_and_todo_tasks=self.db.count_tasks(task_to_count, sequence=sequence) 
+        active_and_todo_tasks=self.db.count_tasks(status=task_to_count, sequence=sequence, recovery=self.recovery) 
+        total_todo=todo_triggers + active_and_todo_tasks                       
+        
+        return total_todo
+
+    def count_todos_like(self, sequence):
+        todo_triggers=0
+        task_to_count=[TaskStatus.active, TaskStatus.ready,]
+        if self.state == EventorState.active:
+            todo_triggers=self.db.count_trigger_ready_like(sequence=sequence, recovery=self.recovery)
+        else:
+            task_to_count=[TaskStatus.active,]                 
+        active_and_todo_tasks=self.db.count_tasks_like(status=task_to_count, sequence=sequence, recovery=self.recovery) 
         total_todo=todo_triggers + active_and_todo_tasks                       
         
         return total_todo
@@ -661,7 +693,7 @@ class Eventor(object):
         module_logger.debug('Starting loop session')
         sleep_loop=self.config['sleep_between_loops']
         loop=True
-        self.db.set_thread_synchronization()
+        self.db.set_thread_synchronization(True)
         
         while loop:
             result=self.loop_once()
@@ -687,6 +719,10 @@ class Eventor(object):
         
     def get_task_sequence(self):
         result=os.getenv('EVENTOR_TASK_SEQUENCE', 0)
+        return result
+    
+    def get_task_status(self, task_names, sequence,):
+        result=self.db.get_task_status(task_names=task_names, sequence=sequence, recovery=self.recovery)
         return result
         
     def __call__(self, ):

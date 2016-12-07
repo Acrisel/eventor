@@ -27,7 +27,7 @@ class Step(object):
         also registered and could be referenced.   
     """
 
-    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, triggers={}, recovery={}, config={}):
+    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, pass_sequence=False, triggers={}, recovery={}, config={}):
         '''
         Constructor
         '''
@@ -40,6 +40,7 @@ class Step(object):
         self.triggers=triggers
         self.recovery=recovery
         self.config=config
+        self.pass_sequence=pass_sequence
         
         if not callable(func):
             raise EventorError('func must be callable: %s' % repr(func))
@@ -71,11 +72,13 @@ class Step(object):
         return added
     
     def __call__(self, seq_path=None, loop_value=None):
-        module_logger.debug('Running step [%s]: %s' % (seq_path, repr(self) ))
+        module_logger.debug('[ Step %s/%s ] Starting: %s' % (self.name, seq_path, repr(self) ))
         func=self.func
         func_args=self.func_args
         func_kwargs=self.func_kwargs
+        if self.pass_sequence:
+            self.func_kwargs.update({'eventor_task_sequence': seq_path})
         #stop_on_exception=self.config['stop_on_exception']
         result=func(*func_args, **func_kwargs)
-        module_logger.debug('Completed [%s]: %s' % (seq_path, repr(self) ))
+        module_logger.debug('[ Step %s/%s ] Completed: %s' % (self.name, seq_path, repr(self) ))
         return result
