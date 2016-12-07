@@ -709,7 +709,8 @@ class Eventor(object):
                 if not loop:
                     module_logger.info('Processing stopped')
             else:
-                module_logger.info('Processing finished: %s' % result)
+                human_result="success" if result else 'failure'
+                module_logger.info('Processing finished with: %s' % human_result)
         self.logger.stop()
             
         return result
