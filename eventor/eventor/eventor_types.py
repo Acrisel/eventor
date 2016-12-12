@@ -15,18 +15,20 @@ class AssocType(Enum):
     
     
 class TaskStatus(Enum):
-    ready=1
-    active=2
-    success=3
-    failure=4
+    ready=1     # triggered to run by events, waiting for resources
+    staisfy=2   # resource satisfied, waiting to be activated
+    active=3    # running
+    success=4   # finished successfully
+    failure=5   # failed to finish
     
     
 class StepStatus(Enum):
     ready=1
-    active=2
-    success=3
-    failure=4
-    complete=5
+    staisfy=2
+    active=3
+    success=4
+    failure=5
+    complete=6 # finished wither successfully or with failure
     
 def task_to_step_status(status):
     value=status.value

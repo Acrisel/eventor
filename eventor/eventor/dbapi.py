@@ -277,14 +277,14 @@ class DbApi(object):
         return row
     '''
         
-    def add_task(self, step_id, sequence, status=TaskStatus.ready, recovery=None):
+    def add_task(self, step_id, sequence, status, recovery=None):
         self.lock()
         task=Task(step_id=step_id, sequence=sequence, status=status,)
         self.session.add(task)
         self.commit_db()
         self.release()
         
-    def add_task_if_not_exists(self, step_id, sequence, status=TaskStatus.ready, recovery=None):
+    def add_task_if_not_exists(self, step_id, sequence, status, recovery=None):
         self.lock()
         found=self.session.query(Task).filter(Task.sequence==sequence, Task.step_id == step_id, Task.recovery==recovery).first()
         task=None
@@ -310,7 +310,7 @@ class DbApi(object):
         self.commit_db()
         self.release()
         
-    def get_task_iter(self, recovery, status=[TaskStatus.ready,]):
+    def get_task_iter(self, recovery, status):
         self.lock()
         rows = self.session.query(Task).filter(Task.status.in_(status)).all()
         self.release()
@@ -330,7 +330,8 @@ class DbApi(object):
         self.release()
         return task_map
     
-    def count_tasks(self, recovery, status=[TaskStatus.active, TaskStatus.ready,], sequence=None):
+    #def count_tasks(self, recovery, status=[TaskStatus.active, TaskStatus.ready,], sequence=None):
+    def count_tasks(self, recovery, status, sequence=None):
         self.lock()
         with self.session.no_autoflush:
             members=self.session.query(Task).filter(Task.status.in_(status), Task.recovery==recovery)
@@ -340,7 +341,8 @@ class DbApi(object):
         self.release()
         return count
     
-    def count_tasks_like(self, sequence, recovery, status=[TaskStatus.active, TaskStatus.ready,]):
+    #def count_tasks_like(self, sequence, recovery, status=[TaskStatus.active, TaskStatus.ready,]):
+    def count_tasks_like(self, sequence, recovery, status):
         self.lock()
         with self.session.no_autoflush:
             members=self.session.query(Task).filter(Task.sequence.like(sequence), Task.status.in_(status), Task.recovery==recovery)

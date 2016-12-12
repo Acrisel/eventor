@@ -24,6 +24,7 @@ import eventor as evr
 import logging
 import collections
 import threading
+from acris import Mediator
 
 from eventor import Invoke
 
@@ -50,13 +51,14 @@ class Container(object):
             loop=IterGen(loop)
         self.loop=loop
         self.loop_index=0
-        self.initiating_sequence=None
+        #self.initiating_sequence=None
         
-    def __call__(self, initial=False): 
+    def __call__(self, initial=False, ): 
+        #print('max_concurrent', config['max_concurrent'])
         if initial:
-            self.iter=self.loop()
+            self.iter=Mediator(self.loop())
             todos=1
-            self.initiating_sequence=self.ev.get_task_sequence()
+            #self.initiating_sequence=self.ev.get_task_sequence()
         else:
             todos=self.ev.count_todos() 
         
@@ -78,7 +80,7 @@ class Container(object):
         return True
         
 
-ev=evr.Eventor( logging_level=logging.DEBUG) # store=':memory:',
+ev=evr.Eventor( logging_level=logging.INFO) # store=':memory:',
 
 ev0first=ev.add_event('s0_start')
 ev0next=ev.add_event('s0_next')
@@ -91,15 +93,15 @@ ev2success=ev.add_event('s0_s00_s2_success')
 ev3s=ev.add_event('s0_s00_s3_start', expr=(ev2success,))
 
 metaprog=Container(ev=ev, progname='0', loop=[1,], iter_triggers=(ev00first,))
-s0first=ev.add_step('s0_start', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
-s0next=ev.add_step('s0_next', func=metaprog, config={'task_construct': threading.Thread})
+s0first=ev.add_step('s0_start', func=metaprog, kwargs={'initial': True, }, config={'max_concurrent': -1, 'task_construct': Invoke})
+s0next=ev.add_step('s0_next', func=metaprog, config={'task_construct': Invoke})
 
 metaprog=Container(ev=ev, progname='00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
 
 #s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
 #s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': threading.Thread})
-s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, pass_sequence=True, config={'task_construct': Invoke, 'synchrous_run':True})
-s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': Invoke, 'synchrous_run':True})
+s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': Invoke,})
+s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': Invoke,})
 
 s1=ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
 s2=ev.add_step('s0.s00.s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })

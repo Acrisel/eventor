@@ -43,7 +43,6 @@ class MetaProg(object):
         self.ev=ev
         self.progname=progname
         self.triggers=triggers
-        print('loop:', loop)
         if isinstance(loop, collections.Iterable):
             loop=IterGen(loop)
         self.loop=loop
@@ -64,7 +63,7 @@ class MetaProg(object):
         return True
         
 
-ev=evr.Eventor( logging_level=logging.DEBUG) # store=':memory:',
+ev=evr.Eventor( logging_level=logging.INFO) # store=':memory:',
 
 ev0first=ev.add_event('run_s0first')
 ev0next=ev.add_event('run_s0next')

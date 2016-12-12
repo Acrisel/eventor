@@ -27,7 +27,7 @@ class Step(object):
         also registered and could be referenced.   
     """
 
-    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, pass_sequence=False, triggers={}, recovery={}, config={}):
+    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, pass_sequence=False, triggers={}, resources=[], recovery={}, config={}):
         '''
         Constructor
         '''
@@ -41,6 +41,8 @@ class Step(object):
         self.recovery=recovery
         self.config=config
         self.pass_sequence=pass_sequence
+        self.concurrent=0
+        self.resources=resources
         
         if not callable(func):
             raise EventorError('func must be callable: %s' % repr(func))
@@ -65,9 +67,9 @@ class Step(object):
         db.add_step(step_id=self.id_, name=self.name)
     
     def trigger_(self, db, sequence):
-        db.add_task(event_id=self.id_, sequence=sequence)
+        db.add_task(event_id=self.id_, sequence=sequence,status=TaskStatus.ready)
     
-    def trigger_if_not_exists(self, db, sequence, status=TaskStatus.ready, recovery=None):
+    def trigger_if_not_exists(self, db, sequence, status, recovery=None):
         added=db.add_task_if_not_exists(step_id=self.id_, sequence=sequence, status=status, recovery=recovery)
         return added
     
