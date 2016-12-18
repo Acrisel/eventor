@@ -28,6 +28,42 @@ class Info(Base):
     def __repr__(self):
         return "<Info(name='%s', value='%s')>" % (self.name, self.value)
 
+class Trigger(Base):
+    __tablename__ = 'Trigger'
+    
+    id_=Column(Integer, Sequence('trigger_id_seq'), primary_key=True)
+    event_id=Column(String, nullable=False)
+    sequence=Column(Integer, nullable=True)
+    recovery=Column(Integer, nullable=True)
+    created=Column(DateTime(), default=datetime.datetime.utcnow) 
+    acted=Column(DateTime(), nullable=True) 
+
+    def __repr__(self):
+        return "<Trigger(id='%s', event_id='%s', sequence='%s', recovery='%s', created='%s', acted='%s')>" % (
+            self.id_, self.event_id, self.sequence, self.recovery, self.created, self.acted)
+
+
+class Task(Base):
+    __tablename__ = 'Task'
+    
+    id_=Column(Integer, Sequence('task_id_seq'), primary_key=True)
+    step_id=Column(String, )
+    sequence=Column(Integer, )
+    recovery=Column(Integer, nullable=True)
+    pid=Column(Integer, nullable=True)
+    status=Column(SQLEnum(TaskStatus), ) 
+    result=Column(PickleType() , nullable=True,)
+    created=Column(DateTime(), default=datetime.datetime.utcnow) 
+    updated=Column(DateTime(), nullable=True, ) 
+    
+    __table_args__ = (
+            UniqueConstraint('step_id', 'sequence', 'recovery'),
+            )
+
+    def __repr__(self):
+        return "<Task(id='%s', step_id='%s', sequence='%s', recovery='%s', pid='%s', status='%s', created='%s', updated='%s')>" % (
+            self.id_, self.step_id, self.sequence, self.recovery, self.pid, self.status, self.created, self.updated)
+        
 '''
 class Step(Base):
     __tablename__ = 'Step'
@@ -76,45 +112,7 @@ class Assoc(Base):
     def __repr__(self):
         return "<Assoc(assoc_id='%s', event_id='%s', obj_type='%s', obj_id='%s', created='%s')>" % (
             self.id_, self.event_id, self.obj_type, self.obj_id, self.created)
-'''
 
-class Trigger(Base):
-    __tablename__ = 'Trigger'
-    
-    id_=Column(Integer, Sequence('trigger_id_seq'), primary_key=True)
-    event_id=Column(String, nullable=False)
-    sequence=Column(Integer, nullable=True)
-    recovery=Column(Integer, nullable=True)
-    created=Column(DateTime(), default=datetime.datetime.utcnow) 
-    acted=Column(DateTime(), nullable=True) 
-
-    def __repr__(self):
-        return "<Trigger(id='%s', event_id='%s', sequence='%s', recovery='%s', created='%s', acted='%s')>" % (
-            self.id_, self.event_id, self.sequence, self.recovery, self.created, self.acted)
-
-
-class Task(Base):
-    __tablename__ = 'Task'
-    
-    id_=Column(Integer, Sequence('task_id_seq'), primary_key=True)
-    step_id=Column(String, )
-    sequence=Column(Integer, )
-    recovery=Column(Integer, nullable=True)
-    pid=Column(Integer, nullable=True)
-    status=Column(SQLEnum(TaskStatus), ) 
-    result=Column(PickleType() , nullable=True,)
-    created=Column(DateTime(), default=datetime.datetime.utcnow) 
-    updated=Column(DateTime(), nullable=True, ) 
-    
-    __table_args__ = (
-            UniqueConstraint('step_id', 'sequence', 'recovery'),
-            )
-
-    def __repr__(self):
-        return "<Task(id='%s', step_id='%s', sequence='%s', recovery='%s', pid='%s', status='%s', created='%s', updated='%s')>" % (
-            self.id_, self.step_id, self.sequence, self.recovery, self.pid, self.status, self.created, self.updated)
-        
-'''
 class Registry(Base):
     __tablename__ = 'Registry'
     registry_id=Column(Integer, Sequence('registry_id_seq'), primary_key=True)

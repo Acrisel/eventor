@@ -15,20 +15,26 @@ class AssocType(Enum):
     
     
 class TaskStatus(Enum):
+    ''' Eventor internal task states
+    '''
     ready=1     # triggered to run by events, waiting for resources
-    staisfy=2   # resource satisfied, waiting to be activated
-    active=3    # running
-    success=4   # finished successfully
-    failure=5   # failed to finish
+    allocate=2  # resource allocation, waiting for allocation of resources
+    fueled=3   # resource satisfied, waiting to be activated
+    active=4    # running
+    success=5   # finished successfully
+    failure=6   # failed to finish
     
     
 class StepStatus(Enum):
+    ''' Programmer Step interface 
+    '''
     ready=1
-    staisfy=2
-    active=3
-    success=4
-    failure=5
-    complete=6 # finished wither successfully or with failure
+    allocate=2
+    fueled=3
+    active=4
+    success=5
+    failure=6
+    complete=7 # finished wither successfully or with failure
     
 def task_to_step_status(status):
     value=status.value

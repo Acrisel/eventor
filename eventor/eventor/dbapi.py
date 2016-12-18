@@ -5,24 +5,23 @@ Created on Oct 21, 2016
 '''
 
 from sqlalchemy import create_engine
-from sqlalchemy.sql.expression import update
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.scoping import scoped_session
-from sqlalchemy.exc import IntegrityError
 import logging
 import os
 import sys
 import sqlite3
 import multiprocessing 
 import threading
-from enum import Enum
 
 from eventor.dbschema import *
 from eventor.eventor_types import DbMode, Invoke
-from .utils import decorate_all, print_method
+#from .utils import decorate_all, print_method
 
 module_logger=logging.getLogger(__name__)
 #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
+class DbApiError(Exception): pass
 
 #class DbApiReplca(metaclass=decorate_all(print_method(module_logger.debug))):
 class DbApiReplca(object):
@@ -75,7 +74,7 @@ class DbApi(object):
             if mode == DbMode.write:
                 self.create_db(runfile)  
             else:
-                self.create_engine(runfile,)
+                self.__create_engine(runfile,)
             self.set_session() 
        
     def get_create_params(self, runfile):
@@ -93,7 +92,7 @@ class DbApi(object):
             creator=None
         return dns, creator
     
-    def create_engine(self, runfile):
+    def __create_engine(self, runfile):
         dns, creator=self.get_create_params(runfile)
         if creator:
             self.engine = create_engine(dns, creator=creator, echo=False, connect_args={'check_same_thread':False})
@@ -123,7 +122,7 @@ class DbApi(object):
         return DbApiReplca(mode=mode, value=value)
         
     def create_db(self, runfile):
-        self.create_engine(runfile)
+        self.__create_engine(runfile)
         Base.metadata.create_all(self.engine)
         
     def commit_db(self):
@@ -132,7 +131,7 @@ class DbApi(object):
         
     def read_db(self, runfile):
         # TODO: fix to serve resume
-        self.create_engine(runfile)
+        self.__create_engine(runfile)
         
     def write_info(self, **info):
         self.lock()
@@ -310,9 +309,30 @@ class DbApi(object):
         self.commit_db()
         self.release()
         
-    def get_task_iter(self, recovery, status):
+    def update_task_status(self, task, status, session=None,):
         self.lock()
-        rows = self.session.query(Task).filter(Task.status.in_(status)).all()
+        if isinstance(task, int):
+            task_id=task
+        elif isinstance(task, Task):
+            task_id=task.id_
+        else:
+            raise DbApiError("Unknown task type (%s), expected int or Task" % (type(task), ))
+        
+        if not session:
+            session=self.session
+        updated=datetime.datetime.utcnow()
+        updates={Task.status: status, Task.updated: updated,}                                               
+        self.session.query(Task).filter(Task.id_==task_id).update(updates, synchronize_session=False)
+        self.commit_db()
+        self.release()
+        
+    def get_task_iter(self, recovery, status=None):
+        self.lock()
+        rows = self.session.query(Task)
+        if status:
+            rows = self.session.query(Task).filter(Task.status.in_(status)).all()
+        else:
+            rows = self.session.query(Task).all()
         self.release()
         return rows  
     

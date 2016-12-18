@@ -3,13 +3,11 @@ Created on Oct 19, 2016
 
 @author: arnon
 '''
-from inspect import isfunction
 import logging
 import pprint
 
-from .dbapi import DbApi
 from .eventor_types import EventorError, TaskStatus
-from .utils import decorate_all
+#from .utils import decorate_all, print_method_name
 
 module_logger=logging.getLogger(__name__)
 
@@ -27,7 +25,7 @@ class Step(object):
         also registered and could be referenced.   
     """
 
-    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, pass_sequence=False, triggers={}, resources=[], recovery={}, config={}):
+    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, triggers={}, acquires=None, releases=None, recovery={}, config={}):
         '''
         Constructor
         '''
@@ -40,11 +38,12 @@ class Step(object):
         self.triggers=triggers
         self.recovery=recovery
         self.config=config
-        self.pass_sequence=pass_sequence
+        #self.pass_sequence=pass_sequence
         self.concurrent=0
-        self.resources=resources
+        self.acquires=acquires
+        self.releases=releases if releases is not None else acquires
         
-        if not callable(func):
+        if func is not None and not callable(func):
             raise EventorError('func must be callable: %s' % repr(func))
         
         self.path=None
@@ -73,14 +72,19 @@ class Step(object):
         added=db.add_task_if_not_exists(step_id=self.id_, sequence=sequence, status=status, recovery=recovery)
         return added
     
-    def __call__(self, seq_path=None, loop_value=None):
+    def __call__(self, seq_path=None, loop_value=None,):
         module_logger.debug('[ Step %s/%s ] Starting: %s' % (self.name, seq_path, repr(self) ))
-        func=self.func
-        func_args=self.func_args
-        func_kwargs=self.func_kwargs
-        if self.pass_sequence:
-            self.func_kwargs.update({'eventor_task_sequence': seq_path})
-        #stop_on_exception=self.config['stop_on_exception']
-        result=func(*func_args, **func_kwargs)
+        if self.func is not None:
+            func=self.func
+            func_args=self.func_args
+            func_kwargs=self.func_kwargs
+            if self.config['pass_sequence']:
+                self.func_kwargs.update({'eventor_task_sequence': seq_path})
+            #if self.config['pass_resources']:
+            #    self.func_kwargs.update({'eventor_task_resoures': resources})
+            #stop_on_exception=self.config['stop_on_exception']
+            result=func(*func_args, **func_kwargs)
+        else:
+            result=True
         module_logger.debug('[ Step %s/%s ] Completed: %s' % (self.name, seq_path, repr(self) ))
         return result

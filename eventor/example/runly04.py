@@ -72,8 +72,8 @@ ev2s=ev.add_event('run_s2')
 ev3s=ev.add_event('run_s3')
 
 metaprog=MetaProg(ev=ev, progname='', loop=[1,2,], triggers=(ev1s,))
-s0first=ev.add_step('s0first', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
-s0next=ev.add_step('s0next', func=metaprog, config={'task_construct': threading.Thread})
+s0first=ev.add_step('s0first', func=metaprog, kwargs={'initial': True}, config={'task_construct': evr.Invoke})
+s0next=ev.add_step('s0next', func=metaprog, config={'task_construct': evr.Invoke})
 
 s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
 s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })

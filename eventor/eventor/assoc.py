@@ -4,12 +4,9 @@ Created on Oct 31, 2016
 @author: arnon
 '''
 
-from .utils import get_event_id, is_require_op, op_to_lambda
 from .step import Step
-from collections import OrderedDict
 import logging
 #from .dbschema import Assoc as AssocDb
-from .step import Step
 from .event import Event
 from .eventor_types import EventorError
 
@@ -35,5 +32,3 @@ class Assoc(object):
 
     #def db_write(self, db):
     #    db.add_assoc(event_id=self.event.id, obj_type=type(self.assoc_obj), obj_id=self.assoc_obj.id)
-        
- 

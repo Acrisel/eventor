@@ -6,6 +6,7 @@ Created on Nov 23, 2016
 
 import logging
 from acris import Sequence, MpLogger, MergedChainedDict
+from acris import virtual_resource_pool as vrp
 import multiprocessing as mp
 from collections import namedtuple
 import inspect
@@ -26,8 +27,8 @@ from eventor.dbschema import Task
 
 module_logger=logging.getLogger(__name__)
 
-from .utils import decorate_all, print_method
-
+#from acris.decorated_class import traced_method
+#traced=traced_method(None, True)
 
 class TaskAdminMsgType(Enum):
     result=1
@@ -36,7 +37,12 @@ class TaskAdminMsgType(Enum):
 TaskAdminMsg=namedtuple('TaskAdminMsg', ['msg_type', 'value', ])
 TriggerRequest=namedtuple('TriggerRequest', ['type', 'value'])
 
-
+class ResourceAllocationCallback(object):
+    def __init__(self, notify_queue):
+        self.q=notify_queue
+        
+    def __call__(self,resources=None):
+        self.q.put(resources)
 
 def task_wrapper(task=None, step=None, adminq=None):
     ''' 
@@ -60,7 +66,8 @@ def task_wrapper(task=None, step=None, adminq=None):
     module_logger.info('[ Step {}/{} ] Trying to run'.format(step.name, task.sequence))
     
     try:
-        result=step(seq_path=task.sequence)
+        # todo: need to pass task resources.
+        result=step(seq_path=task.sequence, )
     except Exception as e:
         trace=inspect.trace()
         trace=traces(trace) #[2:]
@@ -78,6 +85,29 @@ def task_wrapper(task=None, step=None, adminq=None):
 class EventorState(Enum):
     active=1
     shutdown=2
+    
+class RpCallback(object):
+    def __init__(self, notify_queue, task_id=''):
+        self.q=notify_queue
+        self.task_id=task_id
+    #def get_name(self):
+    #    return self.name
+    def __call__(self,ready=False):
+        self.q.put( self.task_id )
+
+class Memtask(object):
+    def __init__(self, task, ):
+        self.id_=task.id_
+        self.step_id=task.step_id
+        self.sequence=task.sequence
+        self.requestor=None
+        self.fueled=False
+        self.request_id=None
+        #self.resources=None
+        
+    #def __del__(self):
+    #    if self.requestor and self.resources:
+    #        self.requestor.put(*self.resources)
     
 #class Eventor(metaclass=decorate_all(print_method(module_logger.debug))):
 class Eventor(object):
@@ -101,11 +131,14 @@ class Eventor(object):
                      #'synchrous_run': False, 
                      'max_concurrent': -1, 
                      'stop_on_exception': True,
-                     'sleep_between_loops': 1,
+                     'sleep_between_loops': 0.1,
+                     'pass_sequence': False,
+                     #'pass_resources': False,
                      }  
     
     recovery_defaults={StepStatus.ready: StepReplay.rerun, 
-                       StepStatus.staisfy: StepReplay.rerun, 
+                      StepStatus.allocate: StepReplay.rerun, 
+                       StepStatus.fueled: StepReplay.rerun, 
                        StepStatus.active: StepReplay.rerun, 
                        StepStatus.failure: StepReplay.rerun, 
                        StepStatus.success: StepReplay.skip,}  
@@ -138,11 +171,15 @@ class Eventor(object):
                 N/A
         """
         self.name=''
-        self.config=MergedChainedDict(config, os.environ, Eventor.config_defaults) 
-        self.controlq=mp.Queue()
+        self.__config=MergedChainedDict(config, os.environ, Eventor.config_defaults) 
+        self.__controlq=mp.Queue()
         self.__steps=dict() 
+        #self.__acquires=dict() 
+        #self.__releases=dict() 
+        self.__tasks=dict() 
         self.events=dict() 
         self.assocs=dict()
+        self.__rp_notify=queue.Queue()
         
         if dedicated_logging:
             logging_root='.'.join(__name__.split('.')[:-1])
@@ -152,7 +189,7 @@ class Eventor(object):
                         'default':   "[ %(asctime)-15s ][ %(levelname)-7s ][ %(message)s ]",
                         }
         
-        self.logger=MpLogger(logging_level=logging_level, level_formats=level_formats, logging_root=logging_root, logdir=self.config['logdir'])
+        self.logger=MpLogger(logging_level=logging_level, level_formats=level_formats, logging_root=logging_root, logdir=self.__config['logdir'])
         self.logger.start()
         
         self.calling_module=calling_module()
@@ -161,25 +198,27 @@ class Eventor(object):
         module_logger.info("Eventor store file: %s" % self.filename)
         #self.db=DbApi(self.filename)
         self.adminq=mp.Queue()
+        self.__resource_notification_queue=mp.Queue()
         self.requestq=queue.Queue()
         self.task_proc=dict()
         self.state=EventorState.active
         
         db_mode=DbMode.write if run_mode==RunMode.restart else DbMode.append
         self.db=DbApi(self.filename, mode=db_mode)
+        self.__requestors=vrp.Requestors()
         
         rest_sequences()
         
         if run_mode == RunMode.restart:
-            self.write_info()
+            self.__write_info()
         else: # recover
-            self.read_info(recovery_run)
+            self.__read_info(recovery_run)
         
     def __repr__(self):
         steps='\n'.join([ repr(step) for step in self.__steps.values()])
         events='\n'.join([ repr(event) for event in self.events.values()])
         assocs='\n'.join([ repr(assoc) for assoc in self.assocs.values()])
-        result="Steps( name( {} ) events( {} ) steps( {} ) assocs( {} )  )".format(self.path, events, steps, assocs)
+        result="Steps( name( {} ) events( {} ) steps( {} ) assocs( {} )  )".format(self.name, events, steps, assocs)
         return result
         
     def __str__(self):
@@ -189,7 +228,7 @@ class Eventor(object):
         result="Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )\n    assocs( \n    {}\n   )  )".format(self.name, events, steps, assocs)
         return result
     
-    def write_info(self):
+    def __write_info(self):
         self.recovery=0
         info={'version': __version__,
               'program': self.calling_module,
@@ -199,7 +238,7 @@ class Eventor(object):
         self.previous_triggers=None
         self.previous_tasks=None
     
-    def read_info(self, recovery_run=None):
+    def __read_info(self, recovery_run=None):
         self.info=self.db.read_info()
         recovery=recovery_run
         if recovery is None:
@@ -209,7 +248,7 @@ class Eventor(object):
         self.previous_triggers=self.db.get_trigger_map(recovery=recovery)
         self.previous_tasks=self.db.get_task_map(recovery=recovery)
 
-    def convert_trigger_at_complete(self, triggers):
+    def __convert_trigger_at_complete(self, triggers):
         at_compete=triggers.get(StepStatus.complete)
         if at_compete:
             del triggers[StepStatus.complete]
@@ -221,7 +260,7 @@ class Eventor(object):
             triggers[StepStatus.success]=at_success
         return triggers
           
-    def convert_recovery_at_complete(self, recovery):
+    def __convert_recovery_at_complete(self, recovery):
         at_compete=recovery.get(StepStatus.complete)
         if at_compete is not None:
             del recovery[StepStatus.complete]
@@ -256,14 +295,18 @@ class Eventor(object):
     def get_step(self, name):
         return self.__steps.get(name, None)
     
-    def add_step(self, name, func, args=(), kwargs={}, pass_sequence=False, triggers={}, resources=[], recovery={}, config={}):
+    def add_step(self, name, func=None, args=(), kwargs={}, triggers={}, acquires=None, releases=None, recovery={}, config={}):
         """add a step to steps object
     
         config parameters can include the following keys:
             - stop_on_exception=True
+            - pass_sequence=False : when set, eventor_task_sequence keyword argument will be passed to step
+            #- pass_resources=False: when set, eventor_task_resources keyword argument will be passed to step
             
         Args:
             name: (string) unique identifier
+            
+            func: (callable) if provided, will be called when step is activated; otherwise its nope step.
             
             func_args: args to pass step when executing
             
@@ -271,9 +314,12 @@ class Eventor(object):
             
             config: additional dict of keywords configuration 
             
-            pass_sequence: when True, eventor_task_sequence argument will be added to provided kwargs.
-            
             triggers: set of events to trigger once step processing is done
+            
+            acquires: list of resources to acquire before starting
+            
+            releases: list of resources to release once done; 
+                defaults to acquires. if not provided.
             
             recovery: instructions on how to deal with 
                 default: {TaskStatus.failure: StepReplay.rerun, 
@@ -292,13 +338,13 @@ class Eventor(object):
         else:
             return step
         
-        triggers=self.convert_trigger_at_complete(triggers)
-        recovery=self.convert_recovery_at_complete(recovery)
+        triggers=self.__convert_trigger_at_complete(triggers)
+        recovery=self.__convert_recovery_at_complete(recovery)
         recovery=MergedChainedDict(recovery, Eventor.recovery_defaults)
         recovery=dict([(step_to_task_status(status), replay) for status, replay in recovery.items()])
         
-        config=MergedChainedDict(config, self.config, os.environ,)
-        step=Step(name=name, func=func, func_args=args, func_kwargs=kwargs, pass_sequence=pass_sequence, resources=resources, config=config, triggers=triggers, recovery=recovery)
+        config=MergedChainedDict(config, self.__config, os.environ,)
+        step=Step(name=name, func=func, func_args=args, func_kwargs=kwargs, acquires=acquires, releases=releases, config=config, triggers=triggers, recovery=recovery)
         found=self.__steps.get(step.id_)
         if found:
             raise EventorError("Step with similar name already defined: %s" % step.id_)
@@ -366,7 +412,7 @@ class Eventor(object):
     def trigger_step(self, step, sequence):
         """Activates step 
         
-            Activate step by registering it in task table and invoking its function. 
+            Activate step by registering it in task table are 'ready'.  Task loop will pick it up for processing. 
         
             Args:
                 step: (Step) object returned from add_step()
@@ -381,10 +427,10 @@ class Eventor(object):
         """
         task=step.trigger_if_not_exists(self.db, sequence, status=TaskStatus.ready, recovery=self.recovery)
         if task:
-            self.triggers_at_task_change(task)
+            self.__triggers_at_task_change(task)
         return task is not None
     
-    def loop_trigger_request(self):
+    def __loop_trigger_request(self):
         while True:   
             try:
                 request=self.requestq.get_nowait() 
@@ -432,7 +478,7 @@ class Eventor(object):
         
         return list(set(assoc_events)), list(set(assoc_steps))
 
-    def loop_event(self):
+    def __loop_event(self):
         loop_seq=Sequence('EventLoop')
         self.loop_id=loop_seq() 
             
@@ -490,7 +536,7 @@ class Eventor(object):
                         
         return list(set(event_seqs)), list(set(step_seqs))                  
     
-    def log_error(self, task, stop_on_exception):
+    def __log_error(self, task, stop_on_exception):
         logutil=module_logger.error if stop_on_exception else module_logger.warning
         err_exception, pickle_trace=task.result
         err_trace=pickle.loads(pickle_trace)
@@ -500,14 +546,16 @@ class Eventor(object):
         trace='\n'.join([line.rstrip() for line in err_trace])
         if trace: logutil("%s" % (trace, ) )
 
-    def apply_task_result(self, task):
+    def __apply_task_result(self, task):
         self.db.update_task(task=task)
-        triggered=self.triggers_at_task_change(task)
+        if task.status in [TaskStatus.success, TaskStatus.failure]:
+            self.__release_task_resources(task)
+        triggered=self.__triggers_at_task_change(task)
         return triggered
     
-    def collect_results(self,):
+    def __collect_results(self,):
         #module_logger.debug('Collecting results') 
-        stop_on_exception=self.config['stop_on_exception']
+        stop_on_exception=self.__config['stop_on_exception']
         #successes=dict([('count', list()), ('triggered', list())])
         #failures=dict([('count', list()), ('triggered', list())])
         result=True
@@ -530,10 +578,10 @@ class Eventor(object):
                     del self.task_proc[task.id_]  
                     step=self.__steps[task.step_id]
                     step.concurrent-=1
-                    triggered=self.apply_task_result(task)
+                    triggered=self.__apply_task_result(task)
                     shutdown=(len(triggered) == 0 or stop_on_exception) and task.status == TaskStatus.failure 
                     if task.status==TaskStatus.failure:
-                        self.log_error(task, shutdown)
+                        self.__log_error(task, shutdown)
                     if shutdown:
                         module_logger.info("Stopping running processes") 
                         self.state=EventorState.shutdown
@@ -547,7 +595,7 @@ class Eventor(object):
              
         return result
     
-    def triggers_at_task_change(self, task):
+    def __triggers_at_task_change(self, task):
         step=self.__steps[task.step_id]
         status=task_to_step_status(task.status)
         triggers=step.triggers.get(status, None)
@@ -560,7 +608,7 @@ class Eventor(object):
                     module_logger.debug("Triggered post task: %s[%s]" % (repr(event.id_), task.sequence))
         return triggered
             
-    def initiate_task(self, task, previous_task=None):
+    def __initiate_task(self, task, previous_task=None):
         ''' Playing synchronous action.  
             
         Algorithm:
@@ -583,9 +631,8 @@ class Eventor(object):
             # TODO: add join when synchronus
             kwds={'task':task, 'step': self.__steps[task.step_id], 'adminq': self.adminq, }
             if max_concurrent <0 or step.concurrent < max_concurrent: # no-limit
-                task.status=TaskStatus.active
-                self.db.update_task(task)
-                triggered=self.triggers_at_task_change(task)
+                self.__update_task_status(task, TaskStatus.active)
+                triggered=self.__triggers_at_task_change(task)
                 task_construct=step.config['task_construct']
                 module_logger.debug('[ Task {} ] Going to construct ({}/{}) and run task:\n    {}'.format(task.step_id, task.sequence, task_construct, repr(task), ))
                 proc=task_construct(target=task_wrapper, kwargs=kwds)
@@ -612,11 +659,66 @@ class Eventor(object):
             # TODO: make sure htis works
             # on skip
             task.status=TaskStatus.success
-            triggered=self.apply_task_result(task)
+            triggered=self.__apply_task_result(task)
             
         return triggered
     
-    def loop_task(self,):
+    def __loop_awating_resource_allocation(self):
+        while True:
+            module_logger.debug("Trying to receive resources" )
+            try:
+                task_id=self.__rp_notify.get_nowait()
+            except queue.Empty:
+                break
+            
+            memtask=self.__tasks.get(task_id, None)    
+            step=self.__steps[memtask.step_id]
+            module_logger.debug("Received resources for task %s" % (step.name, ))
+
+            memtask.resources=self.__requestors.get(memtask.request_id)
+            self.__update_task_status(memtask, TaskStatus.fueled)
+    
+    def __update_task_status(self, task, status):
+        #task.status=status    
+        self.db.update_task_status(task=task.id_, status=status)
+        
+    def __release_task_resources(self, task):
+        step=self.__steps[task.step_id]
+        if step.releases is not None:
+            self.__requestors.put_requested(step.releases)
+            #memtask=self.__tasks.get(task.id_, None)
+            #if memtask is not None:
+            #    if memtask.requestor and memtask.resources:
+            #        # need to release resources
+            #        module_logger.debug("[] Releasing task resource: ")
+            #        memtask.requestor.put(*memtask.resources)  
+
+    def __allocate_resources_for_task(self, task, previous_task=None):
+        ''' Request resources for task.  
+            
+        When satisfied, change status to .
+        '''
+        step=self.__steps[task.step_id]
+        
+        memtask=self.__tasks.get(task.id_, None)
+        if memtask is None:
+            memtask=Memtask(task)
+            self.__tasks[task.id_]=memtask
+        # need to allocate resources from all requested pools.
+        # requests uses callback as a method to request all resources 
+        # once all resources are collected, task is satisfied.
+        
+        #ResourceAllocationCallback(self.__resource_notification_queue)
+        
+        if not memtask.fueled :
+            # not requested resources yet
+            rp_callback=RpCallback(self.__rp_notify, task_id=task.id_)
+            #requestors=vrp.Requestors(request=step.acquires, callback=rp_callback, audit=False)
+            module_logger.debug("Going to reserve resources %s: %s" % (step.name, step.acquires, ))
+            memtask.request_id=self.__requestors.reserve(request=step.acquires, callback=rp_callback)
+            self.__update_task_status(memtask, TaskStatus.allocate)
+            
+    def __loop_task(self,):
         ''' evaluate ready tasks to initiate.
         
         loop_task will do its work only if eventor state is active.
@@ -626,34 +728,46 @@ class Eventor(object):
         
         # all items are pulled so active can also be monitored for timely end
         if self.state==EventorState.active:
-            tasks=self.db.get_task_iter(recovery=self.recovery, status=[TaskStatus.ready,])
+            tasks=self.db.get_task_iter(recovery=self.recovery,status=[TaskStatus.ready, TaskStatus.allocate, TaskStatus.fueled, TaskStatus.active ])
             for task in tasks:
+                step=self.__steps[task.step_id]
                 try:
                     previous_task=self.previous_tasks[task.sequence][task.step_id]
                 except (KeyError, TypeError):
                     previous_task=None
-
-                self.initiate_task(task, previous_task)
+                
+                if task.status == TaskStatus.fueled or (task.status == TaskStatus.ready and not step.acquires):
+                    self.__initiate_task(task, previous_task)
+                elif task.status == TaskStatus.ready : # task.status == TaskStatus.ready and has resources to satisfy
+                    self.__allocate_resources_for_task(task, previous_task)
+                elif TaskStatus.allocate:
+                    # TODO: check if expired - if so, halt
+                    pass
+                else: # active
+                    # TODO: check run time allowance passed - if so, halt
+                    pass
+                    
         
-        result=self.collect_results()
+        result=self.__collect_results()
         
         return result
 
-    def loop_once(self, ):
+    def __loop_once(self, ):
         ''' run single iteration over triggers to see if other events and associations needs to be launched.
         
         loop event: to see if new triggers matured
         loop task: to see if there is anything to run 
         '''
-        self.loop_event()
-        result = self.loop_task()
-        self.loop_trigger_request()
+        self.__loop_event()
+        result = self.__loop_task()
+        self.__loop_trigger_request()
+        self.__loop_awating_resource_allocation()
         return result
     
     def __check_control(self):
         loop=True
-        if not self.controlq.empty():
-            msg=self.controlq.get()        
+        if not self.__controlq.empty():
+            msg=self.__controlq.get()        
             if msg:
                 loop=msg not in [LoopControl.stop]
                 #self.act=msg in [LoopControl.start]
@@ -661,7 +775,7 @@ class Eventor(object):
     
     def count_todos(self, sequence=None):
         todo_triggers=0
-        task_to_count=[TaskStatus.active, TaskStatus.staisfy, TaskStatus.ready,]
+        task_to_count=[TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
         if self.state == EventorState.active:
             todo_triggers=self.db.count_trigger_ready(sequence=sequence, recovery=self.recovery)
         else:
@@ -681,7 +795,7 @@ class Eventor(object):
             Count of in process 
         '''
         todo_triggers=0
-        task_to_count=[TaskStatus.active, TaskStatus.staisfy, TaskStatus.ready,]
+        task_to_count=[TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
         # If step (mega-step) is active, needs to add triggers ready.
         # else, we need to take only those tasks tat are active
         if self.state == EventorState.active:
@@ -705,12 +819,12 @@ class Eventor(object):
         
         '''
         module_logger.debug('Starting loop session')
-        sleep_loop=self.config['sleep_between_loops']
+        sleep_loop=self.__config['sleep_between_loops']
         loop=True
         self.db.set_thread_synchronization(True)
         
         while loop:
-            result=self.loop_once()
+            result=self.__loop_once()
             # count ready triggers only if state is active
             # count ready tasks only if active
             total_todo=self.count_todos()                       
@@ -729,7 +843,7 @@ class Eventor(object):
         return result
     
     def loop_session_stop(self):
-        self.controlq.put(LoopControl.stop)
+        self.__controlq.put(LoopControl.stop)
         
     def get_step_sequence(self):
         result=os.environ.get('EVENTOR_STEP_SEQUENCE', '')
