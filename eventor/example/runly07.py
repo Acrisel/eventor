@@ -91,7 +91,7 @@ ev0next=ev.add_event('s0_next')
 ev0end=ev.add_event('s0_end')
 ev00first=ev.add_event('s0_00_start')
 ev00next=ev.add_event('s0_s00_next')
-ev00end=ev.add_event('s00_end')
+ev00end=ev.add_event('s0_s00_end')
 ev1s=ev.add_event('s0_s00_s1_start')
 ev1success=ev.add_event('s0_s00_s1_success')
 ev2s=ev.add_event('s0_s00_s2_start', expr=(ev1success,))
@@ -108,17 +108,15 @@ s0first=ev.add_step('s0_start', func=metaprog1, kwargs={'do': 'init', }, acquire
 s0next=ev.add_step('s0_next', func=metaprog1, config={'task_construct': evr.Invoke})
 s0end=ev.add_step('s0_end', releases=[(rp1, 1), ], config={'task_construct': evr.Invoke})
   
-
 metaprog2=Container(ev=ev, progname='00', loop=[1,2,], max_concurrent=2, iter_triggers=(ev1s,), end_triggers=(ev00end,))
 s00first=ev.add_step('s0_s00_start', func=metaprog2, kwargs={'do': 'init', }, acquires=[(rp2, 1), ], releases=[], 
                      config={'max_concurrent': -1, 'task_construct': evr.Invoke,})
 s00next=ev.add_step('s0_s00_next', func=metaprog2, config={'task_construct': evr.Invoke,})
-s00end=ev.add_step('s0_s00_next', releases=[(rp2, 1),], config={'task_construct': evr.Invoke,})
+s00end=ev.add_step('s0_s00_end', releases=[(rp2, 1),], config={'task_construct': evr.Invoke,}, triggers={evr.StepStatus.success: (ev0next,), })
 
 s1=ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
-s2=ev.add_step('s0.s00.s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev00next,), })
-
-s3=ev.add_step('s0.s00.s3', func=prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev0next,), })
+s2=ev.add_step('s0.s00.s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
+s3=ev.add_step('s0.s00.s3', func=prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
 
 ev.add_assoc(ev0first, s0first)
 ev.add_assoc(ev0next, s0next)
@@ -128,7 +126,7 @@ ev.add_assoc(ev00next, s00next)
 ev.add_assoc(ev00end, s00end)
 ev.add_assoc(ev1s, s1)
 ev.add_assoc(ev2s, s2)
-ev.add_assoc(ev00end, ev3s)
+#ev.add_assoc(ev00end, s0next)
 ev.add_assoc(ev3s, s3)
 
 ev.trigger_event(ev0first)

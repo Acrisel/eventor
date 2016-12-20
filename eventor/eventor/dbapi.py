@@ -350,18 +350,20 @@ class DbApi(object):
         self.release()
         return task_map
     
-    #def count_tasks(self, recovery, status=[TaskStatus.active, TaskStatus.ready,], sequence=None):
     def count_tasks(self, recovery, status, sequence=None):
         self.lock()
+        #print("Counting status: %s, sequence: %s" % (status, sequence))
         with self.session.no_autoflush:
-            members=self.session.query(Task).filter(Task.status.in_(status), Task.recovery==recovery)
+            members=self.session.query(Task)
+        #for member in members:
+        #    print(member)
+        members=members.filter(Task.status.in_(status), Task.recovery==recovery)
         if sequence:
             members=members.filter(Task.sequence==sequence)
         count=members.count()
         self.release()
         return count
     
-    #def count_tasks_like(self, sequence, recovery, status=[TaskStatus.active, TaskStatus.ready,]):
     def count_tasks_like(self, sequence, recovery, status):
         self.lock()
         with self.session.no_autoflush:

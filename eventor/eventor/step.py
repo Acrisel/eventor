@@ -78,8 +78,9 @@ class Step(object):
             func=self.func
             func_args=self.func_args
             func_kwargs=self.func_kwargs
-            if self.config['pass_sequence']:
-                self.func_kwargs.update({'eventor_task_sequence': seq_path})
+            sequence_arg_name=self.config['sequence_arg_name']
+            if sequence_arg_name:
+                self.func_kwargs.update({sequence_arg_name: seq_path})
             #if self.config['pass_resources']:
             #    self.func_kwargs.update({'eventor_task_resoures': resources})
             #stop_on_exception=self.config['stop_on_exception']

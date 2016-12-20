@@ -5,6 +5,7 @@ Created on Nov 23, 2016
 '''
 
 from enum import Enum
+from acris.threaded import threaded
 
 class EventorError(Exception):
     pass
@@ -74,9 +75,17 @@ class Invoke(object):
         self.target=target
         self.args=args
         self.kwargs=kwargs
+        self.is_alive_flag=False
         
     def start(self,):
-        return self.target(*self.args, **self.kwargs)
+        self.is_alive_flag=True
+        result=self.target(*self.args, **self.kwargs)
+        self.is_alive_flag=False
+        return result
     
     def join(self):
         return
+    
+    @threaded
+    def is_alive(self):
+        return self.is_alive_flag

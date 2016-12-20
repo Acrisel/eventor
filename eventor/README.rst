@@ -170,7 +170,7 @@ Eventor add_step method
 
     .. code-block:: python
         
-        add_step(name, func, args=(), kwargs={}, triggers={}, recovery={}, config={})
+        add_step(name, func, args=(), kwargs={}, triggers={}, acquires=[], releases=None, recovery={}, config={})
 
 Args
 ````
@@ -199,6 +199,9 @@ Args
         | StepState.complete | stands for success or failure of task     |
         +--------------------+-------------------------------------------+
         
+    *acquires*: list of tuples of resource pool and amount of resources to acquire before starting. 
+    
+    *releases*: list of tuples of resources pool and amount of resources to release once completed. If None, defaults to *acquires*.  If set to empty list, none of the acquired resources would be released.
         
     *recovery*: mapping of state status to how step should be handled in recovery:
     
@@ -380,6 +383,37 @@ Example Highlights
     The second build and run is then initiated.  In this run, parameter is set to a value that would pass 
     step *s2* and run mode is set to recovery (code lines 51-52). Eventor skips successful steps and start 
     executing from failed steps onwards.  Output lines 18-25 reflects successful second run.
+    
+Resources
+=========
+
+    *add_step* allows association of step with resources.  If acquires argument is provided, before step starts, *Eventor* 
+    will attempt to reserve resources.  Step will be executed only when resources are secured.
+    
+    When *release* argument is provided, resources resources listed as its value will be released when step is done.  If 
+    release is None, whatever resources stated by *acquires* would be released.  If the empty list is set as value, no 
+    resource would be released.
+    
+    To use resources, program to use Resource and ResourcePool from acris.virtual_resource_pool.  Example for such definitions are below.
+    
+Example for resources definitions
+---------------------------------
+
+    .. code:: 
+        :number-lines:
+        
+        import eventor as evr
+        from acris.virtual_resource_pool import Resource, ResourcePool
+
+        class Resources1(Resource): pass
+        class Resources2(Resource): pass
+        
+        rp1=rp.ResourcePool('RP1', resource_cls=Resources1, policy={'resource_limit': 2, }).load()                   
+        rp2=rp.ResourcePool('RP2', resource_cls=Resources2, policy={'resource_limit': 2, }).load()
+        
+        ev=evr.Eventor( logging_level=logging.INFO, )
+        
+        s1=ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, acquires=[(rp2, 1), ],) 
     
 ----------------------
 Additional Information
