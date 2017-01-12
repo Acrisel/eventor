@@ -403,13 +403,13 @@ Example for resources definitions
         :number-lines:
         
         import eventor as evr
-        from acris.virtual_resource_pool import Resource, ResourcePool
+        from acris import virtual_resource_pool as vrp
 
-        class Resources1(Resource): pass
-        class Resources2(Resource): pass
+        class Resources1(vrp.Resource): pass
+        class Resources2(vrp.Resource): pass
         
-        rp1=rp.ResourcePool('RP1', resource_cls=Resources1, policy={'resource_limit': 2, }).load()                   
-        rp2=rp.ResourcePool('RP2', resource_cls=Resources2, policy={'resource_limit': 2, }).load()
+        rp1=vrp.ResourcePool('RP1', resource_cls=Resources1, policy={'resource_limit': 2, }).load()                   
+        rp2=vrp.ResourcePool('RP2', resource_cls=Resources2, policy={'resource_limit': 2, }).load()
         
         ev=evr.Eventor( logging_level=logging.INFO, )
         

@@ -80,7 +80,7 @@ class Container(object):
         return True
         
 
-ev=evr.Eventor( logging_level=logging.DEBUG) # store=':memory:',
+ev=evr.Eventor( logging_level=logging.INFO) # store=':memory:',
 
 ev0first=ev.add_event('s0_start')
 ev0next=ev.add_event('s0_next')

@@ -27,7 +27,7 @@ from eventor.dbschema import Task
 
 module_logger=logging.getLogger(__name__)
 
-from acris.decorated_class import traced_method
+from acris import traced_method
 from eventor.utils import decorate_all, print_method
 #traced=traced_method(None, True)
 
@@ -789,7 +789,7 @@ class Eventor(object):
         
         return result
 
-    def __loop_once(self, ):
+    def loop_once(self, ):
         ''' run single iteration over triggers to see if other events and associations needs to be launched.
         
         loop event: to see if new triggers matured
@@ -863,7 +863,7 @@ class Eventor(object):
         self.db.set_thread_synchronization(True)
         
         while loop:
-            result=self.__loop_once()
+            result=self.loop_once()
             # count ready triggers only if state is active
             # count ready tasks only if active
             total_todo=self.count_todos()                       

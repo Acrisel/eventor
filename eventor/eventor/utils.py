@@ -88,7 +88,7 @@ def traces(trace):
 
 
 def calling_module(depth=2):
-    frame_records = inspect.stack()[2]
+    frame_records = inspect.stack()[depth]
     return frame_records.filename
 
 def store_from_module(module, module_location=False):

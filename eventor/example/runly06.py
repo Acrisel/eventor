@@ -53,18 +53,18 @@ API DOC:
 import eventor as evr
 import logging
 import os
-from acris.virtual_resource_pool import Resource, ResourcePool
+from acris import virtual_resource_pool as vrp
 
 logger=logging.getLogger(__name__)
 
-class StepResource(Resource): pass
+class StepResource(vrp.Resource): pass
 
 def prog(progname):
     logger.info("doing what %s is doing" % progname)
     logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
     return progname
 
-rp1=ResourcePool('rp1', resource_cls=StepResource, policy={'resource_limit': 2, }).load()
+rp1=vrp.ResourcePool('rp1', resource_cls=StepResource, policy={'resource_limit': 2, }).load()
 
 #ev=evr.Eventor(store=':memory:', logging_level=logging.INFO)
 ev=evr.Eventor(logging_level=logging.DEBUG)

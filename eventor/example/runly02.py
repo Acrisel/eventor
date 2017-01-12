@@ -58,7 +58,7 @@ logger=logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 #ev=evr.Eventor(filename=':memory:')
-ev=evr.Eventor(run_mode=evr.RunMode.restart, logging_level=logging.DEBUG)
+ev=evr.Eventor(run_mode=evr.RunMode.restart, logging_level=logging.INFO)
 
 ev1s=ev.add_event('run_step1')
 ev1d=ev.add_event('done_step1')

@@ -25,7 +25,7 @@ import logging
 import collections
 import queue
 from enum import Enum
-import acris.virtual_resource_pool as rp
+from acris import virtual_resource_pool as rp
 
 logger=logging.getLogger(__name__)
 

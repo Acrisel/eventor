@@ -83,7 +83,7 @@ setup_info={'name': NAME,
  'packages': [PACKAGE],
  'install_requires': [
      'SQLAlchemy>=1.1',
-     'acris>=1.1.13',
+     'acris>=2.0.2',
      ],
  'extras_require': {'dev': [], 'test': []},
  'classifiers': ['Development Status :: 5 - Production/Stable',
