@@ -69,8 +69,8 @@ class Event(object):
     def __str__(self):
         return repr(self)
     
-    def db_write(self, db):
-        db.add_event(event_id=self.id_, name=self.name,)
+    #def db_write(self, db):
+    #    db.add_event(event_id=self.id_, name=self.name,)
     
     def trigger_(self, db, sequence):
         db.add_trigger(event_id=self.id_, sequence=sequence)

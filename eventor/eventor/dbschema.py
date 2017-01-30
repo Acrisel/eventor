@@ -5,9 +5,9 @@ Created on Oct 21, 2016
 '''
 
 from sqlalchemy import Column, UniqueConstraint, Sequence, create_engine
-from sqlalchemy import Integer, String, PickleType, DateTime
+from sqlalchemy import Integer, BigInteger, String, PickleType, DateTime, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-import datetime
+from datetime import datetime
 from sqlalchemy import Enum as SQLEnum
 
 from eventor.eventor_types import TaskStatus
@@ -33,9 +33,9 @@ class Trigger(Base):
     
     id_=Column(Integer, Sequence('trigger_id_seq'), primary_key=True)
     event_id=Column(String, nullable=False)
-    sequence=Column(Integer, nullable=True)
-    recovery=Column(Integer, nullable=True)
-    created=Column(DateTime(), default=datetime.datetime.utcnow) 
+    sequence=Column(Integer, nullable=False)
+    recovery=Column(Integer, nullable=False, default=0)
+    created=Column(DateTime(), default=datetime.utcnow) 
     acted=Column(DateTime(), nullable=True) 
 
     def __repr__(self):
@@ -49,11 +49,11 @@ class Task(Base):
     id_=Column(Integer, Sequence('task_id_seq'), primary_key=True)
     step_id=Column(String, )
     sequence=Column(Integer, )
-    recovery=Column(Integer, nullable=True)
+    recovery=Column(Integer, nullable=False)
     pid=Column(Integer, nullable=True)
     status=Column(SQLEnum(TaskStatus), ) 
     result=Column(PickleType() , nullable=True,)
-    created=Column(DateTime(), default=datetime.datetime.utcnow) 
+    created=Column(DateTime(), default=datetime.utcnow) 
     updated=Column(DateTime(), nullable=True, ) 
     
     __table_args__ = (
@@ -63,6 +63,26 @@ class Task(Base):
     def __repr__(self):
         return "<Task(id='%s', step_id='%s', sequence='%s', recovery='%s', pid='%s', status='%s', created='%s', updated='%s')>" % (
             self.id_, self.step_id, self.sequence, self.recovery, self.pid, self.status, self.created, self.updated)
+ 
+class Delay(Base):
+    __tablename__ = 'Delay'
+    
+    id_=Column(Integer, Sequence('delay_id_seq'), primary_key=True)
+    delay_id=Column(String, )
+    sequence=Column(Integer, )
+    recovery=Column(Integer, )
+    seconds=Column(BigInteger, nullable=True)
+    active=Column(Boolean, default=False)
+    activated=Column(DateTime(), nullable=True,) 
+    updated=Column(DateTime(), default=datetime.utcnow) 
+    
+    __table_args__ = (
+            UniqueConstraint('delay_id', 'sequence', 'recovery'),
+            )
+
+    def __repr__(self):
+        return "<Delay(id='%s', delay_id='%s', delay='%s', active='%s, activated='%s')>" % (
+            self.id_, self.delay_id, self.seconds, self.active, self.activated)
         
 '''
 class Step(Base):

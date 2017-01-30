@@ -235,7 +235,7 @@ Eventor add_assoc method
 
     .. code-block:: python
         
-        add_assoc(event, *assocs)
+        add_assoc(event, *assocs, delay=0)
 
 Args
 ````
@@ -243,6 +243,8 @@ Args
     *event*: event objects as provided by add_event.
     
     *assocs*: list of associations objects.  List is composed from either events (as returned by add_event) or steps (as returned by add_step)
+    
+    *delay*: seconds to wait, once event is triggered, before engaging its associations
     
 Returns
 ```````
@@ -267,6 +269,31 @@ Returns
 ```````
 
     N/A
+    
+Eventor __call__ method
+-----------------------
+
+    .. code-block:: python
+    
+        eventor(max_loops=-1)
+        
+when calling eventor, information is built and loops evaluating events and task starts are executed.  
+In each loop events are raised and tasks are performed.  max_loops parameters allows control of how many
+loops to execute.
+
+In simple example, **ev()** engage Eventor's __call__() method.
+        
+Args
+````
+
+    *max_loops*: max_loops: number of loops to run.  If positive, limits number of loops.
+                 defaults to negative, which would run loops until there are no events to raise and
+                 no task to run. 
+                 
+Returns
+```````
+
+    result of last loop.
 
 --------
 Recovery
@@ -414,6 +441,16 @@ Example for resources definitions
         ev=evr.Eventor( logging_level=logging.INFO, )
         
         s1=ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, acquires=[(rp2, 1), ],) 
+        
+------------
+Next Release
+------------
+
+    The following is some of the major tasks intended to be completed into this product.
+    
+    1. remote tasks: expand ability to launch tasks to include remote host via ssh
+    #. asynchronous tasks: embed mechanism to launch asynchronous tasks
+    #. remote callback mechanisms: allow remote asynchronous tasks communicate with Eventor (TCP/IP, HTTP, etc.) 
     
 ----------------------
 Additional Information

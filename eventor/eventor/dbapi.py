@@ -7,16 +7,18 @@ Created on Oct 21, 2016
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.scoping import scoped_session
+from sqlalchemy.exc import IntegrityError
 import logging
 import os
 import sys
 import sqlite3
 import multiprocessing 
 import threading
+from datetime import datetime
 
-from eventor.dbschema import *
+from eventor.dbschema import Task, Trigger, Delay, Info, Base
 from eventor.eventor_types import DbMode, Invoke
-#from .utils import decorate_all, print_method
+from .utils import decorate_all, print_method
 
 module_logger=logging.getLogger(__name__)
 #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
@@ -37,6 +39,7 @@ class DbApiReplca(object):
             #session=scoped_session(sessionmaker(bind=self.value)) 
             return DbApi(session=self.value)
 
+#class DbApi(metaclass=decorate_all(print_method(module_logger.debug))):
 class DbApi(object):
 
     def __init__(self, runfile=None, session=None, mode=DbMode.write, thread_sync=False):
@@ -222,25 +225,26 @@ class DbApi(object):
         self.session.add(trigger)
         self.commit_db()
         self.release()
+        return trigger
         
     def add_trigger_if_not_exists(self, event_id, sequence, recovery):
         self.lock()
-        found=self.session.query(Trigger).filter(Trigger.event_id==event_id, Trigger.sequence==sequence, Trigger.recovery==recovery).first()
+        trigger=self.session.query(Trigger).filter(Trigger.event_id==event_id, Trigger.sequence==sequence, Trigger.recovery==recovery).first()
         #print("add_trigger", event_id, sequence, recovery, found)
-        found=found is None
-        if found:
+        if trigger is None:
             trigger=Trigger(event_id=event_id, sequence=sequence, recovery=recovery)
             self.session.add(trigger)
             self.commit_db()
         self.release()
-        return found
+        return trigger
     
     def acted_trigger(self, trigger):
         self.lock()
-        trigger.acted=datetime.datetime.utcnow()
+        trigger.acted=datetime.utcnow()
         #self.session.add(trigger)
         self.commit_db()
         self.release()
+        return trigger
     
     def count_trigger_ready(self, sequence=None, recovery=None ):
         self.lock()
@@ -249,7 +253,6 @@ class DbApi(object):
             members=members.filter(Trigger.sequence==sequence)
         count=members.count()
         self.release()
-            
         return count
         
     def count_trigger_ready_like(self, sequence, recovery):
@@ -261,7 +264,6 @@ class DbApi(object):
             raise
         count=members.count()
         self.release()
-            
         return count
         
     '''
@@ -278,16 +280,16 @@ class DbApi(object):
         
     def add_task(self, step_id, sequence, status, recovery=None):
         self.lock()
-        task=Task(step_id=step_id, sequence=sequence, status=status,)
+        task=Task(step_id=step_id, sequence=sequence, status=status, recovery=recovery)
         self.session.add(task)
         self.commit_db()
         self.release()
+        return task
         
     def add_task_if_not_exists(self, step_id, sequence, status, recovery=None):
         self.lock()
-        found=self.session.query(Task).filter(Task.sequence==sequence, Task.step_id == step_id, Task.recovery==recovery).first()
-        task=None
-        if found is None:
+        task=self.session.query(Task).filter(Task.sequence==sequence, Task.step_id == step_id, Task.recovery==recovery).first()
+        if task is None:
             task=Task(step_id=step_id, sequence=sequence, status=status, recovery=recovery)
             module_logger.debug('DBAPI - add_task_if_not_exists: %s' % (repr(task), ))
             self.session.add(task)
@@ -299,7 +301,7 @@ class DbApi(object):
         self.lock()
         if not session:
             session=self.session
-        updated=datetime.datetime.utcnow()
+        updated=datetime.utcnow()
         updates={Task.status:task.status, Task.updated: updated,}
         if task.pid:
             updates[Task.pid]=task.pid                            
@@ -308,6 +310,7 @@ class DbApi(object):
         self.session.query(Task).filter(Task.id_==task.id_).update(updates, synchronize_session=False)
         self.commit_db()
         self.release()
+        return task
         
     def update_task_status(self, task, status, session=None,):
         self.lock()
@@ -320,11 +323,12 @@ class DbApi(object):
         
         if not session:
             session=self.session
-        updated=datetime.datetime.utcnow()
+        updated=datetime.utcnow()
         updates={Task.status: status, Task.updated: updated,}                                               
         self.session.query(Task).filter(Task.id_==task_id).update(updates, synchronize_session=False)
         self.commit_db()
         self.release()
+        return task
         
     def get_task_iter(self, recovery, status=None):
         self.lock()
@@ -380,12 +384,99 @@ class DbApi(object):
             result[task.step_id]=task.status        
         self.release()
         return result
-  
+ 
+    def add_delay(self, delay_id, sequence, seconds, active=None, activated=None, recovery=None):
+        delay=Delay(delay_id=delay_id, seconds=seconds, sequence=sequence, recovery=recovery,)
+        self.lock()
+        try:
+            self.session.add(delay)
+        except IntegrityError:
+            self.release()
+            raise
+        self.commit_db()
+        self.release()
+        return delay
+        
+    def add_delay_update_if_not_exists(self, delay_id, sequence, seconds, active=None, activated=None, recovery=None):
+        '''try:
+            delay=self.add_delay(delay_id, sequence, seconds, active, activated, recovery)
+        except IntegrityError:
+            self.lock()
+            delay=Delay(delay_id=delay_id, sequence=sequence, recovery=recovery)
+            self.release()
+            '''
+        self.lock()
+        delay=self.session.query(Delay).filter(Delay.sequence==sequence, Delay.delay_id == delay_id, Delay.recovery==recovery).first()
+        if delay is None:
+            delay=Delay(delay_id=delay_id, seconds=seconds, sequence=sequence, recovery=recovery, active=active, activated=activated)
+            module_logger.debug('DBAPI - add_delay_if_not_exists: %s' % (repr(delay), ))
+            self.session.add(delay)
+            self.commit_db()
+        elif delay.active != active:
+            if active: delay.activated=datetime.utcnow()
+            delay.active=active
+            self.commit_db()
+        self.release()
+        return delay
+        
+    def get_delay_map(self, recovery=0):
+        self.lock()
+        items = self.session.query(Delay).filter(recovery==recovery)
+        self.release()
+        item_map=dict()
+        for item in items:
+            try:
+                sequence_map=item_map[item.sequence]
+            except KeyError:
+                sequence_map=dict()
+                item_map[item.sequence]=sequence_map
+            sequence_map[item.delay_id]=item
+        return item_map
+
+    def get_delay_iter(self, recovery, active=True):
+        self.lock()
+        rows = self.session.query(Delay).filter(Delay.recovery==recovery)
+        #rows = query.statement.execute().fetchall()
+        self.release()
+        return rows
+    
+    def activate_delay(self, delay):
+        self.lock()
+        delay.activated=datetime.utcnow()
+        delay.active=True
+        self.commit_db()
+        self.release()
+        return delay
+        
+    def deactivate_delay(self, delay):
+        self.lock()
+        delay.active=False
+        self.commit_db()
+        self.release()
+        return delay
+
+    def count_active_delays(self, sequence, recovery,):
+        self.lock()
+        with self.session.no_autoflush:
+            members=self.session.query(Delay)
+            members=members.filter(Delay.recovery==recovery, Delay.active.is_(True))
+
+        count=members.count()
+        self.release()
+        return count
+    
+        
+ 
 if __name__ == '__main__':
     file='/var/acrisel/sand/eventor/eventor/eventor/eventor/schema.db'
     #file=':memory:'
     mydb=DbApi(file)
-    mydb.add_event(event_id='34', name='evently')
+   # mydb.add_event(event_id='34', name='evently')
     mydb.commit_db()
-    mydb.add_assoc(event_id='34', obj_type='step', obj_id='42')
+    delay=mydb.add_delay(delay_id='mydelay', seconds=2419200, sequence=3, )
+    print(repr(delay))
+    delay=mydb.activate_delay(delay)
+    print(repr(delay))
+    delay=mydb.deactivate_delay(delay)
+    print(repr(delay))
     mydb.commit_db()

@@ -35,7 +35,7 @@ class StepStatus(Enum):
     active=4
     success=5
     failure=6
-    complete=7 # finished wither successfully or with failure
+    complete=7 # finished successfully or with failure
     
 def task_to_step_status(status):
     value=status.value
@@ -54,9 +54,11 @@ class StepReplay(Enum):
     rerun=1
     skip=2
 
-class RunMode(Enum):  
-    recover=1
-    restart=2  
+class RunMode(Enum): 
+    restart=1
+    recover=2
+    continue_=3 
+    replay=4
     
 class DbMode(Enum):
     write=1
