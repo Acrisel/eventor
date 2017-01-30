@@ -21,16 +21,22 @@ def op_to_lambda(op):
 
 StepId=Sequence('_EventorStepId')
 EventId=Sequence('_EventorEventId')
+DelayId=Sequence('_EventorDelayId')
 
 def rest_sequences():
     StepId.reset()
     EventId.reset()
+    DelayId.reset()
 
 def get_step_id():
     return "S%s" % StepId()
 
 def get_event_id():
     return "E%s" % EventId()
+
+
+def get_delay_id():
+    return "d%s" % DelayId()
 
 
 def valid_step_name(name):

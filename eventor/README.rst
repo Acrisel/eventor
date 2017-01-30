@@ -2,16 +2,22 @@
 Eventor
 =======
 
---------
+--------------------------------------------------------
+Programming interface to use events to synchronize tasks
+--------------------------------------------------------
+
+.. contents:: Table of Contents
+   :depth: 1
+
 Overview
---------
+========
 
     *Eventor* provides programmer with interface to create events, steps and associations of these artifacts with to create a flow.
     
     It would be easier to show an example. 
 
 Simple Example
-==============
+--------------
     
     .. code-block:: python
         :number-lines:
@@ -45,7 +51,7 @@ Simple Example
         ev()
         
 Example Output
-==============
+--------------
 
     The above example with provide the following log output.
               
@@ -61,7 +67,7 @@ Example Output
         [ 2016-11-30 10:07:53,700 ][ INFO ][ Processing finished with: success ][ main.loop_session_start ]
 
 Example Highlights
-==================
+------------------
 
     *Eventor* (line 10) defines an in-memory eventor object.  Note that in-memory eventors are none recoverable.
     
@@ -82,12 +88,8 @@ Program Run File
     One important artifact used in Eventor is program's runner file.  Runner file database (sqlite) will be created at execution, if not directed otherwise, at the location of the run (UNIX's pwd).  
     This file contains information on tasks and triggers that are used in the run and in recovery.
  
------------------
 Eventor Interface
------------------
-
-Eventor 
-=======
+=================
 
 Eventor Class Initiator
 -----------------------
@@ -135,8 +137,8 @@ Args
         |                     |            | triggers and tasks                               |
         +---------------------+------------+--------------------------------------------------+
           
-Eventor add_event method
-------------------------
+Eventor *add_event* method
+--------------------------
 
     .. code-block:: python
         
@@ -158,15 +160,15 @@ Args
                  
         - if expression is of the first style, logical *and* will apply.
         - the second expression will apply logical *or*.
-        - the basic atom in expression is *even* which is the product of add_event.
+        - the basic atom in expression is *even* which is the product of *add_event*.
         
 Returns
 ```````
 
-    Event object to use in other add_event expressions, add_assoc methods, or with add_step triggers.
+    Event object to use in other *add_event* expressions, *add_assoc* methods, or with *add_step* triggers.
     
-Eventor add_step method
------------------------
+Eventor *add_step* method
+-------------------------
 
     .. code-block:: python
         
@@ -230,8 +232,8 @@ Returns
 
     Step object to use in add_assoc method.
     
-Eventor add_assoc method
-------------------------
+Eventor *add_assoc* method
+--------------------------
 
     .. code-block:: python
         
@@ -251,8 +253,8 @@ Returns
 
     N/A
     
-Eventor trigger_event method
-----------------------------
+Eventor *trigger_event* method
+------------------------------
 
     .. code-block:: python
         
@@ -270,8 +272,8 @@ Returns
 
     N/A
     
-Eventor __call__ method
------------------------
+Eventor *__call__* method
+-------------------------
 
     .. code-block:: python
     
@@ -295,9 +297,9 @@ Returns
 
     result of last loop.
 
---------
+
 Recovery
---------
+========
 
     When running in recovery, unless indicated otherwise, latest run (initial or recovery) would be used.
     
@@ -307,7 +309,7 @@ Recovery
     Here is an example for recovery program and run.
     
 Recovery Example
-================
+----------------
 
     .. code-block:: python
         :number-lines:
@@ -364,9 +366,9 @@ Recovery Example
         # rerun in recovery
         ev=build_eventor(evr.RunMode.recover, param=9)
         ev()
-    
+
 Example Output
-==============
+--------------
 
     .. code:: 
         :number-lines:
@@ -398,7 +400,7 @@ Example Output
         [ 2016-12-07 08:38:01,824 ][ INFO ][ Processing finished with: success ]
 
 Example Highlights
-==================
+------------------
     
     The function *build_flow* (code line 24) build an eventor flow using three functions defined in advance.  
     Since no specific store is provided in Eventor instantiation, a default runner store is assigned (code line 25). 
@@ -410,6 +412,110 @@ Example Highlights
     The second build and run is then initiated.  In this run, parameter is set to a value that would pass 
     step *s2* and run mode is set to recovery (code lines 51-52). Eventor skips successful steps and start 
     executing from failed steps onwards.  Output lines 18-25 reflects successful second run.
+        
+Delayed Associations
+====================
+
+    There are situations in which it is desire to hold off activating a task.  This behavior is captured in Eventor as a delayed association.
+    
+    Associations can be made delayed.  Assuming source event is associated to target event with time delay.  When source event is triggered, Eventor will wait time delay seconds before triggering target event.
+    
+    In such situations, it sometimes desire to run Eventor engine in specific period on a time line instead of continuously.  For example, if Eventor is synchronizing activities that has 6 hours association delay.  Instead of running Eventor continuously, it can be set to run every 5 minutes, and save computing resources on the side.
+    
+    With *delayed associations*, Eventor can run in *continue* run mode (*RunMode.continue_*).  When running in *continue*, Eventor will pick up from where it left last run.
+    
+    The following example present *delayed association* with *continue* run mode.
+    
+
+Delay Example
+-------------
+
+    .. code:: 
+        :number-lines:
+        
+        import eventor as evr
+        import logging
+        import os
+        import time
+
+        logger=logging.getLogger(__name__)
+
+        def prog(progname):
+            logger.info("doing what %s is doing" % progname)
+            logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
+            return progname
+
+        def build_flow(run_mode):
+            ev=evr.Eventor(run_mode=run_mode, logging_level=logging.INFO)
+    
+            ev1s=ev.add_event('run_step1')
+            ev2s=ev.add_event('run_step2')
+            ev3s=ev.add_event('run_step3')
+    
+            s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
+            s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
+            s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
+    
+            ev.add_assoc(ev1s, s1, delay=0)
+            ev.add_assoc(ev2s, s2, delay=10)
+            ev.add_assoc(ev3s, s3, delay=10)
+    
+            ev.trigger_event(ev1s, 1)
+            return ev
+
+        ev=build_flow(run_mode=evr.RunMode.restart)
+        ev(max_loops=1)
+
+        for _ in range(4):
+            delay=5 if loop in [1,2] else 15
+            time.sleep(delay)
+            ev=build_flow(run_mode=evr.RunMode.continue_)
+            ev(max_loops=1)
+            
+Example Output
+--------------
+
+    .. code:: 
+        :number-lines:
+
+        [ 2017-01-30,14:06:33.660379 ][ INFO    ][ Eventor store file: /eventor/example/runly08.run.db ]
+        [ 2017-01-30,14:06:33.713544 ][ INFO    ][ [ Step s1/1 ] Trying to run ]
+        [ 2017-01-30,14:06:33.715248 ][ INFO    ][ doing what prog1 is doing ]
+        [ 2017-01-30,14:06:33.715441 ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]
+        [ 2017-01-30,14:06:33.715624 ][ INFO    ][ [ Step s1/1 ] Completed, status: TaskStatus.success ]
+        [ 2017-01-30,14:06:33.985704 ][ INFO    ][ Processing finished with: success ]
+        [ 2017-01-30,14:06:48.990540 ][ INFO    ][ Eventor store file: /eventor/example/runly08.run.db ]
+        [ 2017-01-30,14:06:49.029116 ][ INFO    ][ [ Step s2/1 ] Trying to run ]
+        [ 2017-01-30,14:06:49.032463 ][ INFO    ][ doing what prog2 is doing ]
+        [ 2017-01-30,14:06:49.032766 ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]
+        [ 2017-01-30,14:06:49.033149 ][ INFO    ][ [ Step s2/1 ] Completed, status: TaskStatus.success ]
+        [ 2017-01-30,14:06:49.296886 ][ INFO    ][ Processing finished with: success ]
+        [ 2017-01-30,14:06:54.305313 ][ INFO    ][ Eventor store file: /eventor/example/runly08.run.db ]
+        [ 2017-01-30,14:06:54.320393 ][ INFO    ][ Processing finished with: success ]
+        [ 2017-01-30,14:06:59.327107 ][ INFO    ][ Eventor store file: /eventor/example/runly08.run.db ]
+        [ 2017-01-30,14:06:59.365875 ][ INFO    ][ [ Step s3/1 ] Trying to run ]
+        [ 2017-01-30,14:06:59.368390 ][ INFO    ][ doing what prog3 is doing ]
+        [ 2017-01-30,14:06:59.368845 ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]
+        [ 2017-01-30,14:06:59.369028 ][ INFO    ][ [ Step s3/1 ] Completed, status: TaskStatus.success ]
+        [ 2017-01-30,14:06:59.512375 ][ INFO    ][ Processing finished with: success ]
+        [ 2017-01-30,14:07:14.517336 ][ INFO    ][ Eventor store file: /eventor/eventor/example/runly08.run.db ]
+        [ 2017-01-30,14:07:14.534758 ][ INFO    ][ Processing finished with: success ]
+        
+Example Highlights
+------------------
+
+   The example program builds and runs Eventor sequence 4 times.  The build involves three tasks that would run sequentially.  They are associated to each other with delay of 10 seconds each (lines 25 and 26.)
+   
+   
+   The first time, sequence is build with *restart* run mode (line 31).  In this case, the sequence is initiated.  The next four runs are in *continue* run mode (line 38).  Each of those run continue its preceding run.  To have it show the point, a varying delay is introduced between runs (lines 35-36).
+   
+   Each run limits the number of loop to a single loop (lines 32 and 38).  A single loop entails Eventor executing triggers and tasks until there is none to execute.  It may be though that there are still outstanding delayed association to act upon.
+   
+   This behavior is different than continous run (using max_loops=-1), which is the default.  In such run, Eventor will continue to loop until there are no triggers, tasks, and delayed association to process.
+   
+   Eventor five runs can be observed in example output lines 1-6, 7-2, 13-14, 15-20, and 21-22 each.  During the first run, Step *s1* matures and executed.  Eventor is executed again after 15 seconds by which the delay for *s2* passed.  As a result *s2* is executed in Eventor's second run.  
+   
+   The third run is executed 5 seconds after *s2* completion.  Too short of a time to have *s3* delayed association pass.  As a result, third run finds nothing to run.  The fourth cycle finds *s3* association matured and execute it.  The last cycle, finds nothing to run, as the sequence is complete.
     
 Resources
 =========
@@ -442,9 +548,9 @@ Example for resources definitions
         
         s1=ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, acquires=[(rp2, 1), ],) 
         
-------------
+
 Next Release
-------------
+============
 
     The following is some of the major tasks intended to be completed into this product.
     
@@ -452,9 +558,9 @@ Next Release
     #. asynchronous tasks: embed mechanism to launch asynchronous tasks
     #. remote callback mechanisms: allow remote asynchronous tasks communicate with Eventor (TCP/IP, HTTP, etc.) 
     
-----------------------
+
 Additional Information
-----------------------
+======================
 
     Eventor github project (https://github.com/Acrisel/eventor) has additional examples with more complicated flows.
     
