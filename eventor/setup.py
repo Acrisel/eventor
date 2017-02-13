@@ -50,8 +50,12 @@ URL is the URL for the project. This URL may be a project website, the Github re
 or whatever URL you want. Again, this information is optional.
 '''
 URL = 'https://github.com/Acrisel/eventor'
-version_file='.'.join([PACKAGE, 'VERSION'])
-VERSION =__import__(version_file).__version__
+
+version_file=os.path.join(PACKAGE, 'VERSION.py')
+with open(version_file, 'r') as vf:
+    vline=vf.read()
+VERSION = vline.strip().partition('=')[2].replace("'", "")
+#VERSION =__import__(version_file).__version__
 
 # Warn if we are installing over top of an existing installation. This can
 # cause issues where files that were deleted from a more recent Accord are
