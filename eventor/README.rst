@@ -295,7 +295,7 @@ Args
 Returns
 ```````
 
-    result of last loop.
+    If there was a failure that was not followed by event triggered, result will be False.
 
 
 Recovery

@@ -22,7 +22,7 @@ from eventor.delay import Delay
 from eventor.assoc import Assoc
 from eventor.dbapi import DbApi
 from eventor.utils import calling_module, traces, rest_sequences, store_from_module, get_delay_id
-from eventor.eventor_types import EventorError, TaskStatus, step_to_task_status, task_to_step_status, LoopControl, StepStatus, StepReplay, RunMode, DbMode
+from eventor.eventor_types import Invoke, EventorError, TaskStatus, step_to_task_status, task_to_step_status, LoopControl, StepStatus, StepReplay, RunMode, DbMode
 from eventor.VERSION import __version__
 from eventor.dbschema import Task
 #from eventor.loop_event import LoopEvent
@@ -617,41 +617,52 @@ class Eventor(object):
         return triggered
     
     def __play_result(self, act_result,):
-            module_logger.debug('Result collected: \n    %s' % ( repr(act_result)) )  
-            stop_on_exception=self.__config['stop_on_exception']
-            
-            result=True
-            if isinstance(act_result.value, Task): 
-                task=act_result.value   
-                if act_result.msg_type==TaskAdminMsgType.result:
-                    delay_task=task.step_id.startswith('_evr_delay_')
-                    if not delay_task:
-                        proc=self.__task_proc[task.id_]
-                        module_logger.debug('[ Task %s/%s ] applying result, process: %s, is_allive: %s' % \
-                                            (task.step_id, task.sequence, repr(proc), proc.is_alive()))
+        module_logger.debug('Result collected: \n    %s' % ( repr(act_result)) )  
+        stop_on_exception=self.__config['stop_on_exception']
+        
+        result=True
+        if isinstance(act_result.value, Task): 
+            task=act_result.value   
+            if act_result.msg_type==TaskAdminMsgType.result:
+                delay_task=task.step_id.startswith('_evr_delay_')
+                if not delay_task:
+                    proc=self.__task_proc[task.id_]
+                    module_logger.debug('[ Task %s/%s ] applying result, process: %s, is_allive: %s' % \
+                                        (task.step_id, task.sequence, repr(proc), proc.is_alive()))
+                    #if proc.is_alive():
+                    if not isinstance(proc, Invoke):
+                        module_logger.debug('[ Task %s/%s ] joining (exitcode=%s)' % (task.step_id, task.sequence, proc.exitcode))
                         if proc.is_alive():
                             proc.join()
-                            module_logger.debug('[ Task %s/%s ] joined' % (task.step_id, task.sequence, ))
-                        del self.__task_proc[task.id_]  
-                        module_logger.debug('[ Task %s/%s ] deleted' % (task.step_id, task.sequence, ))
-                    step=self.__steps[task.step_id]
-                    step.concurrent-=1
-                    triggered=self.__apply_task_result(task)
-                    shutdown=(len(triggered) == 0 or stop_on_exception) and task.status == TaskStatus.failure 
-                    if task.status==TaskStatus.failure:
-                        self.__log_error(task, shutdown)
-                    if shutdown:
-                        module_logger.info("Stopping running processes") 
+                        #while proc.is_alive():
+                        #    proc.join(0.05)
+                        module_logger.debug('[ Task %s/%s ] joined' % (task.step_id, task.sequence, ))
+                    del self.__task_proc[task.id_]  
+                    module_logger.debug('[ Task %s/%s ] deleted' % (task.step_id, task.sequence, ))
+                step=self.__steps[task.step_id]
+                step.concurrent-=1
+                triggered=self.__apply_task_result(task)
+                module_logger.debug('[ Task %s/%s ] triggered: %s, stop_on_exception: %s, task.status: %s' % \
+                                    (task.step_id, task.sequence, repr(triggered), repr(stop_on_exception), repr(task.status)))
+                shutdown=(len(triggered) == 0 or stop_on_exception) and task.status == TaskStatus.failure 
+                module_logger.debug('[ Task %s/%s ] shutdown: %s' % (task.step_id, task.sequence, shutdown))
+                if task.status==TaskStatus.failure:
+                    self.__log_error(task, shutdown)
+                    if len(triggered) == 0:
                         self.__state=EventorState.shutdown
-                        result=False
-                elif act_result.msg_type==TaskAdminMsgType.update: 
-                    self.db.update_task(task=task)
-                    # TODO: stop running processes            
-            else:
-                # TODO: need to deal with action
-                module_logger.debug('skip play result; act_result value type not matched: %s' % ( repr(type(act_result.value))) )  
-            
-            return result
+                        
+                #if shutdown:
+                #    module_logger.info("Stopping running processes") 
+                    
+                    result=False
+            elif act_result.msg_type==TaskAdminMsgType.update: 
+                self.db.update_task(task=task)
+                # TODO: stop running processes            
+        else:
+            # TODO: need to deal with action
+            module_logger.debug('skip play result; act_result value type not matched: %s' % ( repr(type(act_result.value))) )  
+        
+        return result
     
     def __collect_results(self,):
         ''' Collect results from task wrapper queues.
@@ -673,6 +684,7 @@ class Eventor(object):
                 iterate_mp=False
                 result_mp=True
             else:    
+                module_logger.debug("Going to play result: %s" % (repr(act_result)))
                 result_mp=self.__play_result(act_result)
             
             try:
@@ -685,6 +697,7 @@ class Eventor(object):
                 result_th=self.__play_result(act_result)
             
             result=result_mp and result_th
+            module_logger.debug('result: %s, result_th: %s, result_mp: %s' % (result, result_th, result_mp))
                          
         return result
     
@@ -859,31 +872,33 @@ class Eventor(object):
         self.loop_id=loop_seq() 
         
         # all items are pulled so active can also be monitored for timely end
-        if self.__state==EventorState.active:
-            module_logger.debug("Going to fetch tasks: %s: recovery: %s" % (self.name, self.__recovery, ))
-            tasks=self.db.get_task_iter(recovery=self.__recovery,status=[TaskStatus.ready, TaskStatus.allocate, TaskStatus.fueled, TaskStatus.active ])
-            module_logger.debug("Number tasks fetched: %s" % (len(list(tasks)), ))
-            for task in tasks:
-                step=self.__steps[task.step_id]
-                try:
-                    previous_task=self.__previous_tasks[task.sequence][task.step_id]
-                except (KeyError, TypeError):
-                    previous_task=None
-                
-                if task.status == TaskStatus.fueled or (task.status == TaskStatus.ready and not step.acquires):
-                    delay_task=task.step_id.startswith('_evr_delay_')
-                    if not delay_task:
-                        self.__initiate_task(task, previous_task)
-                    else:
-                        self.__initiate_delay(task, previous_task) 
-                elif task.status == TaskStatus.ready : # task.status == TaskStatus.ready and has resources to satisfy
-                    self.__allocate_resources_for_task(task, previous_task)
-                elif TaskStatus.allocate:
-                    # TODO: check if expired - if so, halt
-                    pass
-                else: # active
-                    # TODO: check run time allowance passed - if so, halt
-                    pass
+        # There is no need to check status.  
+        #Loops will end if there is nothing to do.
+        # if self.__state==EventorState.active:
+        module_logger.debug("Going to fetch tasks: %s: recovery: %s" % (self.name, self.__recovery, ))
+        tasks=self.db.get_task_iter(recovery=self.__recovery,status=[TaskStatus.ready, TaskStatus.allocate, TaskStatus.fueled, TaskStatus.active ])
+        module_logger.debug("Number tasks fetched: %s" % (len(list(tasks)), ))
+        for task in tasks:
+            step=self.__steps[task.step_id]
+            try:
+                previous_task=self.__previous_tasks[task.sequence][task.step_id]
+            except (KeyError, TypeError):
+                previous_task=None
+            
+            if task.status == TaskStatus.fueled or (task.status == TaskStatus.ready and not step.acquires):
+                delay_task=task.step_id.startswith('_evr_delay_')
+                if not delay_task:
+                    self.__initiate_task(task, previous_task)
+                else:
+                    self.__initiate_delay(task, previous_task) 
+            elif task.status == TaskStatus.ready : # task.status == TaskStatus.ready and has resources to satisfy
+                self.__allocate_resources_for_task(task, previous_task)
+            elif TaskStatus.allocate:
+                # TODO: check if expired - if so, halt
+                pass
+            else: # active
+                # TODO: check run time allowance passed - if so, halt
+                pass
                     
         result=self.__collect_results()
         
@@ -912,21 +927,21 @@ class Eventor(object):
         
         count=0
         # all items are pulled so active can also be monitored for timely end
-        if self.__state==EventorState.active:
-            module_logger.debug("Going to fetch delays: %s: recovery: %s" % (self.name, self.__recovery, ))
-            delays=self.db.get_delay_iter(recovery=self.__recovery,)
-            now=datetime.utcnow()
-            
-            for delay in delays: #self.__delays.items():
-                if not delay.active: continue
-                age=(now-delay.activated).total_seconds()
-                module_logger.debug("Delay age: %s = %s" % (delay.delay_id, age))
-                if age >= delay.seconds:
-                    # delay is done, raise proper event.
-                    self.__process_delay(delay)
-                    self.db.deactivate_delay(delay)
-                else:
-                    count += 1 
+        #if self.__state==EventorState.active:
+        module_logger.debug("Going to fetch delays: %s: recovery: %s" % (self.name, self.__recovery, ))
+        delays=self.db.get_delay_iter(recovery=self.__recovery,)
+        now=datetime.utcnow()
+        
+        for delay in delays: #self.__delays.items():
+            if not delay.active: continue
+            age=(now-delay.activated).total_seconds()
+            module_logger.debug("Delay age: %s = %s" % (delay.delay_id, age))
+            if age >= delay.seconds:
+                # delay is done, raise proper event.
+                self.__process_delay(delay)
+                self.db.deactivate_delay(delay)
+            else:
+                count += 1 
         
         module_logger.debug("Count of active delays: %s" % (count,))    
         return count
@@ -938,15 +953,16 @@ class Eventor(object):
         loop task: to see if there is anything to run 
         '''
         
-        active_delays=self.__loop_delay()
+        self.__loop_delay()
         self.__loop_event()
-        todo_tasks = self.__loop_task()
+        result = self.__loop_task()
         self.__loop_trigger_request()
         self.__loop_awating_resource_allocation()
         
-        result=todo_tasks+active_delays
+        #result=todo_tasks+active_delays
         
-        module_logger.debug("Count of outstanding items: %s" % (result))
+        #module_logger.debug("Count of outstanding items: %s (to-do: %s, delays: %s)" % (result, repr(todo_tasks), repr(active_delays)))
+        module_logger.debug("Loop once result: %s " % (result,))
         return result
     
     def __check_control(self):
@@ -959,12 +975,13 @@ class Eventor(object):
         return loop
     
     def count_todos(self, sequence=None, with_delayeds=True):
+        stop_on_exception=self.__config['stop_on_exception']
         module_logger.debug('[Step %s/%s] Counting todos; state: %s, recovery: %s' % (self.name, sequence, self.__state, self.__recovery))
         todo_triggers=0
         task_to_count=[TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
         
         # count triggers
-        if self.__state == EventorState.active:
+        if self.__state == EventorState.active or not stop_on_exception:
             todo_triggers=self.db.count_trigger_ready(sequence=sequence, recovery=self.__recovery)
         else:
             task_to_count=[TaskStatus.active,]  
@@ -990,16 +1007,19 @@ class Eventor(object):
         Returns:
             Count of in process 
         '''
+        stop_on_exception=self.__config['stop_on_exception']
+        
         module_logger.debug('[Step %s/%s] Counting todos; state: %s, recovery: %s' % (self.name, sequence, self.__state, self.__recovery))
         todo_triggers=0
         task_to_count=[TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
         # If step (mega-step) is active, needs to add triggers ready.
         # else, we need to take only those tasks tat are active
-        if self.__state == EventorState.active:
+        if self.__state == EventorState.active or not stop_on_exception:
             todo_triggers=self.db.count_trigger_ready_like(sequence=sequence, recovery=self.__recovery)
         else:
             # since step is not active, we are interested only with active steps with in this mega-step.
-            task_to_count=[TaskStatus.active,]                 
+            task_to_count=[TaskStatus.active,] 
+                            
         active_and_todo_tasks=self.db.count_tasks_like(status=task_to_count, sequence=sequence, recovery=self.__recovery) 
         active_delays=self.db.count_active_delays(sequence=sequence, recovery=self.__recovery) 
         total_todo=todo_triggers + active_and_todo_tasks+active_delays                       
@@ -1036,8 +1056,12 @@ class Eventor(object):
                 if not loop:
                     module_logger.info('Processing stopped')
             else:
-                human_result="success" if result else 'failure'
-                module_logger.info('Processing finished with: %s' % human_result)
+                # TODO: fix that we can know if there was an error in the run.
+                #human_result="success" if result else 'failure'
+                #module_logger.info('Processing finished with: %s' % human_result)
+                # module_logger.info('Processing finished')
+                pass
+            
         self.__logger.stop()     
         return result
 
@@ -1072,7 +1096,8 @@ class Eventor(object):
             else:
                 human_result="success" if result else 'failure'
                 module_logger.info('Processing finished with: %s' % human_result)
-        self.__logger.stop()     
+        self.__logger.stop()  
+        result=self.__state != EventorState.shutdown   
         return result
     
     def loop_session_stop(self):

@@ -73,6 +73,9 @@ class LoopControl(Enum):
     kill=5  
     
 class Invoke(object):
+    '''
+    Invoke is made to support looping super tasks.
+    '''
     def __init__(self, target, args=(), kwargs={}):
         self.target=target
         self.args=args
@@ -85,7 +88,8 @@ class Invoke(object):
         self.is_alive_flag=False
         return result
     
-    def join(self):
+    @threaded
+    def join(self, timeout=None):
         return
     
     @threaded
