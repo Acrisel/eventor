@@ -51,7 +51,7 @@ API DOC:
 
 import eventor as evr
 import logging
-import example.program as prog
+import examples.program as prog
 
 logger=logging.getLogger(__name__)
 
@@ -78,4 +78,5 @@ ev.add_assoc(ev2s, s2)
 ev.add_assoc(ev3s, s3)
 
 ev.trigger_event(ev1s, 3)
-ev.loop_session_start()
+ev.run()
+ev.close()

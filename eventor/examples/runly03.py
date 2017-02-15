@@ -66,13 +66,23 @@ def build_flow(run_mode=evr.RunMode.restart, param=9):
     ev.trigger_event(ev1s, 3)    
     return ev
 
-# start regularly; it would fail in step 2
-ev=build_flow(param=-9)
-result=ev()
-print('fail result=%s' % result)
+def fail():
+    # start regularly; it would fail in step 2
+    ev=build_flow(param=-9)
+    result=ev.run()
+    ev.close()
+    print('fail result=%s' % result)
 
-# rerun in recovery
-ev=build_flow(evr.RunMode.recover, param=9)
-result=ev()
-print('success result=%s' % result)
+def recover(recover=True):
+    # rerun in recovery
+    run_mode=evr.RunMode.restart
+    if recover: run_mode=evr.RunMode.recover
+    ev=build_flow(run_mode=run_mode, param=9)
+    result=ev.run()
+    ev.close()
+    print('success result=%s' % result)
+    
+#fail()
+#recover()
+recover(recover=False)
 

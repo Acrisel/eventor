@@ -213,11 +213,21 @@ class Eventor(object):
         self.__state=EventorState.active
         self.__run_mode=run_mode
         self.__recovery_run=recovery_run
+        self._session_cycle_loop=False
              
         rest_sequences()   
         self.__setup()
         
-            
+    '''
+    def __del__(self):
+        if self.__logger is not None: 
+            #print("stopping logger")
+            try:
+                self.__logger.stop()
+            except AttributeError:
+                pass
+    '''
+                
     def __setup(self):
         self.__filename=self.__filename if self.__filename else store_from_module(self.__calling_module)
         module_logger.info("Eventor store file: %s" % self.__filename)
@@ -989,14 +999,17 @@ class Eventor(object):
         # count tasks                   
         active_and_todo_tasks=self.db.count_tasks(status=task_to_count, sequence=sequence, recovery=self.__recovery) 
         total_todo=todo_triggers + active_and_todo_tasks  
-        
+        result=total_todo
         # count delay:
         if with_delayeds:
-            active_delays=self.db.count_active_delays(sequence=sequence, recovery=self.__recovery) 
-            total_todo+=+active_delays
+            active_delays, min_delay=self.db.count_active_delays(sequence=sequence, recovery=self.__recovery) 
+            total_todo+=active_delays
+            result=(total_todo, min_delay)
                              
         module_logger.debug('[Step %s/%s] total todo: %s (triggers: %s, tasks: %s)' % (self.name, sequence, total_todo, todo_triggers, active_and_todo_tasks))
-        return total_todo
+        
+        
+        return result
 
     def count_todos_like(self, sequence):
         ''' Counts items that are about to be in process, or in process.
@@ -1021,12 +1034,13 @@ class Eventor(object):
             task_to_count=[TaskStatus.active,] 
                             
         active_and_todo_tasks=self.db.count_tasks_like(status=task_to_count, sequence=sequence, recovery=self.__recovery) 
-        active_delays=self.db.count_active_delays(sequence=sequence, recovery=self.__recovery) 
+        active_delays, min_delay=self.db.count_active_delays(sequence=sequence, recovery=self.__recovery) 
         total_todo=todo_triggers + active_and_todo_tasks+active_delays                       
         module_logger.debug('[Step %s/%s] total todo: %s (triggers: %s, tasks: %s)' % (self.name, sequence, total_todo, todo_triggers, active_and_todo_tasks))
-        return total_todo
+        
+        return (total_todo, min_delay)
     
-    def loop_cycle(self):
+    def loop_cycle(self,):
         ''' loops until there is no triggers or tasks.  If there are active delays, 
         they will be left for next cycle.
         
@@ -1053,7 +1067,7 @@ class Eventor(object):
                 if loop:
                     time.sleep(sleep_loop)
                     loop=self.__check_control()
-                if not loop:
+                if not loop and not _session_cycle_loop:
                     module_logger.info('Processing stopped')
             else:
                 # TODO: fix that we can know if there was an error in the run.
@@ -1062,7 +1076,6 @@ class Eventor(object):
                 # module_logger.info('Processing finished')
                 pass
             
-        self.__logger.stop()     
         return result
 
     def loop_session(self):
@@ -1079,24 +1092,30 @@ class Eventor(object):
         sleep_loop=self.__config['sleep_between_loops']
         loop=True
         self.db.set_thread_synchronization(True)
-        
+        self._session_cycle_loop=True
         while loop:
-            result=self.loop_once()
+            result=self.loop_cycle()
+            #result=self.loop_once()
             # count ready triggers only if state is active
             # count ready tasks only if active
-            total_todo=self.count_todos()                       
+            total_todo, min_delay=self.count_todos()                       
             loop=total_todo>0 
             if loop:
                 loop=self.__check_control()
                 if loop:
-                    time.sleep(sleep_loop)
+                    sleep_time=sleep_loop if min_delay is None else min_delay
+                    if sleep_loop != sleep_time:
+                        module_logger.debug('Making a time delay sleep: %s' % sleep_time)
+                    #print('sleep_time:', sleep_time)
+                    time.sleep(sleep_time) # time.sleep(sleep_loop)
                     loop=self.__check_control()
                 if not loop:
-                    module_logger.info('Processing stopped')
+                    module_logger.info('Processing stopped, number outstanding tasks: %s' % total_todo)
             else:
                 human_result="success" if result else 'failure'
                 module_logger.info('Processing finished with: %s' % human_result)
-        self.__logger.stop()  
+                
+        #self.__logger.stop()  
         result=self.__state != EventorState.shutdown   
         return result
     
@@ -1115,7 +1134,7 @@ class Eventor(object):
         result=self.db.get_task_status(task_names=task_names, sequence=sequence, recovery=self.__recovery)
         return result
         
-    def __call__(self,  max_loops=-1):
+    def run(self,  max_loops=-1):
         ''' loops events structures to execute raise events and execute tasks.
         
         Args:
@@ -1124,10 +1143,6 @@ class Eventor(object):
                  no task to run. 
         
         '''
-        #if run_mode: self.__run_mode=run_mode  
-        #if recovery_run: self.__recovery_run=recovery_run
-        #if store: self.__filename=store 
-        #self.__setup()
         
         if max_loops < 0:
             result=self.loop_session()
@@ -1137,3 +1152,14 @@ class Eventor(object):
                 result=self.loop_cycle()
                 
         return result
+    
+    
+    def close(self):
+        ''' closes open artifacts like MPlogger etc.
+        '''
+        if self.__logger is not None: 
+            #print("stopping logger")
+            try:
+                self.__logger.stop()
+            except AttributeError:
+                pass

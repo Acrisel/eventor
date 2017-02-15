@@ -52,36 +52,39 @@ API DOC:
 
 import eventor as evr
 import logging
-import example.program as prog
+import os
 import time
 
 logger=logging.getLogger(__name__)
 
-logger.setLevel(logging.DEBUG)
+def prog(progname):
+    logger.info("doing what %s is doing" % progname)
+    logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
+    return progname
 
-#ev=evr.Eventor(filename=':memory:')
-ev=evr.Eventor(logging_level=logging.DEBUG)
+def build_flow(run_mode):
+    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.INFO,)
+    
+    ev1s=ev.add_event('run_step1')
+    ev2s=ev.add_event('run_step2')
+    ev3s=ev.add_event('run_step3')
+    
+    s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
+    s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
+    s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
+    
+    ev.add_assoc(ev1s, s1, delay=0)
+    ev.add_assoc(ev2s, s2, delay=10)
+    ev.add_assoc(ev3s, s3, delay=10)
+    
+    ev.trigger_event(ev1s, 1)
+    return ev
 
-ev1s=ev.add_event('run_step1')
-ev1d=ev.add_event('done_step1')
-ev2s=ev.add_event('run_step2')
-ev2d=ev.add_event('done_step2')
-ev3s=ev.add_event('run_step3', expr=(ev1d,ev2d)) 
+ev=build_flow(run_mode=evr.RunMode.restart)
+ev.run(max_loops=1)
 
-s1=ev.add_step('s1', func=prog.step1_create_data, kwargs={'outfile': 'source.txt'}, triggers={evr.StepStatus.complete: (ev1d, ev2s,),}) 
-s2=ev.add_step('s2', prog.step2_multiple_data, triggers={evr.StepStatus.complete: (ev2d,), })
-s3=ev.add_step('s3', prog.step3,)
+ev.run()
+ev.close()
 
-ev.add_assoc(ev1s, s1)
-ev.add_assoc(ev2s, s2)
-ev.add_assoc(ev3s, s3)
 
-ev.trigger_event(ev1s, 3)
-ev.loop_once()
-ev.loop_once()
-ev.loop_once()
-ev.loop_once()
-ev.loop_once()
-ev.loop_once()
-time.sleep(5)
-ev.loop_once()
+

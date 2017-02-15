@@ -61,7 +61,7 @@ def prog(progname):
     logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
     return progname
 
-ev=evr.Eventor(store=':memory:', logging_level=logging.INFO)
+ev=evr.Eventor(store=':memory:', logging_level=logging.DEBUG)
 
 ev1s=ev.add_event('run_step1')
 ev2s=ev.add_event('run_step2')
@@ -76,4 +76,5 @@ ev.add_assoc(ev2s, s2)
 ev.add_assoc(ev3s, s3)
 
 ev.trigger_event(ev1s, 1)
-ev()
+ev.run()
+ev.close()

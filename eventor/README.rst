@@ -48,7 +48,8 @@ Simple Example
         ev.add_assoc(ev3s, s3)
         
         ev.trigger_event(ev1s, 1)
-        ev()
+        ev.run()
+        ev.close()h
         
 Example Output
 --------------
@@ -272,18 +273,18 @@ Returns
 
     N/A
     
-Eventor *__call__* method
--------------------------
+Eventor *run* method
+---------------------
 
     .. code-block:: python
     
-        eventor(max_loops=-1)
+        run(max_loops=-1)
         
-when calling eventor, information is built and loops evaluating events and task starts are executed.  
+when calling *run*, information is built and loops evaluating events and task starts are executed.  
 In each loop events are raised and tasks are performed.  max_loops parameters allows control of how many
 loops to execute.
 
-In simple example, **ev()** engage Eventor's __call__() method.
+In simple example, **ev.run()** engage Eventor's *run()* method.
         
 Args
 ````
@@ -296,6 +297,28 @@ Returns
 ```````
 
     If there was a failure that was not followed by event triggered, result will be False.
+
+
+Eventor *close* method
+----------------------
+
+    .. code-block:: python
+    
+        close()
+        
+when calling *close*, Eventor object will close its open artifacts.  This is similar to close method on multiprocessing Pool.
+
+In simple example, **ev.close()** engage Eventor's *close()* method.
+        
+Args
+````
+
+    N/A. 
+                 
+Returns
+```````
+
+    N/A.
 
 
 Recovery
@@ -361,11 +384,13 @@ Recovery Example
 
         # start regularly; it would fail in step 2
         ev=build_eventor(param=-9)
-        ev()
+        ev.run()
+        ev.close()
 
         # rerun in recovery
         ev=build_eventor(evr.RunMode.recover, param=9)
-        ev()
+        ev.run()
+        ev.close()
 
 Example Output
 --------------
@@ -464,13 +489,15 @@ Delay Example
             return ev
 
         ev=build_flow(run_mode=evr.RunMode.restart)
-        ev(max_loops=1)
+        ev.run(max_loops=1)
+        ev.close()
 
         for _ in range(4):
             delay=5 if loop in [1,2] else 15
             time.sleep(delay)
             ev=build_flow(run_mode=evr.RunMode.continue_)
-            ev(max_loops=1)
+            ev.run(max_loops=1) 
+            ev,close()
             
 Example Output
 --------------

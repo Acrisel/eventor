@@ -460,10 +460,13 @@ class DbApi(object):
         with self.session.no_autoflush:
             members=self.session.query(Delay)
             members=members.filter(Delay.recovery==recovery, Delay.active.is_(True))
-
+        
+        now=datetime.utcnow()
+        time_to_mature=[m.seconds-(now-m.activated).total_seconds() for m in members]
+        min_time_to_mature = min(time_to_mature) if len(time_to_mature) > 0 else None
         count=members.count()
         self.release()
-        return count
+        return count, min_time_to_mature
     
         
  
