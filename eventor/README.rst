@@ -49,7 +49,7 @@ Simple Example
         
         ev.trigger_event(ev1s, 1)
         ev.run()
-        ev.close()h
+        ev.close()
         
 Example Output
 --------------
@@ -497,7 +497,7 @@ Delay Example
             time.sleep(delay)
             ev=build_flow(run_mode=evr.RunMode.continue_)
             ev.run(max_loops=1) 
-            ev,close()
+            ev.close()
             
 Example Output
 --------------
