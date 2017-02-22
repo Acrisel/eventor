@@ -217,16 +217,6 @@ class Eventor(object):
              
         rest_sequences()   
         self.__setup()
-        
-    '''
-    def __del__(self):
-        if self.__logger is not None: 
-            #print("stopping logger")
-            try:
-                self.__logger.stop()
-            except AttributeError:
-                pass
-    '''
                 
     def __setup(self):
         self.__filename=self.__filename if self.__filename else store_from_module(self.__calling_module)
@@ -1067,7 +1057,7 @@ class Eventor(object):
                 if loop:
                     time.sleep(sleep_loop)
                     loop=self.__check_control()
-                if not loop and not _session_cycle_loop:
+                if not loop and not self._session_cycle_loop:
                     module_logger.info('Processing stopped')
             else:
                 # TODO: fix that we can know if there was an error in the run.
