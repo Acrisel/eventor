@@ -53,15 +53,17 @@ API DOC:
 import eventor as evr
 import logging
 import os
+import time
 
 logger=logging.getLogger(__name__)
 
 def prog(progname):
     logger.info("doing what %s is doing" % progname)
     logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
+    time.sleep(30)
     return progname
 
-ev=evr.Eventor(logging_level=logging.DEBUG)
+ev=evr.Eventor(logging_level=logging.INFO)
 
 ev1s=ev.add_event('run_step1')
 ev2s=ev.add_event('run_step2')

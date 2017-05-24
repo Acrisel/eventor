@@ -5,7 +5,8 @@ Created on Nov 23, 2016
 '''
 
 import logging
-from acris import Sequence, MpLogger, MergedChainedDict
+from acris import Sequence, MergedChainedDict
+from acrilog import MpLogger
 from acris import virtual_resource_pool as vrp
 import multiprocessing as mp
 from collections import namedtuple
@@ -25,6 +26,11 @@ from eventor.utils import calling_module, traces, rest_sequences, store_from_mod
 from eventor.eventor_types import Invoke, EventorError, TaskStatus, step_to_task_status, task_to_step_status, LoopControl, StepStatus, StepReplay, RunMode, DbMode
 from eventor.VERSION import __version__
 from eventor.dbschema import Task
+
+try: 
+    from setproctitle import setproctitle
+except: 
+    setproctitle=None
 #from eventor.loop_event import LoopEvent
 
 module_logger=logging.getLogger(__name__)
@@ -48,7 +54,7 @@ class ResourceAllocationCallback(object):
     def __call__(self,resources=None):
         self.q.put(resources)
 
-def task_wrapper(task=None, step=None, adminq=None):
+def task_wrapper(task=None, step=None, adminq=None, use_process=True):
     ''' 
     Args:
         func: object with action method with the following signature:
@@ -63,6 +69,10 @@ def task_wrapper(task=None, step=None, adminq=None):
     os.environ['EVENTOR_STEP_SEQUENCE']=str(task.sequence)
     os.environ['EVENTOR_STEP_RECOVERY']=str(task.recovery)
     os.environ['EVENTOR_STEP_NAME']=str(step.name)
+
+    if setproctitle is not None and use_process:
+        setproctitle("eventor: %s.%s(%s)" % (step.name, task.id_, task.sequence))
+
     #db.update_task(task)
     #db.close()
     
@@ -205,9 +215,10 @@ class Eventor(object):
         self.__filename=store
 
         #self.db=DbApi(self.filename)
-        self.__adminq_mp=mp.Queue()
+        self.__adminq_mp_manager=mp_manager=mp.Manager()
+        self.__adminq_mp=mp_manager.Queue()
         self.__adminq_th=queue.Queue()
-        self.__resource_notification_queue=mp.Queue()
+        #self.__resource_notification_queue=mp.Queue()
         self.__requestq=queue.Queue()
         self.__task_proc=dict()
         self.__state=EventorState.active
@@ -715,6 +726,7 @@ class Eventor(object):
         return triggered
     
     def __get_admin_queue(self, task_construct):
+        #if isinstance(task_construct, mp.Process):
         if task_construct == mp.Process:
             result=self.__adminq_mp
         else:
@@ -779,7 +791,9 @@ class Eventor(object):
             task_construct=step.config['task_construct']
             adminq=self.__get_admin_queue(task_construct=task_construct)
             # TODO: add join when synchronus
-            kwds={'task':task, 'step': self.__steps[task.step_id], 'adminq': adminq, }
+            #use_process=isinstance(task_construct, mp.Process)
+            use_process=task_construct == mp.Process
+            kwds={'task':task, 'step': self.__steps[task.step_id], 'adminq': adminq, 'use_process':use_process,}
             if max_concurrent <0 or step.concurrent < max_concurrent: # no-limit
                 self.__update_task_status(task, TaskStatus.active)
                 triggered=self.__triggers_at_task_change(task)

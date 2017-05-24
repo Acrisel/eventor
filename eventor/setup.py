@@ -89,6 +89,8 @@ setup_info={'name': NAME,
  'install_requires': [
      'SQLAlchemy>=1.1.5',
      'acris>=2.0.2',
+     'acrilog',
+     'setproctitile>=1.1'
      ],
  'extras_require': {'dev': [], 'test': []},
  'classifiers': ['Development Status :: 5 - Production/Stable',

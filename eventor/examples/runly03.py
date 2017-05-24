@@ -45,7 +45,7 @@ def divide(x,y):
     return z
 
 def build_flow(run_mode=evr.RunMode.restart, param=9):
-    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.DEBUG)
+    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.INFO)
     
     ev1s=ev.add_event('run_step1')
     ev1d=ev.add_event('done_step1')
@@ -81,8 +81,9 @@ def recover(recover=True):
     result=ev.run()
     ev.close()
     print('success result=%s' % result)
-    
-#fail()
-#recover()
-recover(recover=False)
 
+if __name__ == '__main__':    
+    #fail()
+    #recover()
+    recover(recover=False)
+    
