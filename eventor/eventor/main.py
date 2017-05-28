@@ -33,7 +33,8 @@ except:
     setproctitle=None
 #from eventor.loop_event import LoopEvent
 
-module_logger=logging.getLogger(__name__)
+#module_logger=logging.getLogger(__name__)
+module_logger=None
 
 from acris import traced_method
 from eventor.utils import decorate_all, print_method
@@ -54,7 +55,7 @@ class ResourceAllocationCallback(object):
     def __call__(self,resources=None):
         self.q.put(resources)
 
-def task_wrapper(task=None, step=None, adminq=None, use_process=True):
+def task_wrapper(task=None, step=None, adminq=None, use_process=True, logger_info=None):
     ''' 
     Args:
         func: object with action method with the following signature:
@@ -65,6 +66,8 @@ def task_wrapper(task=None, step=None, adminq=None, use_process=True):
     #db=db.initialize()
         
     #db=DbApi(runfile=dbfile, mode=DbMode.append)
+    module_logger=MpLogger.get_logger(logger_info=logger_info, name=__name__)
+    
     task.pid=os.getpid()
     os.environ['EVENTOR_STEP_SEQUENCE']=str(task.sequence)
     os.environ['EVENTOR_STEP_RECOVERY']=str(task.recovery)
@@ -188,6 +191,8 @@ class Eventor(object):
             Raises:
                 N/A
         """
+        global module_logger
+        
         self.name=''
         self.__config=MergedChainedDict(config, os.environ, Eventor.config_defaults) 
         self.__controlq=mp.Queue()
@@ -208,8 +213,8 @@ class Eventor(object):
                         'default':   "[ %(asctime)-15s ][ %(levelname)-7s ][ %(message)s ]",
                         }
         
-        self.__logger=MpLogger(logging_level=logging_level, level_formats=level_formats, logging_root=logging_root, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'])
-        self.__logger.start()
+        self.__logger=MpLogger(name=__name__, logging_level=logging_level, level_formats=level_formats, logging_root=logging_root, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'])
+        module_logger=self.__logger.start()
         
         self.__calling_module=calling_module()
         self.__filename=store
@@ -793,7 +798,11 @@ class Eventor(object):
             # TODO: add join when synchronus
             #use_process=isinstance(task_construct, mp.Process)
             use_process=task_construct == mp.Process
-            kwds={'task':task, 'step': self.__steps[task.step_id], 'adminq': adminq, 'use_process':use_process,}
+            kwds={'task':task, 
+                  'step': self.__steps[task.step_id], 
+                  'adminq': adminq, 
+                  'use_process':use_process, 
+                  'logger_info':self.__logger.logger_info()}
             if max_concurrent <0 or step.concurrent < max_concurrent: # no-limit
                 self.__update_task_status(task, TaskStatus.active)
                 triggered=self.__triggers_at_task_change(task)
