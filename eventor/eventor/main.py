@@ -16,6 +16,7 @@ import os
 import pickle
 import queue
 import time
+from collections import Mapping
 from datetime import datetime
 from eventor.step import Step
 from eventor.event import Event
@@ -26,6 +27,7 @@ from eventor.utils import calling_module, traces, rest_sequences, store_from_mod
 from eventor.eventor_types import Invoke, EventorError, TaskStatus, step_to_task_status, task_to_step_status, LoopControl, StepStatus, StepReplay, RunMode, DbMode
 from eventor.VERSION import __version__
 from eventor.dbschema import Task
+from eventor.conf_handler import getrootconf
 
 try: 
     from setproctitle import setproctitle
@@ -166,35 +168,67 @@ class Eventor(object):
     def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, dedicated_logging=False, logging_level=logging.INFO, config={},):
         """initializes steps object
         
-            Args:
-                name (str): human readable identifying eventor among other eventors
-                store (path): file in which Enetor data would be stored and managed for reply/restart 
-                    if the value is blank, filename will be based on calling module 
-                    if the value is :memory:, an in-memory temporary structures will be used
-                run_mode: (RunMode) set Eventor to operate in recovery, restart, or continue
-                recovery_run (int): since 'store' maintain historical runs, recovery can engage any
-                    previous run.  recovery_run, if provided, will tell Eventor which run to recover.
-                    If not provided, latest run is assumed.
-                config: dict of configuration parameters to be used in operating eventor
+        Args:
+            name (str): human readable identifying Eventor among other eventors
+            store (path): file in which Eventor data would be stored and managed for reply/restart 
+                if the value is blank, filename will be based on calling module 
+                if the value is :memory:, an in-memory temporary structures will be used
 
-                config parameters can include the following keys:
-                    - logdir=/tmp, 
-                    - workdir=/tmp, 
-                    #- synchrous_run=False,
-                    - task_construct=mp.Process, 
-                    - stop_on_exception=True,
-                    - sleep_between_loops=1
+            run_mode: (RunMode) set Eventor to operate in recovery, restart, or continue
+            recovery_run (int): since 'store' maintain historical runs, recovery can engage any
+                previous run.  recovery_run, if provided, will tell Eventor which run to recover.
+                If not provided, latest run is assumed.
 
-            Returns:
-                new object
-                
-            Raises:
-                N/A
+            config: configuration parameters to be used in operating eventor.
+            can be file with YAML style configuration or a dictionary
+                parameters can include the following keys:
+                - logdir=/tmp, 
+                - workdir=/tmp, 
+                #- synchrous_run=False,
+                - task_construct=mp.Process, 
+                - stop_on_exception=True,
+                - sleep_between_loops=1
+                - databases: if config is provided, 
+                    it will try to fetch store or name as code for database.
+                    if both not provided, will try default database code.
+                    if not found, will treat store and name as above.
+                                                                  
+                Example:
+                    DATABASES:
+                        default: 
+                            dialect:  postgresql
+                            drivername :  psycopg2
+                            username: mydatabaseuser
+                            password: mydatabasepass
+                            host:     localhost
+                            port:     5433
+                            database: postgres
+                            schema:   eventor
+                    
+                        playfile:
+                            dialect: sqlite
+                            file: /var/database/alchemy/schema.db  
+
+
+        Returns:
+            new object
+            
+        Raises:
+            N/A
         """
         global module_logger
         
         self.name=''
-        self.__config=MergedChainedDict(config, os.environ, Eventor.config_defaults) 
+        config_root_name=os.environ.get('EVENTOR_CONFIG_TAG', 'EVENTOR')
+        if isinstance(config, str):
+            frame = inspect.stack()[1]
+            module = inspect.getsourcefile(frame[0])
+            config_path=os.path.join(os.path.dirname(module), config)
+            if os.path.isfile(config_path):
+                config=config
+            
+        rootconfig=getrootconf(conf=config, root=config_root_name)
+        self.__config=MergedChainedDict(rootconfig, os.environ, Eventor.config_defaults) 
         self.__controlq=mp.Queue()
         self.__steps=dict() 
         #self.__acquires=dict() 
@@ -217,9 +251,9 @@ class Eventor(object):
         module_logger=self.__logger.start()
         
         self.__calling_module=calling_module()
-        self.__filename=store
+        self.store=store
+        self.debug=logging_level==logging.DEBUG
 
-        #self.db=DbApi(self.filename)
         self.__adminq_mp_manager=mp_manager=mp.Manager()
         self.__adminq_mp=mp_manager.Queue()
         self.__adminq_th=queue.Queue()
@@ -235,19 +269,19 @@ class Eventor(object):
         self.__setup()
                 
     def __setup(self):
-        self.__filename=self.__filename if self.__filename else store_from_module(self.__calling_module)
-        module_logger.info("Eventor store file: %s" % self.__filename)
+        filename=store_from_module(self.__calling_module)
+        #module_logger.info("Eventor store file: %s" % filename)
         
         db_mode=DbMode.write if self.__run_mode==RunMode.restart else DbMode.append
-        self.__db_daly_adj=0
-        if self.__run_mode != RunMode.restart:
-            try:
-                db_mtime=os.path.getmtime(self.__filename)
-            except OSError:
-                pass
-            else:
-                self.__db_daly_adj=(datetime.now() - datetime.fromtimestamp(db_mtime)).total_seconds()
-        self.db=DbApi(self.__filename, mode=db_mode)
+        #self.__db_daly_adj=0
+        #if self.__run_mode != RunMode.restart:
+        #    try:
+        #        db_mtime=os.path.getmtime(self.__filename)
+        #    except OSError:
+        #        pass
+        #    else:
+        #        self.__db_daly_adj=(datetime.now() - datetime.fromtimestamp(db_mtime)).total_seconds()
+        self.db=DbApi(config=self.__config, modulefile=filename, userstore=self.store, mode=db_mode, echo=False) #self.debug)
         self.__requestors=vrp.Requestors()
         if self.__run_mode == RunMode.restart:
             self.__write_info()
@@ -637,7 +671,9 @@ class Eventor(object):
         stop_on_exception=self.__config['stop_on_exception']
         
         result=True
-        if isinstance(act_result.value, Task): 
+        istask=isinstance(act_result.value, Task)
+        module_logger.debug('Received %s(%s) to play (istask: %s)' %(type(act_result.value).__name__, repr(act_result.value), istask))
+        if istask: 
             task=act_result.value   
             if act_result.msg_type==TaskAdminMsgType.result:
                 delay_task=task.step_id.startswith('_evr_delay_')
@@ -700,7 +736,7 @@ class Eventor(object):
                 iterate_mp=False
                 result_mp=True
             else:    
-                module_logger.debug("Going to play result: %s" % (repr(act_result)))
+                module_logger.debug("Going to play MP result: %s" % (repr(act_result)))
                 result_mp=self.__play_result(act_result)
             
             try:
@@ -710,10 +746,11 @@ class Eventor(object):
                 iterate_th=False
                 result_th=True
             else:    
+                module_logger.debug("Going to play TH result: %s" % (repr(act_result)))
                 result_th=self.__play_result(act_result)
             
             result=result_mp and result_th
-            module_logger.debug('result: %s, result_th: %s, result_mp: %s' % (result, result_th, result_mp))
+            module_logger.debug('connected result: %s, result_th: %s, result_mp: %s' % (result, result_th, result_mp))
                          
         return result
     
@@ -853,7 +890,7 @@ class Eventor(object):
     
     def __update_task_status(self, task, status):
         #task.status=status    
-        self.db.update_task_status(task=task.id_, status=status)
+        self.db.update_task_status(task=task, status=status)
         
     def __release_task_resources(self, task):
         step=self.__steps[task.step_id]
@@ -870,6 +907,7 @@ class Eventor(object):
         
         memtask=self.__tasks.get(task.id_, None)
         if memtask is None:
+            module_logger.debug("Initiating new memtask for resource allocation %s: %s" % (step.name, step.acquires, ))
             memtask=Memtask(task)
             self.__tasks[task.id_]=memtask
         # need to allocate resources from all requested pools.
@@ -900,7 +938,7 @@ class Eventor(object):
         # if self.__state==EventorState.active:
         module_logger.debug("Going to fetch tasks: %s: recovery: %s" % (self.name, self.__recovery, ))
         tasks=self.db.get_task_iter(recovery=self.__recovery,status=[TaskStatus.ready, TaskStatus.allocate, TaskStatus.fueled, TaskStatus.active ])
-        module_logger.debug("Number tasks fetched: %s" % (len(list(tasks)), ))
+        #module_logger.debug("Number tasks fetched: %s" % (len(list(tasks)), ))
         for task in tasks:
             step=self.__steps[task.step_id]
             try:
@@ -908,17 +946,21 @@ class Eventor(object):
             except (KeyError, TypeError):
                 previous_task=None
             
+            module_logger.debug("Evaluating task: %s, step: %s" % (repr(task), repr(step)))
             if task.status == TaskStatus.fueled or (task.status == TaskStatus.ready and not step.acquires):
                 delay_task=task.step_id.startswith('_evr_delay_')
                 if not delay_task:
+                    module_logger.debug("No delay, initiate task: %s" % (task.id_, ))
                     self.__initiate_task(task, previous_task)
                 else:
+                    module_logger.debug("Delayed task, initiate delay for task: %s" % (task.id_, ))
                     self.__initiate_delay(task, previous_task) 
             elif task.status == TaskStatus.ready : # task.status == TaskStatus.ready and has resources to satisfy
+                module_logger.debug("Ready task need to be fueled: %s" % (task.id_, ))
                 self.__allocate_resources_for_task(task, previous_task)
             elif TaskStatus.allocate:
                 # TODO: check if expired - if so, halt
-                pass
+                module_logger.debug("Task allocated resource: %s" % (task.id_, ))
             else: # active
                 # TODO: check run time allowance passed - if so, halt
                 pass

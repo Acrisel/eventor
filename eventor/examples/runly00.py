@@ -62,6 +62,7 @@ def prog(progname):
     return progname
 
 ev=evr.Eventor(store=':memory:', logging_level=logging.DEBUG)
+#ev=evr.Eventor(logging_level=logging.DEBUG, config='example00.conf', store='sqfile00')
 
 ev1s=ev.add_event('run_step1')
 ev2s=ev.add_event('run_step2')
