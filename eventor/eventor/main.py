@@ -43,12 +43,31 @@ from eventor.utils import decorate_all, print_method
 
 #traced=traced_method(None, True)
 
+        
+import socket
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    address = s.getsockname()[0]
+    s.close()
+    return address
+
+
+def get_unique_run_id():
+    ip = get_ip_address()
+    ips = ''.join(ip.split('.'))
+    now = datetime.now().strftime("%Y%m%d%H%M%S")
+    result = "%s@%s@%s" % (os.getpid(), ips, now)
+    return result
+
 class TaskAdminMsgType(Enum):
     result=1
     update=2
     
+    
 TaskAdminMsg=namedtuple('TaskAdminMsg', ['msg_type', 'value', ])
 TriggerRequest=namedtuple('TriggerRequest', ['type', 'value'])
+
 
 class ResourceAllocationCallback(object):
     def __init__(self, notify_queue):
@@ -57,18 +76,18 @@ class ResourceAllocationCallback(object):
     def __call__(self,resources=None):
         self.q.put(resources)
 
-def task_wrapper(task=None, step=None, adminq=None, use_process=True, logger_info=None):
+
+def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=True, logger_info=None):
     ''' 
     Args:
         func: object with action method with the following signature:
             action(self, action, unit, group, sequencer)    
         action: object with taskid, unit, group: id of the unit to pass
         sqid: sequencer id to pass to action '''
+    global module_logger
     
-    #db=db.initialize()
-        
-    #db=DbApi(runfile=dbfile, mode=DbMode.append)
-    module_logger=MpLogger.get_logger(logger_info=logger_info, name=__name__)
+    if use_process:
+        module_logger=MpLogger.get_logger(logger_info=logger_info, name='') # name="%s.%s_%s" %(logger_info['name'], step.name, task.sequence))
     
     task.pid=os.getpid()
     os.environ['EVENTOR_STEP_SEQUENCE']=str(task.sequence)
@@ -76,15 +95,12 @@ def task_wrapper(task=None, step=None, adminq=None, use_process=True, logger_inf
     os.environ['EVENTOR_STEP_NAME']=str(step.name)
 
     if setproctitle is not None and use_process:
-        setproctitle("eventor: %s.%s(%s)" % (step.name, task.id_, task.sequence))
+        run_id_s = "%s." % run_id if run_id else ''
+        setproctitle("eventor: %s%s.%s(%s)" % (run_id_s, step.name, task.id_, task.sequence))
 
-    #db.update_task(task)
-    #db.close()
-    
     # Update task with PID
     update=TaskAdminMsg(msg_type=TaskAdminMsgType.update, value=task) 
     adminq.put( update )
-    
     module_logger.info('[ Step {}/{} ] Trying to run'.format(step.name, task.sequence))
     
     try:
@@ -104,9 +120,11 @@ def task_wrapper(task=None, step=None, adminq=None, use_process=True, logger_inf
     adminq.put( result )
     return True
 
+
 class EventorState(Enum):
     active=1
     shutdown=2
+    
     
 class RpCallback(object):
     def __init__(self, notify_queue, task_id=''):
@@ -116,6 +134,7 @@ class RpCallback(object):
     #    return self.name
     def __call__(self,ready=False):
         self.q.put( self.task_id )
+
 
 class Memtask(object):
     def __init__(self, task, ):
@@ -165,7 +184,7 @@ class Eventor(object):
                        StepStatus.failure: StepReplay.rerun, 
                        StepStatus.success: StepReplay.skip,}  
         
-    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, dedicated_logging=False, logging_level=logging.INFO, config={},):
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={},):
         """initializes steps object
         
         Args:
@@ -178,6 +197,14 @@ class Eventor(object):
             recovery_run (int): since 'store' maintain historical runs, recovery can engage any
                 previous run.  recovery_run, if provided, will tell Eventor which run to recover.
                 If not provided, latest run is assumed.
+                
+            shared_db: (boolean) if set, indicates that the database used is by multiple 
+                programs or instances thereof. 
+                
+            run_id: (str) if shared_db, run_id must be unique program execution among all programs 
+                    sharing.  If not provided and shared_db is set, unique run_id will be generated.
+                    When in recovery, and shared_db is set, run_id must be provided to identify the
+                    program and its run to be recovered.
 
             config: configuration parameters to be used in operating eventor.
             can be file with YAML style configuration or a dictionary
@@ -219,60 +246,74 @@ class Eventor(object):
         global module_logger
         
         self.name=''
-        config_root_name=os.environ.get('EVENTOR_CONFIG_TAG', 'EVENTOR')
+        config_root_name = os.environ.get('EVENTOR_CONFIG_TAG', 'EVENTOR')
         if isinstance(config, str):
             frame = inspect.stack()[1]
             module = inspect.getsourcefile(frame[0])
-            config_path=os.path.join(os.path.dirname(module), config)
+            config_path = os.path.join(os.path.dirname(module), config)
             if os.path.isfile(config_path):
                 config=config
             
-        rootconfig=getrootconf(conf=config, root=config_root_name)
-        self.__config=MergedChainedDict(rootconfig, os.environ, Eventor.config_defaults) 
-        self.__controlq=mp.Queue()
-        self.__steps=dict() 
+        rootconfig = getrootconf(conf=config, root=config_root_name)
+        self.__config = MergedChainedDict(rootconfig, os.environ, Eventor.config_defaults) 
+        self.__controlq = mp.Queue()
+        self.__steps=  dict() 
         #self.__acquires=dict() 
         #self.__releases=dict() 
-        self.__tasks=dict() 
-        self.__events=dict() 
-        self.__assocs=dict()
-        self.__delays=dict()
-        self.__rp_notify=queue.Queue()
+        self.__tasks = dict() 
+        self.__events = dict() 
+        self.__assocs = dict()
+        self.__delays = dict()
+        self.__rp_notify = queue.Queue()
         
-        if dedicated_logging:
-            logging_root='.'.join(__name__.split('.')[:-1])
-        else:
-            logging_root=''
-        level_formats={logging.DEBUG:"[ %(asctime)-15s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
-                        'default':   "[ %(asctime)-15s ][ %(levelname)-7s ][ %(message)s ]",
+        #if dedicated_logging:
+        #    logging_root = '.'.join(__name__.split('.')[:-1])
+        #else:
+        #    logging_root = ''
+        level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
+                        'default':   "[ %(asctime)-15s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]",
                         }
         
-        self.__logger=MpLogger(name=__name__, logging_level=logging_level, level_formats=level_formats, logging_root=logging_root, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'])
-        module_logger=self.__logger.start()
+        # TODO(Arnon): get to logging configuration (as in Database)
+        # TODO(Arnon): drive encoding from parameter
+        logger_name = ''
+        if dedicated_logging:
+            logger_name = __name__
+        self.__logger = MpLogger(name=__name__, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
+        module_logger = self.__logger.start()
         
-        self.__calling_module=calling_module()
-        self.store=store
-        self.debug=logging_level==logging.DEBUG
+        self.__calling_module = calling_module()
+        self.store = store
+        self.debug = logging_level == logging.DEBUG
 
-        self.__adminq_mp_manager=mp_manager=mp.Manager()
-        self.__adminq_mp=mp_manager.Queue()
-        self.__adminq_th=queue.Queue()
+        self.__adminq_mp_manager = mp_manager=mp.Manager()
+        self.__adminq_mp = mp_manager.Queue()
+        self.__adminq_th = queue.Queue()
         #self.__resource_notification_queue=mp.Queue()
-        self.__requestq=queue.Queue()
-        self.__task_proc=dict()
-        self.__state=EventorState.active
-        self.__run_mode=run_mode
-        self.__recovery_run=recovery_run
-        self._session_cycle_loop=False
-             
+        self.__requestq = queue.Queue()
+        self.__task_proc = dict()
+        self.__state = EventorState.active
+        self.__run_mode = run_mode
+        self.__recovery_run = recovery_run
+        self._session_cycle_loop = False
+        
+        self.shared_db = shared_db
+        self.run_id = run_id
+        if shared_db and not self.run_id:
+            if run_mode != RunMode.restart:
+                raise EventorError("When shared_db is set in restart, run_id must be provided.")
+            # in this case we need to produce unique run_id on this cluster
+            self.run_id = get_unique_run_id()
+            module_logger.info("Created process run_id: %s" % self.run_id) 
         rest_sequences()   
         self.__setup()
                 
     def __setup(self):
-        filename=store_from_module(self.__calling_module)
+        global module_logger
+        filename = store_from_module(self.__calling_module)
         #module_logger.info("Eventor store file: %s" % filename)
         
-        db_mode=DbMode.write if self.__run_mode==RunMode.restart else DbMode.append
+        db_mode = DbMode.write if self.__run_mode==RunMode.restart else DbMode.append
         #self.__db_daly_adj=0
         #if self.__run_mode != RunMode.restart:
         #    try:
@@ -281,8 +322,8 @@ class Eventor(object):
         #        pass
         #    else:
         #        self.__db_daly_adj=(datetime.now() - datetime.fromtimestamp(db_mtime)).total_seconds()
-        self.db=DbApi(config=self.__config, modulefile=filename, userstore=self.store, mode=db_mode, echo=False) #self.debug)
-        self.__requestors=vrp.Requestors()
+        self.db = DbApi(config=self.__config, modulefile=filename, shared_db=self.shared_db, run_id=self.run_id, userstore=self.store, mode=db_mode, echo=False, logger=module_logger) #self.debug)
+        self.__requestors = vrp.Requestors()
         if self.__run_mode == RunMode.restart:
             self.__write_info()
         else:
@@ -302,7 +343,13 @@ class Eventor(object):
         assocs='\n    '.join([ str(assoc) for assoc in self.__assocs.values()])
         result="Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )\n    assocs( \n    {}\n   )  )".format(self.name, events, steps, assocs)
         return result
-    
+
+    def _name(self, seq_path):
+        result='/'
+        if self.name:
+            result="%s/%s" %(self.name, seq_path)
+        return result
+        
     def __write_info(self, run_file=None):
         self.__recovery=0
         info={'version': __version__,
@@ -370,7 +417,7 @@ class Eventor(object):
             
         event=Event(name, expr=expr)
         self.__events[event.id_]=event
-        #event.db_write(self.db)
+        module_logger.debug('add_event: %s' %( repr(event), ))
         return event
     
     def get_step(self, name):
@@ -422,7 +469,7 @@ class Eventor(object):
         if found:
             raise EventorError("Step with similar name already defined: %s" % step.id_)
         self.__steps[step.id_]=step
-        #step.db_write(self.db)
+        module_logger.debug('add_step: %s' %( repr(step), ))
         return step
     
 
@@ -433,8 +480,7 @@ class Eventor(object):
             ''' Inserts delay into Delay table to be picked up by delay_loop
             '''
             #module_logger.debug('add_delay_if_not_exists: %s' %( repr(active), ))
-            delay=self.db.add_delay_update_if_not_exists(delay_id=delay_id, sequence=sequence, seconds=seconds, 
-                              recovery=recovery, active=active, activated=activated)
+            delay=self.db.add_delay_update_if_not_exists(delay_id=delay_id, sequence=sequence, seconds=seconds, recovery=recovery, active=active, activated=activated)
             module_logger.debug('add_delay_if_not_exists: %s' %( repr(delay), ))
             return True
         return delay_func
@@ -448,7 +494,7 @@ class Eventor(object):
         seconds passed after event was triggered.
         
         Delay supports ':memory:' store only if Eventor is called with negative max_loops (default).
-        This otherwize, the information pertaining the delay may not be maintained. 
+        This otherwise, the information pertaining the delay may not be maintained. 
         
         Args:
             event: an event object return from add_event()
@@ -472,10 +518,9 @@ class Eventor(object):
             delay_step=self.add_step(delay_id, func=delay_func,) 
             self.add_assoc(event, delay_step)
             self.add_assoc(delay_event, *assocs)
-            #module_logger.debug("adding delayed assoc: %s(%s) and %s(%s)" % (event, delay_step, delay_event, repr(assocs)))
+            module_logger.debug("adding delayed assoc: %s(%s) and %s(%s)" % (event, delay_step, delay_event, repr(assocs)))
             self.__delays[delay_id]=Delay(delay_id=delay_id, func=delay_func, seconds=delay, event=delay_event)
             
-        
         else:    
             try:
                 objs=self.__assocs[event.id_]
@@ -486,6 +531,7 @@ class Eventor(object):
             for obj in assocs:
                 assoc=Assoc(event, obj)
                 objs.append(assoc)
+                module_logger.debug('add_assoc: %s' %( repr(assoc), ))
     
     def trigger_event(self, event, sequence=0, db=None):
         """Activates event 
@@ -550,7 +596,7 @@ class Eventor(object):
             if request.type=='event':
                 event, sequence = request.value
                 self.trigger_event(event, sequence)
-                module_logger.debug('[ %s/%s ] Triggering event' % (event.id_, sequence))
+                module_logger.debug('[ Event %s/%s ] Triggering event' % (event.id_, sequence))
         
           
     def __assoc_loop(self, event, sequence):
@@ -832,10 +878,11 @@ class Eventor(object):
             max_concurrent=step.config['max_concurrent']
             task_construct=step.config['task_construct']
             adminq=self.__get_admin_queue(task_construct=task_construct)
-            # TODO: add join when synchronus
+            # TODO: add join when synchronous
             #use_process=isinstance(task_construct, mp.Process)
             use_process=task_construct == mp.Process
-            kwds={'task':task, 
+            kwds={'run_id':self.run_id,
+                  'task':task, 
                   'step': self.__steps[task.step_id], 
                   'adminq': adminq, 
                   'use_process':use_process, 
@@ -847,6 +894,9 @@ class Eventor(object):
                 #delay_task=not task.step_id.startswith('_evr_delay_')
                 module_logger.debug('[ Task {} ] Going to construct ({}/{}) and run task:\n    {}'.format(task.step_id, task.sequence, task_construct, repr(task), ))
                 proc=task_construct(target=task_wrapper, kwargs=kwds)
+                if use_process:
+                    run_id="%s-" % self.run_id if self.run_id else ''
+                    proc.name = '%sTask-%s(%s)' % (run_id, step.name, task.sequence)
                 step.concurrent+=1
                 try:
                     proc.start()
@@ -970,7 +1020,7 @@ class Eventor(object):
         return result
             
     def __process_delay(self, db_delay):
-        ''' checks Delay table `
+        ''' checks Delay table 
         '''
         try:
             delay=self.__delays[db_delay.delay_id]
@@ -1041,7 +1091,7 @@ class Eventor(object):
     
     def count_todos(self, sequence=None, with_delayeds=True):
         stop_on_exception=self.__config['stop_on_exception']
-        module_logger.debug('[Step %s/%s] Counting todos; state: %s, recovery: %s' % (self.name, sequence, self.__state, self.__recovery))
+        module_logger.debug('[ Step %s ] Counting todos; state: %s, recovery: %s' % (self._name(sequence), self.__state, self.__recovery))
         todo_triggers=0
         task_to_count=[TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
         
@@ -1061,7 +1111,7 @@ class Eventor(object):
             total_todo+=active_delays
             result=(total_todo, min_delay)
                              
-        module_logger.debug('[Step %s/%s] total todo: %s (triggers: %s, tasks: %s)' % (self.name, sequence, total_todo, todo_triggers, active_and_todo_tasks))
+        module_logger.debug('[ Step %s ] total todo: %s (triggers: %s, tasks: %s)' % (self._name(sequence), total_todo, todo_triggers, active_and_todo_tasks))
         
         
         return result
@@ -1077,7 +1127,7 @@ class Eventor(object):
         '''
         stop_on_exception=self.__config['stop_on_exception']
         
-        module_logger.debug('[Step %s/%s] Counting todos; state: %s, recovery: %s' % (self.name, sequence, self.__state, self.__recovery))
+        module_logger.debug('[ Step %s ] Counting todos; state: %s, recovery: %s' % (self._name(sequence), self.__state, self.__recovery))
         todo_triggers=0
         task_to_count=[TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
         # If step (mega-step) is active, needs to add triggers ready.
@@ -1091,7 +1141,7 @@ class Eventor(object):
         active_and_todo_tasks=self.db.count_tasks_like(status=task_to_count, sequence=sequence, recovery=self.__recovery) 
         active_delays, min_delay=self.db.count_active_delays(sequence=sequence, recovery=self.__recovery) 
         total_todo=todo_triggers + active_and_todo_tasks+active_delays                       
-        module_logger.debug('[Step %s/%s] total todo: %s (triggers: %s, tasks: %s)' % (self.name, sequence, total_todo, todo_triggers, active_and_todo_tasks))
+        module_logger.debug('[ Step %s ] total todo: %s (triggers: %s, tasks: %s)' % (self._name(sequence), total_todo, todo_triggers, active_and_todo_tasks))
         
         return (total_todo, min_delay)
     
@@ -1125,10 +1175,6 @@ class Eventor(object):
                 if not loop and not self._session_cycle_loop:
                     module_logger.info('Processing stopped')
             else:
-                # TODO: fix that we can know if there was an error in the run.
-                #human_result="success" if result else 'failure'
-                #module_logger.info('Processing finished with: %s' % human_result)
-                # module_logger.info('Processing finished')
                 pass
             
         return result
@@ -1161,7 +1207,6 @@ class Eventor(object):
                     sleep_time=sleep_loop if min_delay is None else min_delay
                     if sleep_loop != sleep_time:
                         module_logger.debug('Making a time delay sleep: %s' % sleep_time)
-                    #print('sleep_time:', sleep_time)
                     time.sleep(sleep_time) # time.sleep(sleep_loop)
                     loop=self.__check_control()
                 if not loop:
@@ -1199,12 +1244,21 @@ class Eventor(object):
         
         '''
         
+        if setproctitle is not None:
+            run_id = "%s." % self.run_id if self.run_id else ''
+            setproctitle("eventor: %s" % (run_id,))
+        
         if max_loops < 0:
             result=self.loop_session()
         else:
             result=None
             for _ in range(max_loops):
+                #module_logger.debug('Starting loop cycle')
                 result=self.loop_cycle()
+            human_result="success" if result else 'failure'
+            total_todo, _=self.count_todos(with_delayeds=True) 
+            module_logger.info('Processing finished with: %s; outstanding tasks: %s' % (human_result, total_todo))
+            #module_logger.info('Processing finished')
                 
         return result
     

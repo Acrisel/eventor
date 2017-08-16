@@ -11,177 +11,148 @@ from datetime import datetime
 from sqlalchemy import Enum as SQLEnum
 
 from eventor.eventor_types import TaskStatus
-from email.mime import base
-from asyncio.tasks import Task
-from collections import namedtuple
 from namedlist import namedlist
 
-#Base = declarative_base()
 
-Info=namedlist("InfoRow", "name value")
+Info=namedlist("InfoRow", "run_id name value")
+
+
 def info_from_db(tobj):
     result=Info(tobj.name, tobj.value)
     return result
+
+
 def info_to_db(obj, tcls):
     result=tcls(obj.name, obj.value)
     return result
+
+
 def info_table(base):
     class Info(base):
         __tablename__ = 'Info'
         
-        #id=Column(Integer, Sequence('info_id_seq'), primary_key=True)
+        run_id=Column(String, primary_key=True)
         name=Column(String, primary_key=True)
         value=Column(String, nullable=True)
         
         __table_args__ = (
-                UniqueConstraint('name'),
+                UniqueConstraint('run_id', 'name'),
                 )
     
         def __repr__(self):
-            return "<Info(name='%s', value='%s')>" % (self.name, self.value)
+            return "<Info(run_id='%s', name='%s', value='%s')>" % (self.run_id, self.name, self.value)
         
     return Info
 
-Trigger=namedlist("Trigger", "id_ event_id sequence recovery created acted")
+
+Trigger=namedlist("Trigger", "id_ run_id event_id sequence recovery created acted")
+
+
 def trigger_from_db(tobj):
-    result=Trigger(tobj.id_, tobj.event_id, tobj.sequence, tobj.recovery, tobj.created, tobj.acted)
+    result=Trigger(tobj.id_, tobj.run_id, tobj.event_id, tobj.sequence, tobj.recovery, tobj.created, tobj.acted)
     return result
+
+
 def trigger_to_db(obj, tcls):
-    result=tcls(obj.id_, obj.eveny_id, obj.sequence, obj.recovery, obj.created, obj.acted)
+    result=tcls(obj.id_, obj.run_id, obj.eveny_id, obj.sequence, obj.recovery, obj.created, obj.acted)
     return result
+
+
 def trigger_table(base):
     class Trigger(base):
         __tablename__ = 'Trigger'
         
-        id_=Column(Integer, Sequence('trigger_id_seq'), primary_key=True)
-        event_id=Column(String, nullable=False)
-        sequence=Column(Integer, nullable=False)
-        recovery=Column(Integer, nullable=False, default=0)
-        created=Column(DateTime(), default=datetime.utcnow) 
-        acted=Column(DateTime(), nullable=True) 
+        id_ = Column(Integer, Sequence('trigger_id_seq'), primary_key=True)
+        run_id = Column(String, nullable=False, default='')
+        event_id = Column(String, nullable=False)
+        sequence = Column(Integer, nullable=False)
+        recovery = Column(Integer, nullable=False, default=0)
+        created = Column(DateTime(), default=datetime.utcnow) 
+        acted = Column(DateTime(), nullable=True) 
     
         def __repr__(self):
-            return "<Trigger(id='%s', event_id='%s', sequence='%s', recovery='%s', created='%s', acted='%s')>" % (
-                self.id_, self.event_id, self.sequence, self.recovery, self.created, self.acted)
+            return "<Trigger(id='%s', run_id='%s', event_id='%s', sequence='%s', recovery='%s', created='%s', acted='%s')>" % (
+                self.id_, self.run_id, self.event_id, self.sequence, self.recovery, self.created, self.acted)
     
     return Trigger
 
-Task=namedlist("Task", "id_ step_id sequence recovery pid status result created updated")        
+
+Task=namedlist("Task", "id_ run_id step_id sequence recovery pid status result created updated") 
+
+       
 def task_from_db(tobj):
-    result=Task(tobj.id_, tobj.step_id, tobj.sequence, tobj.recovery, tobj.pid, tobj.status, tobj.result, tobj.created, tobj.updated)
+    result=Task(tobj.id_, tobj.run_id, tobj.step_id, tobj.sequence, tobj.recovery, tobj.pid, tobj.status, tobj.result, tobj.created, tobj.updated)
     return result
+
+
 def task_to_db(obj, tcls):
-    result=tcls(obj.id_, obj.step_id, obj.sequence, obj.recovery, obj.pid, obj.status, obj.result, obj.created, obj.updated)
+    result=tcls(obj.id_, obj.run_id, obj.step_id, obj.sequence, obj.recovery, obj.pid, obj.status, obj.result, obj.created, obj.updated)
     return result
+
+
 def task_table(base):
     class Task(base):
         __tablename__ = 'Task'
         
-        id_=Column(Integer, Sequence('task_id_seq'), primary_key=True)
-        step_id=Column(String, )
-        sequence=Column(Integer, )
-        recovery=Column(Integer, nullable=False)
-        pid=Column(Integer, nullable=True)
-        status=Column(SQLEnum(TaskStatus), ) 
-        result=Column(PickleType() , nullable=True,)
-        created=Column(DateTime(), default=datetime.utcnow) 
-        updated=Column(DateTime(), nullable=True, ) 
+        id_ = Column(Integer, Sequence('task_id_seq'), primary_key=True)
+        run_id = Column(String, default='')
+        step_id = Column(String,)
+        sequence = Column(Integer,)
+        recovery = Column(Integer, nullable=False)
+        pid = Column(Integer, nullable=True)
+        status = Column(SQLEnum(TaskStatus), ) 
+        result = Column(PickleType() , nullable=True,)
+        created = Column(DateTime(), default=datetime.utcnow) 
+        updated = Column(DateTime(), nullable=True, ) 
         
         __table_args__ = (
-                UniqueConstraint('step_id', 'sequence', 'recovery'),
+                UniqueConstraint('run_id', 'step_id', 'sequence', 'recovery'),
                 )
     
         def __repr__(self):
-            return "<Task(id='%s', step_id='%s', sequence='%s', recovery='%s', pid='%s', status='%s', created='%s', updated='%s')>" % (
-                self.id_, self.step_id, self.sequence, self.recovery, self.pid, self.status, self.created, self.updated)
+            return "<Task(id='%s', run_id='%s', step_id='%s', sequence='%s', recovery='%s', pid='%s', status='%s', created='%s', updated='%s')>" % (
+                self.id_, self.run_id, self.step_id, self.sequence, self.recovery, self.pid, self.status, self.created, self.updated)
     
     return Task
 
-Delay=namedlist("Delay", "id_ delay_id sequence recovery seconds active activated updated")
+
+Delay=namedlist("Delay", "id_ run_id delay_id sequence recovery seconds active activated updated")
+
+
 def delay_from_db(tobj):
-    result=Delay(tobj.id_, tobj.delay_id, tobj.sequence, tobj.recovery, tobj.seconds, tobj.active, tobj.activated, tobj.updated)
+    result = Delay(tobj.id_, tobj.run_id, tobj.delay_id, tobj.sequence, tobj.recovery, tobj.seconds, tobj.active, tobj.activated, tobj.updated)
     return result
+
+
 def delay_to_db(obj, tcls):
-    result=tcls(obj.id_, obj.delay_id, obj.sequence, obj.recovery, obj.active, obj.activated, obj.updated)
+    result = tcls(obj.id_, obj.run_id, obj.delay_id, obj.sequence, obj.recovery, obj.active, obj.activated, obj.updated)
     return result
+
+
 def delay_table(base):
     class Delay(base):
         __tablename__ = 'Delay'
         
         id_=Column(Integer, Sequence('delay_id_seq'), primary_key=True)
-        delay_id=Column(String, )
-        sequence=Column(Integer, )
-        recovery=Column(Integer, )
-        seconds=Column(BigInteger, nullable=True)
-        active=Column(Boolean, default=False)
-        activated=Column(DateTime(), nullable=True,) 
-        updated=Column(DateTime(), default=datetime.utcnow) 
+        run_id = Column(String, default='')
+        delay_id = Column(String,)
+        sequence = Column(Integer,)
+        recovery = Column(Integer,)
+        seconds = Column(BigInteger, nullable=True)
+        active = Column(Boolean, default=False)
+        activated = Column(DateTime(), nullable=True,) 
+        updated = Column(DateTime(), default=datetime.utcnow) 
         
         __table_args__ = (
-                UniqueConstraint('delay_id', 'sequence', 'recovery'),
+                UniqueConstraint('run_id', 'delay_id', 'sequence', 'recovery'),
                 )
     
         def __repr__(self):
-            return "<Delay(id='%s', delay_id='%s', delay='%s', active='%s, activated='%s')>" % (
-                self.id_, self.delay_id, self.seconds, self.active, self.activated)
+            return "<Delay(id='%s', run_id='%s', delay_id='%s', delay='%s', active='%s', activated='%s')>" % (
+                self.id_, self.run_id, self.delay_id, self.seconds, self.active, self.activated)
     
     return Delay   
  
-'''
-class Step(Base):
-    __tablename__ = 'Step'
-    
-    id_ = Column(String, primary_key=True)
-    name=Column(String, primary_key=True)
-    created=Column(DateTime(), nullable=False, default=datetime.datetime.utcnow) 
-    
-    __table_args__ = (
-            UniqueConstraint('name'),
-            )
-
-    def __repr__(self):
-        return "<Step(id='%s', name='%s', created='%s')>" % (
-            self.id_, self.name, self.created)
-    
-        
-class Event(Base):
-    __tablename__ = 'Event'
-    
-    id_=Column(String, primary_key=True)
-    name=Column(String, nullable=False,)
-    created=Column(DateTime(), nullable=False, default=datetime.datetime.utcnow) 
-    
-    __table_args__ = (
-            UniqueConstraint('name'),
-            )
-
-    def __repr__(self):
-        return "<event_id='%s', name='%s', created='%s'')>" % (
-            self.id_,  self.expr, self.created, self.resolved)
-
-class Assoc(Base):
-    __tablename__ = 'Assoc'
-    
-    id_=Column(Integer, Sequence('assoc_id_seq'), primary_key=True)
-    event_id=Column(String, nullable=False)
-    obj_type=Column(SQLEnum(AssocType), nullable=False)
-    obj_id=Column(String, nullable=False) 
-    created=Column(DateTime(), nullable=False, default=datetime.datetime.utcnow) 
-    
-    __table_args__ = (
-            UniqueConstraint('id_', 'obj_type', 'obj_id'),
-            )
-
-    def __repr__(self):
-        return "<Assoc(assoc_id='%s', event_id='%s', obj_type='%s', obj_id='%s', created='%s')>" % (
-            self.id_, self.event_id, self.obj_type, self.obj_id, self.created)
-
-class Registry(Base):
-    __tablename__ = 'Registry'
-    registry_id=Column(Integer, Sequence('registry_id_seq'), primary_key=True)
-    task_id=Column(Integer, primary_key=True)
-    value=Column(PickleType())
-'''
         
 if __name__ == '__main__':
     #engine = create_engine('sqlite:///:memory:', echo=True)
@@ -221,7 +192,7 @@ if __name__ == '__main__':
     Session = sessionmaker(bind=engine)
     session = Session()
     
-    db_task=Task(step_id='34',status=TaskStatus.ready , sequence='45')
+    db_task=Task(step_id='34',status=TaskStatus.ready , recovery='0', sequence='45')
     session.add(db_task)
     session.flush() 
     session.commit() 
@@ -231,8 +202,19 @@ if __name__ == '__main__':
     session.flush() 
     session.commit() 
 
-    db_info=Info(name='46' , value='45')
+    db_info=Info(run_id='123', name='46' , value='45')
     session.add(db_info)
+    session.flush() 
+    session.commit() 
+
+    db_delay=Delay(run_id='123', delay_id='S1', recovery=3 )
+    session.add(db_delay)
+    session.flush() 
+    session.commit() 
+
+    db_delay=Delay(delay_id='mydelay', seconds=2419200, sequence=3, )
+    print('DBAPI - add_delay: %s' % (repr(db_delay), ))
+    session.add(db_delay)
     session.flush() 
     session.commit() 
 

@@ -4,12 +4,7 @@ Created on Oct 31, 2016
 @author: arnon
 '''
 
-from eventor.utils import get_event_id, is_require_op, op_to_lambda
-from eventor.eventor_types import EventorError
-from eventor.step import Step
-from collections import OrderedDict
 import logging
-from datetime import datetime
 
 module_logger=logging.getLogger(__name__)
 

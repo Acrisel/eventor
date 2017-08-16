@@ -95,6 +95,9 @@ class SQLAlchemyConf(object):
         self.session=None
         self.echo=echo
         
+    def __repr__(self):
+        return repr(self.dbconf)
+        
     def get_info(self):
         return self.dbconf
           

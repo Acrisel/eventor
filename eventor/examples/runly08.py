@@ -63,7 +63,7 @@ def prog(progname):
     return progname
 
 def build_flow(run_mode):
-    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.INFO,)
+    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.DEBUG,)
     
     ev1s=ev.add_event('run_step1')
     ev2s=ev.add_event('run_step2')
@@ -80,17 +80,24 @@ def build_flow(run_mode):
     ev.trigger_event(ev1s, 1)
     return ev
 
-ev=build_flow(run_mode=evr.RunMode.restart)
-ev.run(max_loops=1)
-ev.close()
 
-for loop in range(4):
-    delay=5 if loop in [1,2] else 15
-    time.sleep(delay)
-    ev=build_flow(run_mode=evr.RunMode.continue_)
-    result=ev.run(max_loops=1)
+def construct_and_run():
+    ev=build_flow(run_mode=evr.RunMode.restart)
+    ev.run(max_loops=1)
     ev.close()
-    print('Result: %s' % result)
+    
+    for loop in range(4):
+        delay=5 if loop in [1,2] else 15
+        time.sleep(delay)
+        ev=build_flow(run_mode=evr.RunMode.continue_)
+        result=ev.run(max_loops=1)
+        ev.close()
+        print('Result: %s' % result)
 
+if __name__ == '__main__':
+    import multiprocessing as mp
+    mp.freeze_support()
+    mp.set_start_method('spawn')
+    construct_and_run()
 
 

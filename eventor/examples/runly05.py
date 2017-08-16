@@ -78,44 +78,50 @@ class Container(object):
                     #self.ev.remote_trigger_event(trigger, self.loop_index,)
             
         return True
-        
 
-ev=evr.Eventor( logging_level=logging.INFO) # store=':memory:',
-
-ev0first=ev.add_event('s0_start')
-ev0next=ev.add_event('s0_next')
-ev00first=ev.add_event('s0_00_start')
-ev00next=ev.add_event('s0_s00_next')
-ev1s=ev.add_event('s0_s00_s1_start')
-ev1success=ev.add_event('s0_s00_s1_success')
-ev2s=ev.add_event('s0_s00_s2_start', expr=(ev1success,))
-ev2success=ev.add_event('s0_s00_s2_success')
-ev3s=ev.add_event('s0_s00_s3_start', expr=(ev2success,))
-
-metaprog=Container(ev=ev, progname='S0', loop=[1,2,], iter_triggers=(ev00first,))
-s0first=ev.add_step('s0_start', func=metaprog, kwargs={'initial': True, }, config={'max_concurrent': -1, 'task_construct': Invoke})
-s0next=ev.add_step('s0_next', func=metaprog, config={'task_construct': Invoke})
-
-metaprog=Container(ev=ev, progname='S00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
-
-#s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
-#s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': threading.Thread})
-s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': Invoke,})
-s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': Invoke,})
-
-s1=ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
-s2=ev.add_step('s0.s00.s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
-
-s3=ev.add_step('s0.s00.s3', func=prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
-
-ev.add_assoc(ev0first, s0first)
-ev.add_assoc(ev0next, s0next)
-ev.add_assoc(ev00first, s00first)
-ev.add_assoc(ev00next, s00next)
-ev.add_assoc(ev1s, s1)
-ev.add_assoc(ev2s, s2)
-ev.add_assoc(ev3s, s3)
-
-ev.trigger_event(ev0first, 0)
-ev.run()
-ev.close()
+def construct_and_run():        
+    ev=evr.Eventor( logging_level=logging.DEBUG) # store=':memory:',
+    
+    ev0first=ev.add_event('s0_start')
+    ev0next=ev.add_event('s0_next')
+    ev00first=ev.add_event('s0_00_start')
+    ev00next=ev.add_event('s0_s00_next')
+    ev1s=ev.add_event('s0_s00_s1_start')
+    ev1success=ev.add_event('s0_s00_s1_success')
+    ev2s=ev.add_event('s0_s00_s2_start', expr=(ev1success,))
+    ev2success=ev.add_event('s0_s00_s2_success')
+    ev3s=ev.add_event('s0_s00_s3_start', expr=(ev2success,))
+    
+    metaprog=Container(ev=ev, progname='S0', loop=[1,2,], iter_triggers=(ev00first,))
+    s0first=ev.add_step('s0_start', func=metaprog, kwargs={'initial': True, }, config={'max_concurrent': -1, 'task_construct': Invoke})
+    s0next=ev.add_step('s0_next', func=metaprog, config={'task_construct': Invoke})
+    
+    metaprog=Container(ev=ev, progname='S00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
+    
+    #s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
+    #s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': threading.Thread})
+    s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': Invoke,})
+    s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': Invoke,})
+    
+    s1=ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
+    s2=ev.add_step('s0.s00.s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
+    
+    s3=ev.add_step('s0.s00.s3', func=prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
+    
+    ev.add_assoc(ev0first, s0first)
+    ev.add_assoc(ev0next, s0next)
+    ev.add_assoc(ev00first, s00first)
+    ev.add_assoc(ev00next, s00next)
+    ev.add_assoc(ev1s, s1)
+    ev.add_assoc(ev2s, s2)
+    ev.add_assoc(ev3s, s3)
+    
+    ev.trigger_event(ev0first, 0)
+    ev.run()
+    ev.close()
+    
+if __name__ == '__main__':
+    import multiprocessing as mp
+    mp.freeze_support()
+    mp.set_start_method('spawn')
+    construct_and_run()

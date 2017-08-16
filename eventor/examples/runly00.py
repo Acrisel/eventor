@@ -54,6 +54,7 @@ import eventor as evr
 import logging
 import os
 
+
 logger=logging.getLogger(__name__)
 
 def prog(progname):
@@ -61,21 +62,28 @@ def prog(progname):
     logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
     return progname
 
-ev=evr.Eventor(store=':memory:', logging_level=logging.DEBUG)
-#ev=evr.Eventor(logging_level=logging.DEBUG, config='example00.conf', store='sqfile00')
+def construct_and_run():
+    ev = evr.Eventor(logging_level=logging.DEBUG, config='example00.conf', store='pgdb', shared_db=True)
+    
+    ev1s=ev.add_event('run_step1')
+    ev2s=ev.add_event('run_step2')
+    ev3s=ev.add_event('run_step3')
+    
+    s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
+    s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
+    s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
+    
+    ev.add_assoc(ev1s, s1)
+    ev.add_assoc(ev2s, s2)
+    ev.add_assoc(ev3s, s3)
 
-ev1s=ev.add_event('run_step1')
-ev2s=ev.add_event('run_step2')
-ev3s=ev.add_event('run_step3')
+    ev.trigger_event(ev1s, 1)
+    ev.run()
+    ev.close()
+    
+if __name__ == '__main__':
+    import multiprocessing as mp
+    mp.freeze_support()
+    mp.set_start_method('spawn')
+    construct_and_run()
 
-s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
-s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
-s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
-
-ev.add_assoc(ev1s, s1)
-ev.add_assoc(ev2s, s2)
-ev.add_assoc(ev3s, s3)
-
-ev.trigger_event(ev1s, 1)
-ev.run()
-ev.close()

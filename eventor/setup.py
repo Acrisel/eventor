@@ -19,7 +19,7 @@ To create package and upload:
 
   python setup.py register
   python setup.py sdist
-  python setup.py sdist upload
+  twine upload -s dist/path/to/gz
 
 '''
 PACKAGE = "eventor"
@@ -92,6 +92,8 @@ setup_info={'name': NAME,
      'acrilog',
      'setproctitile>=1.1',
      'pyyaml>=3.12',
+     'namedlist>=1.7',
+     'PyYAML>=3.12',
      ],
  'extras_require': {'dev': [], 'test': []},
  'classifiers': ['Development Status :: 5 - Production/Stable',

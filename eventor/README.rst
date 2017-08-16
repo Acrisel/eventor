@@ -25,31 +25,40 @@ Simple Example
         import eventor as evr
         import logging
         
-        logger=logging.getLogger(__name__)
         
-        def prog(progname):
-            logger.info("doing what %s is doing" % progname)
-            return progname
+        def construct_and_run():
+            logger=logging.getLogger(__name__)
         
-        ev=evr.Eventor(store=':memory:')
+            def prog(progname):
+                logger.info("doing what %s is doing" % progname)
+                return progname
         
-        ev1s=ev.add_event('run_step1')
-        ev2s=ev.add_event('run_step2')
-        ev3s=ev.add_event('run_step3')
+            ev=evr.Eventor(store=':memory:')
         
-        s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, 
-                       triggers={evr.StepStatus.success: (ev2s,),}) 
-        s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, 
-                       triggers={evr.StepStatus.success: (ev3s,), })
-        s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
+            ev1s=ev.add_event('run_step1')
+            ev2s=ev.add_event('run_step2')
+            ev3s=ev.add_event('run_step3')
         
-        ev.add_assoc(ev1s, s1)
-        ev.add_assoc(ev2s, s2)
-        ev.add_assoc(ev3s, s3)
+            s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, 
+                           triggers={evr.StepStatus.success: (ev2s,),}) 
+            s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, 
+                           triggers={evr.StepStatus.success: (ev3s,), })
+            s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
         
-        ev.trigger_event(ev1s, 1)
-        ev.run()
-        ev.close()
+            ev.add_assoc(ev1s, s1)
+            ev.add_assoc(ev2s, s2)
+            ev.add_assoc(ev3s, s3)
+        
+            ev.trigger_event(ev1s, 1)
+            ev.run()
+            ev.close()
+            
+        
+        if __name__ == '__main__':
+            import multiprocessing as mp
+            mp.freeze_support()
+            mp.set_start_method('spawn')
+            construct_and_run()
         
 Example Output
 --------------
@@ -349,11 +358,13 @@ Recovery Example
             y=x*x
             logger.info("Square of %s is %s" % (x, y))
             return y
+            
 
         def square_root(x):
             y=math.sqrt(x)
             logger.info("Square root of %s is %s" % (x, y))
             return y
+            
 
         def divide(x,y):
             z=x/y
@@ -382,15 +393,24 @@ Recovery Example
             ev.trigger_event(ev1s, 3)    
             return ev
 
-        # start regularly; it would fail in step 2
-        ev=build_eventor(param=-9)
-        ev.run()
-        ev.close()
 
-        # rerun in recovery
-        ev=build_eventor(evr.RunMode.recover, param=9)
-        ev.run()
-        ev.close()
+        def construct_and_run():
+            # start regularly; it would fail in step 2
+            ev=build_eventor(param=-9)
+            ev.run()
+            ev.close()
+
+            # rerun in recovery
+            ev=build_eventor(evr.RunMode.recover, param=9)
+            ev.run()
+            ev.close()
+        
+        
+        if __name__ == '__main__':
+            import multiprocessing as mp
+            mp.freeze_support()
+            mp.set_start_method('spawn')
+            construct_and_run()
 
 Example Output
 --------------
@@ -465,84 +485,94 @@ Delay Example
 
         logger=logging.getLogger(__name__)
 
+
         def prog(progname):
             logger.info("doing what %s is doing" % progname)
             logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
             return progname
+    
 
         def build_flow(run_mode):
             ev=evr.Eventor(run_mode=run_mode, logging_level=logging.INFO)
-    
+
             ev1s=ev.add_event('run_step1')
             ev2s=ev.add_event('run_step2')
             ev3s=ev.add_event('run_step3')
-    
+
             s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
             s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
             s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
-    
+
             ev.add_assoc(ev1s, s1, delay=0)
             ev.add_assoc(ev2s, s2, delay=10)
             ev.add_assoc(ev3s, s3, delay=10)
-    
+
             ev.trigger_event(ev1s, 1)
             return ev
+    
 
-        ev=build_flow(run_mode=evr.RunMode.restart)
-        ev.run(max_loops=1)
-        ev.close()
-
-        for _ in range(4):
-            delay=5 if loop in [1,2] else 15
-            time.sleep(delay)
-            ev=build_flow(run_mode=evr.RunMode.continue_)
-            ev.run(max_loops=1) 
+        def construct_and_run():
+            ev=build_flow(run_mode=evr.RunMode.restart)
+            ev.run(max_loops=1)
             ev.close()
-            
+
+            loop=0
+            while True:
+                total_todos, _ = ev.count_todos()
+                if total_todos == 0:
+                    break
+                    
+                loop += 1
+                delay=5 if loop % 4 != 0 else 15
+                time.sleep(delay)
+                ev=build_flow(run_mode=evr.RunMode.continue_)
+                ev.run(max_loops=1) 
+           ß     ev.close()
+    
+
+        if __name__ == '__main__':
+            import multiprocessing as mp
+            mp.freeze_support()
+            mp.set_start_method('spawn')
+            construct_and_run()  
+                      
 Example Output
 --------------
 
     .. code:: 
         :number-lines:
 
-        [ 2017-01-30,14:06:33.660379 ][ INFO    ][ Eventor store file: /eventor/example/runly08.run.db ]
-        [ 2017-01-30,14:06:33.713544 ][ INFO    ][ [ Step s1/1 ] Trying to run ]
-        [ 2017-01-30,14:06:33.715248 ][ INFO    ][ doing what prog1 is doing ]
-        [ 2017-01-30,14:06:33.715441 ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]
-        [ 2017-01-30,14:06:33.715624 ][ INFO    ][ [ Step s1/1 ] Completed, status: TaskStatus.success ]
-        [ 2017-01-30,14:06:33.985704 ][ INFO    ][ Processing finished with: success ]
-        [ 2017-01-30,14:06:48.990540 ][ INFO    ][ Eventor store file: /eventor/example/runly08.run.db ]
-        [ 2017-01-30,14:06:49.029116 ][ INFO    ][ [ Step s2/1 ] Trying to run ]
-        [ 2017-01-30,14:06:49.032463 ][ INFO    ][ doing what prog2 is doing ]
-        [ 2017-01-30,14:06:49.032766 ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]
-        [ 2017-01-30,14:06:49.033149 ][ INFO    ][ [ Step s2/1 ] Completed, status: TaskStatus.success ]
-        [ 2017-01-30,14:06:49.296886 ][ INFO    ][ Processing finished with: success ]
-        [ 2017-01-30,14:06:54.305313 ][ INFO    ][ Eventor store file: /eventor/example/runly08.run.db ]
-        [ 2017-01-30,14:06:54.320393 ][ INFO    ][ Processing finished with: success ]
-        [ 2017-01-30,14:06:59.327107 ][ INFO    ][ Eventor store file: /eventor/example/runly08.run.db ]
-        [ 2017-01-30,14:06:59.365875 ][ INFO    ][ [ Step s3/1 ] Trying to run ]
-        [ 2017-01-30,14:06:59.368390 ][ INFO    ][ doing what prog3 is doing ]
-        [ 2017-01-30,14:06:59.368845 ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]
-        [ 2017-01-30,14:06:59.369028 ][ INFO    ][ [ Step s3/1 ] Completed, status: TaskStatus.success ]
-        [ 2017-01-30,14:06:59.512375 ][ INFO    ][ Processing finished with: success ]
-        [ 2017-01-30,14:07:14.517336 ][ INFO    ][ Eventor store file: /eventor/eventor/example/runly08.run.db ]
-        [ 2017-01-30,14:07:14.534758 ][ INFO    ][ Processing finished with: success ]
+        [ 2017-08-16,16:31:29.277048 ][ Task-s1(1)  ][ INFO    ][ [ Step s1/1 ] Trying to run ]
+        [ 2017-08-16,16:31:29.277903 ][ Task-s1(1)  ][ INFO    ][ doing what prog1 is doing ]
+        [ 2017-08-16,16:31:29.278114 ][ Task-s1(1)  ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]
+        [ 2017-08-16,16:31:29.278360 ][ Task-s1(1)  ][ INFO    ][ [ Step s1/1 ] Completed, status: TaskStatus.success ]
+        [ 2017-08-16,16:31:29.500688 ][ MainProcess ][ INFO    ][ Processing finished with: success; outstanding tasks: 1 ]
+        [ 2017-08-16,16:31:35.074012 ][ MainProcess ][ INFO    ][ Processing finished with: success; outstanding tasks: 1 ]
+        [ 2017-08-16,16:31:41.028196 ][ Task-s2(1)  ][ INFO    ][ [ Step s2/1 ] Trying to run ]
+        [ 2017-08-16,16:31:41.029191 ][ Task-s2(1)  ][ INFO    ][ doing what prog2 is doing ]
+        [ 2017-08-16,16:31:41.029429 ][ Task-s2(1)  ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]
+        [ 2017-08-16,16:31:41.029697 ][ Task-s2(1)  ][ INFO    ][ [ Step s2/1 ] Completed, status: TaskStatus.success ]
+        [ 2017-08-16,16:31:41.240564 ][ MainProcess ][ INFO    ][ Processing finished with: success; outstanding tasks: 1 ]
+        [ 2017-08-16,16:31:46.989434 ][ MainProcess ][ INFO    ][ Processing finished with: success; outstanding tasks: 1 ]
+        [ 2017-08-16,16:32:02.931265 ][ Task-s3(1)  ][ INFO    ][ [ Step s3/1 ] Trying to run ]
+        [ 2017-08-16,16:32:02.932407 ][ Task-s3(1)  ][ INFO    ][ doing what prog3 is doing ]
+        [ 2017-08-16,16:32:02.932661 ][ Task-s3(1)  ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]
+        [ 2017-08-16,16:32:02.932940 ][ Task-s3(1)  ][ INFO    ][ [ Step s3/1 ] Completed, status: TaskStatus.success ]
+        [ 2017-08-16,16:32:03.014584 ][ MainProcess ][ INFO    ][ Processing finished with: success; outstanding tasks: 0 ]
         
 Example Highlights
 ------------------
 
-   The example program builds and runs Eventor sequence 4 times.  The build involves three tasks that would run sequentially.  They are associated to each other with delay of 10 seconds each (lines 25 and 26.)
+   The example program builds and runs Eventor sequence 4 times.  The build involves three tasks that would run sequentially.  They are associated to each other with delay of 10 seconds each (lines 26 and 28.)
    
    
-   The first time, sequence is build with *restart* run mode (line 31).  In this case, the sequence is initiated.  The next four runs are in *continue* run mode (line 38).  Each of those run continue its preceding run.  To have it show the point, a varying delay is introduced between runs (lines 35-36).
+   The first time, sequence is build with *restart* run mode (line 35).  In this case, the sequence is initiated.  The next four runs are in *continue* run mode (line 48).  Each of those run continue its preceding run.  To have it show the point, a varying delay is introduced between runs (lines 46-47).
    
-   Each run limits the number of loop to a single loop (lines 32 and 38).  A single loop entails Eventor executing triggers and tasks until there is none to execute.  It may be though that there are still outstanding delayed association to act upon.
+   Each run limits the number of loop to a single loop (lines 40 and 50).  A single loop entails Eventor executing triggers and tasks until there is none to execute.  It may be though that there are still outstanding delayed association to act upon.
    
-   This behavior is different than continous run (using max_loops=-1), which is the default.  In such run, Eventor will continue to loop until there are no triggers, tasks, and delayed association to process.
+   This behavior is different than continuous run (using max_loops=-1), which is the default.  In such run, Eventor will continue to loop until there are no triggers, tasks, and delayed association to process.
    
-   Eventor five runs can be observed in example output lines 1-6, 7-2, 13-14, 15-20, and 21-22 each.  During the first run, Step *s1* matures and executed.  Eventor is executed again after 15 seconds by which the delay for *s2* passed.  As a result *s2* is executed in Eventor's second run.  
-   
-   The third run is executed 5 seconds after *s2* completion.  Too short of a time to have *s3* delayed association pass.  As a result, third run finds nothing to run.  The fourth cycle finds *s3* association matured and execute it.  The last cycle, finds nothing to run, as the sequence is complete.
+   Eventor runs can be observed in example output lines 1-5, 6, 7-11, 12, and 13-17 each.  Note that the second and forth runs had not trigger to execute on.  The associated tasks' delays was not yet matured.
     
 Resources
 =========
@@ -585,6 +615,18 @@ Next Release
     #. asynchronous tasks: embed mechanism to launch asynchronous tasks
     #. remote callback mechanisms: allow remote asynchronous tasks communicate with Eventor (TCP/IP, HTTP, etc.) 
     
+Change log
+==========
+
+5.0
+---
+
+    1. added database configuration allowing the use of SqlAlchemy database engines
+    #. added shared_db to indicate db is shared among multiple programs and runs
+    #. added run_id as unique identifier for program run (not to be confused with recovery)
+    #. improved documentation to reflect the need for mp.freeze_support() and mp.set_start_method('spawn')
+    #. added dependency on namedlist, and PyYAML, packages
+    #. bug fix in delay
 
 Additional Information
 ======================

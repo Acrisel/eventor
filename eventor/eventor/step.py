@@ -61,7 +61,13 @@ class Step(object):
     
     def __str__(self):
         return repr(self)
-          
+    
+    def _name(self, seq_path):
+        result='/'
+        if self.name:
+            result="%s/%s" %(self.name, seq_path)
+        return result
+             
     def db_write(self, db):
         db.add_step(step_id=self.id_, name=self.name)
     
@@ -73,7 +79,7 @@ class Step(object):
         return added
     
     def __call__(self, seq_path=None, loop_value=None,):
-        module_logger.debug('[ Step %s/%s ] Starting: %s' % (self.name, seq_path, repr(self) ))
+        module_logger.debug('[ Step %s ] Starting: %s' % (self._name(seq_path), repr(self) ))
         if self.func is not None:
             func=self.func
             func_args=self.func_args
@@ -87,5 +93,5 @@ class Step(object):
             result=func(*func_args, **func_kwargs)
         else:
             result=True
-        module_logger.debug('[ Step %s/%s ] Completed: %s' % (self.name, seq_path, repr(self) ))
+        module_logger.debug('[ Step %s ] Completed: %s' % (self._name(seq_path), repr(self) ))
         return result

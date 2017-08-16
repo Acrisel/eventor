@@ -45,7 +45,7 @@ def divide(x,y):
     return z
 
 def build_flow(run_mode=evr.RunMode.restart, param=9):
-    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.INFO)
+    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.DEBUG)
     
     ev1s=ev.add_event('run_step1')
     ev1d=ev.add_event('done_step1')
@@ -82,7 +82,9 @@ def recover(recover=True):
     ev.close()
     print('success result=%s' % result)
 
-if __name__ == '__main__':    
+if __name__ == '__main__':  
+    import multiprocessing as mp
+    mp.freeze_support()  
     #fail()
     #recover()
     recover(recover=False)
