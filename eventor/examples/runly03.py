@@ -44,8 +44,8 @@ def divide(x,y):
     logger.info("dividing %s by %s is %s" % (x, y, z))
     return z
 
-def build_flow(run_mode=evr.RunMode.restart, param=9):
-    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.DEBUG)
+def build_flow(run_mode=evr.RunMode.restart, run_id=None, param=9):
+    ev=evr.Eventor(run_mode=run_mode, run_id=run_id, shared_db=True, logging_level=logging.DEBUG)
     
     ev1s=ev.add_event('run_step1')
     ev1d=ev.add_event('done_step1')
@@ -69,15 +69,17 @@ def build_flow(run_mode=evr.RunMode.restart, param=9):
 def fail():
     # start regularly; it would fail in step 2
     ev=build_flow(param=-9)
+    run_id=ev.run_id
     result=ev.run()
     ev.close()
     print('fail result=%s' % result)
+    return run_id
 
-def recover(recover=True):
+def recover(recover=True, run_id=None):
     # rerun in recovery
     run_mode=evr.RunMode.restart
     if recover: run_mode=evr.RunMode.recover
-    ev=build_flow(run_mode=run_mode, param=9)
+    ev=build_flow(run_mode=run_mode, param=9, run_id=run_id)
     result=ev.run()
     ev.close()
     print('success result=%s' % result)
@@ -85,7 +87,8 @@ def recover(recover=True):
 if __name__ == '__main__':  
     import multiprocessing as mp
     mp.freeze_support()  
-    #fail()
-    #recover()
-    recover(recover=False)
+    mp.set_start_method('spawn')
+    run_id=fail()
+    recover(run_id=run_id)
+    #recover(recover=False)
     

@@ -14,7 +14,7 @@ from eventor.eventor_types import TaskStatus
 from namedlist import namedlist
 
 
-Info=namedlist("InfoRow", "run_id name value")
+Info=namedlist("InfoRow", "id_ run_id name value")
 
 
 def info_from_db(tobj):
@@ -31,8 +31,9 @@ def info_table(base):
     class Info(base):
         __tablename__ = 'Info'
         
-        run_id=Column(String, primary_key=True)
-        name=Column(String, primary_key=True)
+        id_ = Column(Integer, Sequence('trigger_id_seq'), primary_key=True)
+        run_id=Column(String, nullable=False)
+        name=Column(String, nullable=False)
         value=Column(String, nullable=True)
         
         __table_args__ = (

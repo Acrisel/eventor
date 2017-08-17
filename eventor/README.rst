@@ -106,23 +106,24 @@ Eventor Class Initiator
 
     .. code-block:: python
         
-        Eventor(name='', store='', run_mode=RunMode.restart, recovery_run=None, logging_level=logging.INFO, config={})
+        Eventor(name='', store='', run_mode=RunMode.restart, recovery_run=None, run_id='', shared_db=False,
+                logging_level=logging.INFO, config={})
 
 Args
 ````
 
-    name: string id for Eventor object initiated
+    *name*: string id for Eventor object initiated.
     
-    store: path to file that would store runnable (sqlite) information; if ':memory:' is used, in-memory temporary 
-        storage will be created.  If not provided, calling module path and name will be used 
-        with db extension instead of py
+    *store*: Eventor mechanism is built to work with SQLAlchemy. If store is provided, Eventor first check if store is a tag within config under **EVENTOR.DATABASE** (or whatever the environment variables *EVENTOR_CONFIG_TAG* and *EVENTOR_DB_CONFIG_TAG* points to) section. It the tag exists, it will pick its configuration as database configuration. If tag is not found, If tag is not provided, Eventor will tyr to look for *default* database configuration. Otherwise, *store* will be considered as a path to file that would store runnable (sqlite) information; if ':memory:' is used, in-memory temporary storage will be created.  If not provided, calling module path and name will be used with db extension instead of '.py'.
     
-    run_mode: can be either *RunMode.restart* (default) or *RunMode.recover*; in restart, new instance or the run 
-        will be created. In recovery, 
-              
-    recovery_run: if *RunMode.recover* is used, *recovery_run* will indicate specific instance of previously recovery 
-        run that would be executed.If not provided, latest run would be used.
-          
+    *run_mode*: can be either *RunMode.restart* (default) or *RunMode.recover*; in restart, new instance or the run will be created. In recovery, if *shared_db* is set, run_id or the recovered program must be provided.
+    
+    *recovery_run*: if *RunMode.recover* is used, *recovery_run* will indicate specific instance of previously recovery run that would be executed.If not provided, latest run would be used.
+    
+    *shared_db*: if set, db must not be in memory.  In this case, a run_id must be provided or it will be generated. It signals Eventor that multiple programs will use the same database tables.
+    
+    *run_id*: unique ID for the program run (excluding recovery_run).  It is mandatory in *shared_db* mode, and if not provided, will be generated.
+    
     config: keyword dictionary of default configurations.  Available keywords and their default values:
     
         +---------------------+------------+--------------------------------------------------+

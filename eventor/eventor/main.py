@@ -298,7 +298,7 @@ class Eventor(object):
         self._session_cycle_loop = False
         
         self.shared_db = shared_db
-        self.run_id = run_id
+        self.run_id = run_id if run_id is not None else ''
         if shared_db and not self.run_id:
             if run_mode != RunMode.restart:
                 raise EventorError("When shared_db is set in restart, run_id must be provided.")
