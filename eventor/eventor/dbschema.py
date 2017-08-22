@@ -31,7 +31,7 @@ def info_table(base):
     class Info(base):
         __tablename__ = 'Info'
         
-        id_ = Column(Integer, Sequence('trigger_id_seq'), primary_key=True)
+        id_ = Column(Integer, Sequence('trigger_id_seq', metadata=base.metadata), primary_key=True)
         run_id=Column(String, nullable=False)
         name=Column(String, nullable=False)
         value=Column(String, nullable=True)
@@ -63,7 +63,7 @@ def trigger_table(base):
     class Trigger(base):
         __tablename__ = 'Trigger'
         
-        id_ = Column(Integer, Sequence('trigger_id_seq'), primary_key=True)
+        id_ = Column(Integer, Sequence('trigger_id_seq', metadata=base.metadata), primary_key=True)
         run_id = Column(String, nullable=False, default='')
         event_id = Column(String, nullable=False)
         sequence = Column(Integer, nullable=False)
@@ -95,11 +95,11 @@ def task_table(base):
     class Task(base):
         __tablename__ = 'Task'
         
-        id_ = Column(Integer, Sequence('task_id_seq'), primary_key=True)
-        run_id = Column(String, default='')
-        step_id = Column(String,)
-        sequence = Column(Integer,)
-        recovery = Column(Integer, nullable=False)
+        id_ = Column(Integer, Sequence('task_id_seq', metadata=base.metadata), primary_key=True)
+        run_id = Column(String, default='', )
+        step_id = Column(String, )
+        sequence = Column(Integer, )
+        recovery = Column(Integer, nullable=False, )
         pid = Column(Integer, nullable=True)
         status = Column(SQLEnum(TaskStatus), ) 
         result = Column(PickleType() , nullable=True,)
@@ -134,7 +134,7 @@ def delay_table(base):
     class Delay(base):
         __tablename__ = 'Delay'
         
-        id_=Column(Integer, Sequence('delay_id_seq'), primary_key=True)
+        id_=Column(Integer, Sequence('delay_id_seq', metadata=base.metadata), primary_key=True)
         run_id = Column(String, default='')
         delay_id = Column(String,)
         sequence = Column(Integer,)
