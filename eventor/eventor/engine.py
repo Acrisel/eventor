@@ -306,8 +306,8 @@ class Eventor(object):
         
         self.__memory = MemEventor() 
         self.__agent = agent
-        self.__memory.kwargs['agent'] = True
         self.__memory.kwargs.update(eventor_kwargs)
+        self.__memory.kwargs['agent'] = True
         #self.__steps=  dict() 
         #self.__events = dict() 
         #self.__assocs = dict()
