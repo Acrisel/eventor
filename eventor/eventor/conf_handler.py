@@ -33,18 +33,31 @@ def expandmap(map_, expand_map=None):
     nmap=type_([(k, expandvars(v, expand_map)) for k,v in map_.items()])
     return nmap
 
-def getconfdict(conf=None, root='', expand=True, expand_map=None):
-    result=conf
-    if root is not None:
-        for key in root.split('.'):
-            result=result.get(key, result.get(key.swapcase(), result))
+def getconfdict(conf=None, key='', expand=True, expand_map=None):
+    ''' dive in dict (conf) according to key (=key1.key2...keyn)
+    
+    Args:
+        conf: Mapping configuration.
+        key: string of key.  If hierarchical, hierarchy is separated by '.'
+        expand: expands variable values ($VAR or ${VAR}) according to expan_map (os.environ if not provided)
+        
+    Return:
+        dict part implied by key or empty dict if not found.
+    '''
+    result = conf
+    if key is not None:
+        for k in key.split('.'):
+            try:
+                result = result.get(k, result.get(k.lower(), {}))
+            except Exception as e:
+                raise Exception("Failed to find key in config: %s, %s" %(key, conf))
     if expand:
-        result=expandmap(result, expand_map=expand_map)
+        result = expandmap(result, expand_map=expand_map)
     
     return result
 
 
-def getconfstr(conf=None, root=None, expand=True, expand_map=None):
+def getconfstr(conf=None, key=None, expand=True, expand_map=None):
     ''' YAML text or name of file.
     '''
     
@@ -57,18 +70,17 @@ def getconfstr(conf=None, root=None, expand=True, expand_map=None):
         text=conf
         
     content=yaml.load(text)
-    result=getconfdict(conf=content, root=root, expand=expand, expand_map=expand_map)
+    result=getconfdict(conf=content, key=key, expand=expand, expand_map=expand_map)
     return result
 
 
-def getconffile(conf=None, root=None, expand=True, expand_map=None):
+def getconffile(conf=None, key=None, expand=True, expand_map=None):
     '''file object opened to read: read file text and treat as str.
     '''
     text=conf.read()
-    return getconfstr(conf=text, root=root, expand=expand, expand_map=expand_map)
+    return getconfstr(conf=text, key=key, expand=expand, expand_map=expand_map)
 
 type_map={
-    'dict': getconfdict,
     'MergedChainedDict': getconfdict,
     'str': getconfstr,
     'file': getconffile,
@@ -82,22 +94,60 @@ def getrootconf(conf=None, root=None, expand=True, expand_map=None):
         conf: dictionary, text, filename, or 
     '''
     
-    type_=type(conf).__name__
+    type_ = type(conf).__name__
     try:
-        func=type_map.get(type_)
+        func = type_map[type_]
     except Exception as e:
-        raise Exception('unhandled conf type: %s, allow %s.' %(type_, repr(list(type_map.keys())))) from e
+        if isinstance(conf, Mapping):
+                func = getconfdict
+        else:
+            raise Exception('unhandled conf type: %s, allow %s.' %(type_, repr(list(type_map.keys())))) from e
     
-    rootconf=func(conf=conf, root=root, expand=expand, expand_map=expand_map)
+    rootconf = func(conf=conf, key=root, expand=expand, expand_map=expand_map)
     
     return rootconf    
 
 if __name__ == '__main__':
     from pprint import pprint
-    pprint(getrootconf('db.conf', 'default'))
-    pprint(getrootconf(conf='db.conf', root='playpg'))
-    pprint(getrootconf(conf='db.conf', root='playmem'))
-    pprint(getrootconf(conf='db.conf', root='playfile'))
-    pprint(getrootconf('db.conf', 'playmy'))
+    dbconf={
+        "EVENTOR": {
+            "DATABASES": {
+                "default": { 
+                    "dialect": "sqlite",
+                    "query": {
+                        "cache": "shared"
+                    },
+                },                
+                "sqfile00": {
+                    "dialect": "sqlite",
+                    "database": "/var/acrisel/sand/eventor/eventor/eventor/examples/example00.db"  
+                },
+                "pgdb1": {
+                    "dialect": "postgresql",
+                    "drivername" : "psycopg2",
+                    "username": "arnon",
+                    "password": "arnon42",
+                    "host": "localhost",
+                    "port": 5433,
+                    "database": "pyground",
+                    "schema": "play",
+                },
+                "pgdb2": {
+                    "dialect": "postgresql",
+                    "drivername" : "psycopg2",
+                    "username": "arnon",
+                    "password": "Chompi42",
+                    "host": "192.168.1.70",
+                    "port": 5432,
+                    "database": "pyground",
+                    "schema": "play",
+                },
+
+        }}}
+    pprint(getrootconf(dbconf, 'EVENTOR.DATABASES.default'))
+    pprint(getrootconf(conf=dbconf, root='EVENTOR.DATABASES.playpg'))
+    pprint(getrootconf(conf=dbconf, root='EVENTOR.DATABASES.playmem'))
+    pprint(getrootconf(conf=dbconf, root='EVENTOR.DATABASES.playfile'))
+    pprint(getrootconf(dbconf, 'EVENTOR.DATABASES.pgdb2'))
 
     

@@ -143,31 +143,55 @@ class SQLAlchemyConf(object):
     
     def get_session(self, force=False):
         if self.session and not force: return self.session
-        session_factory=sessionmaker(bind=self.get_metadata(force=force).bind.engine)
+        session_factory = sessionmaker(bind=self.get_metadata(force=force).bind.engine)
         Session = scoped_session(session_factory)
-        self.session=session=Session()
+        self.session = session = Session()
+        #session=Session()
         return session
 
     
     
 
 if __name__ == '__main__':
-    url, connect_args=SQLAlchemyConf('db.conf', database='default').get_url()
-    print(url, connect_args)
-    
-    dbconf=SQLAlchemyConf(conf='db.conf', database='playpg').get_info()
-    url, connect_args=SQLAlchemyConf(dbconf,).get_url()
-    print(url, connect_args)
-    
-    dbconf=SQLAlchemyConf(conf='db.conf', database='playmem').get_info()
-    url, connect_args=SQLAlchemyConf(dbconf,).get_url()
-    print(url, connect_args)
+    dbconf={
+        "EVENTOR": {
+            "DATABASES": {
+                "default": { 
+                    "dialect": "sqlite",
+                    "query": {
+                        "cache": "shared"
+                    },
+                },                
+                "sqfile00": {
+                    "dialect": "sqlite",
+                    "database": "/var/acrisel/sand/eventor/eventor/eventor/examples/example00.db"  
+                },
+                "pgdb1": {
+                    "dialect": "postgresql",
+                    "drivername" : "psycopg2",
+                    "username": "arnon",
+                    "password": "arnon42",
+                    "host": "localhost",
+                    "port": 5433,
+                    "database": "pyground",
+                    "schema": "play",
+                },
+                "pgdb2": {
+                    "dialect": "postgresql",
+                    "drivername" : "psycopg2",
+                    "username": "arnon",
+                    "password": "arnon42",
+                    "host": "192.168.1.70",
+                    "port": 5432,
+                    "database": "pyground",
+                    "schema": "play",
+                },
 
-    dbconf=SQLAlchemyConf(conf='db.conf', database='playfile').get_info()
-    url, connect_args=SQLAlchemyConf(dbconf,).get_url()
-    print(url, connect_args)
+        }}}
     
-    url, connect_args=SQLAlchemyConf('db.conf', database='playmy').get_url()
-    print(url, connect_args)
+    for db in ['default', 'sqfile00', 'pgdb1', 'pgdb2', ]:
+        url, connect_args=SQLAlchemyConf(dbconf, root='EVENTOR.DATABASES', database=db).get_url()
+        print(db, url, connect_args)
+    
 
     

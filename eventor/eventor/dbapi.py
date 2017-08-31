@@ -109,7 +109,7 @@ class DbApi(object):
         if session:
             self.session = session()   
         else: 
-            self.session=self.__sqlalchemy.get_session()
+            self.session=self.__sqlalchemy.get_session(force=True)
         self.open(mode=mode) 
             
         self.db_transaction_lock=threading.Lock()
@@ -131,7 +131,7 @@ class DbApi(object):
             self.create_db() 
             
     def close(self):
-        self.session.remove()
+        self.session.close()
     
     def create_schema(self):
         metadata = self.metadata
@@ -220,7 +220,7 @@ class DbApi(object):
         
     def add_trigger_if_not_exists(self, event_id, sequence, recovery):
         self.lock()
-        module_logger.debug("DBAPI - cehcking if event trigger do not exist: %s(%s)" %(event_id, sequence))
+        module_logger.debug("DBAPI - cehcking if event trigger do not exist: %s(%s)" %(event_id, sequence,))
         trigger = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.event_id==event_id, self.Trigger.sequence==sequence, self.Trigger.recovery==recovery).first()
         if trigger is None:
             module_logger.debug("DBAPI - adding event trigger %s(%s)" %(event_id, sequence))
@@ -237,8 +237,8 @@ class DbApi(object):
     
     def acted_trigger(self, trigger):
         self.lock()
-        db_trigger=self._get_trigger(trigger)
-        trigger.acted=db_trigger.acted=datetime.utcnow()
+        db_trigger = self._get_trigger(trigger)
+        trigger.acted = db_trigger.acted=datetime.utcnow()
         #self.session.add(trigger)
         self.commit_db()
         self.release()
@@ -246,37 +246,37 @@ class DbApi(object):
     
     def count_trigger_ready(self, sequence=None, recovery=None ):
         self.lock()
-        members=self.session.query(self.Trigger).filter(self.Trigger.run_id == self.run_id, self.Trigger.acted == None, self.Trigger.recovery == recovery)
+        members = self.session.query(self.Trigger).filter(self.Trigger.run_id == self.run_id, self.Trigger.acted == None, self.Trigger.recovery == recovery)
         if sequence:
-            members=members.filter(self.Trigger.sequence==sequence)
-        count=members.count()
+            members = members.filter(self.Trigger.sequence==sequence)
+        count = members.count()
         self.release()
         return count
         
     def count_trigger_ready_like(self, sequence, recovery):
         self.lock()
         try:
-            members=self.session.query(self.Trigger).filter(self.Trigger.sequence.like(sequence), self.Trigger.run_id == self.run_id, self.Trigger.acted == None, self.Trigger.recovery==recovery)
+            members = self.session.query(self.Trigger).filter(self.Trigger.sequence.like(sequence), self.Trigger.run_id == self.run_id, self.Trigger.acted == None, self.Trigger.recovery==recovery)
         except:
             self.release()
             raise
-        count=members.count()
+        count = members.count()
         self.release()
         return count
         
-    def add_task(self, step_id, sequence, status, recovery=None):
+    def add_task(self, step_id, sequence, host, status, recovery=None):
         self.lock()
-        task=self.Task(run_id=self.run_id, step_id=step_id, sequence=sequence, status=status, recovery=recovery)
+        task = self.Task(run_id=self.run_id, step_id=step_id, sequence=sequence, host=host, status=status, recovery=recovery)
         self.session.add(task)
         self.commit_db()
         self.release()
         return task_from_db(task)
         
-    def add_task_if_not_exists(self, step_id, sequence, status, recovery=None):
+    def add_task_if_not_exists(self, step_id, sequence, host, status, recovery=None):
         self.lock()
-        task=self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==sequence, self.Task.step_id == step_id, self.Task.recovery==recovery).first()
+        task = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==sequence, self.Task.host==host, self.Task.step_id == step_id, self.Task.recovery==recovery).first()
         if task is None:
-            task=self.Task(run_id=self.run_id, step_id=step_id, sequence=sequence, status=status, recovery=recovery)
+            task=self.Task(run_id=self.run_id, step_id=step_id, sequence=sequence, host=host, status=status, recovery=recovery)
             self.session.add(task)
             self.commit_db()
         self.release()
@@ -322,14 +322,14 @@ class DbApi(object):
         self.release()
         return task
         
-    def get_task_iter(self, recovery, status=None):
+    def get_task_iter(self, host, recovery, status=None):
         # TODO: do we really need recovery here
         self.lock()
         rows = self.session.query(self.Task)
         if status:
-            rows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.status.in_(status)).all()
+            rows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.host==host, self.Task.status.in_(status)).all()
         else:
-            rows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id).all()
+            rows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.host==host).all()
         self.release()
         for row in rows:
             result=task_from_db(row)
@@ -351,13 +351,15 @@ class DbApi(object):
         module_logger.debug("get_task_map: task: %s" %(repr(task_map)))
         return task_map
     
-    def count_tasks(self, recovery, status, sequence=None):
+    def count_tasks(self, recovery, status, sequence=None, host=None):
         self.lock()
         with self.session.no_autoflush:
             members=self.session.query(self.Task)
         members=members.filter(self.Task.run_id==self.run_id, self.Task.status.in_(status), self.Task.recovery==recovery)
         if sequence:
             members=members.filter(self.Task.sequence==sequence)
+        if host:
+            members=members.filter(self.Task.host==host)
         count=members.count()
         self.release()
         return count
@@ -370,9 +372,9 @@ class DbApi(object):
         self.release()
         return count
     
-    def get_task_status(self, task_names, sequence, recovery):
+    def get_task_status(self, task_names, sequence, host, recovery):
         self.lock()
-        tasks=self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.step_id.in_(task_names), self.Task.sequence==sequence, self.Task.recovery==recovery).all()
+        tasks=self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.step_id.in_(task_names), self.Task.sequence==sequence, self.Task.host==host, self.Task.recovery==recovery).all()
         result=dict()
         for task in tasks:
             result[task.step_id]=task.status        

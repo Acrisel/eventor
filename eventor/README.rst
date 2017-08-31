@@ -590,7 +590,7 @@ Resources
 Example for resources definitions
 ---------------------------------
 
-    .. code:: 
+    .. code_block:: python
         :number-lines:
         
         import eventor as evr
@@ -606,6 +606,36 @@ Example for resources definitions
         
         s1=ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, acquires=[(rp2, 1), ],) 
         
+
+Distributed Steps
+=================
+
+Eventor program can work in a clustered environment.  In this arrangement, steps can be defined to run on different nodes in the cluster.  This is possible granted:
+    
+    1. SSH is defined among cluster nodes.
+    #. Eventor DB is shared among cluster nodes.
+    #. Program environment is the *seamlessly-the-same* among cluster nodes.
+    
+How it works
+------------
+
+Eventor will be launched from one host, *server*.  It will then start the same program on every associated host relevant to program, *clients*.  *Client* programs will skip *starting* steps (steps with no )
+
+Cluster SSH access
+------------------
+
+When working on distributed environment, Eventor assumes that ssh is set properly among participating hosts.  
+
+To allow ssh run command with .profile (or .bash_profile) are not automatically exceuted, add the following before rsa key in .ssh/authorizedkeys
+
+    .. code_block:: python
+    
+        command "if [[ \"x${SSH_ORIGINAL_COMMAND}x\" != \"xx\" ]]; then source ~/.profile; eval \"${SSH_ORIGINAL_COMMAND}\"; else /bin/bash --login; fi;" <key>
+        
+Database
+--------
+
+Eventor program would be launched on all cluster nodes relevant to the program.
 
 Next Release
 ============

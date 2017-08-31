@@ -66,6 +66,9 @@ def construct_and_run():
     #db = 'sqfile00'
     db = 'pgdb2'
     config=os.path.abspath('example00.conf')
+    # because OSX adds /var -> /private/var
+    if config.startswith('/private'):
+        config = config[8:]
     ev = evr.Eventor(logging_level=logging.DEBUG, config=config, store=db, shared_db=True)
     
     ev1s=ev.add_event('run_step1')
@@ -73,7 +76,7 @@ def construct_and_run():
     ev3s=ev.add_event('run_step3')
     
     s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
-    s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
+    s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, host='192.168.1.70', triggers={evr.StepStatus.success: (ev3s,), })
     s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
     
     ev.add_assoc(ev1s, s1)

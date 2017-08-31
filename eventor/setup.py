@@ -76,6 +76,8 @@ if "install" in sys.argv:
             overlay_warning = True
             break
 
+scripts=['eventor/eventor_agent.py',]
+
 setup_info={'name': NAME,
  'version': VERSION,
  'url': URL,
@@ -86,6 +88,7 @@ setup_info={'name': NAME,
  'license': 'MIT',
  'keywords': 'project, virtualenv, parameters',
  'packages': [PACKAGE],
+ 'scripts' : scripts,
  'install_requires': [
      'SQLAlchemy>=1.1.5',
      'acris>=2.0.2',

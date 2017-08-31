@@ -31,7 +31,7 @@ def info_table(base):
     class Info(base):
         __tablename__ = 'Info'
         
-        id_ = Column(Integer, Sequence('trigger_id_seq', metadata=base.metadata), primary_key=True)
+        id_ = Column(Integer, Sequence('info_id_seq', metadata=base.metadata), primary_key=True)
         run_id=Column(String, nullable=False)
         name=Column(String, nullable=False)
         value=Column(String, nullable=True)
@@ -78,16 +78,16 @@ def trigger_table(base):
     return Trigger
 
 
-Task=namedlist("Task", "id_ run_id step_id sequence recovery pid status result created updated") 
+Task=namedlist("Task", "id_ run_id step_id sequence host recovery pid status result created updated") 
 
        
 def task_from_db(tobj):
-    result=Task(tobj.id_, tobj.run_id, tobj.step_id, tobj.sequence, tobj.recovery, tobj.pid, tobj.status, tobj.result, tobj.created, tobj.updated)
+    result=Task(tobj.id_, tobj.run_id, tobj.step_id, tobj.sequence, tobj.host, tobj.recovery, tobj.pid, tobj.status, tobj.result, tobj.created, tobj.updated)
     return result
 
 
 def task_to_db(obj, tcls):
-    result=tcls(obj.id_, obj.run_id, obj.step_id, obj.sequence, obj.recovery, obj.pid, obj.status, obj.result, obj.created, obj.updated)
+    result=tcls(obj.id_, obj.run_id, obj.step_id, obj.sequence, obj.host, obj.recovery, obj.pid, obj.status, obj.result, obj.created, obj.updated)
     return result
 
 
@@ -99,6 +99,7 @@ def task_table(base):
         run_id = Column(String, default='', )
         step_id = Column(String, )
         sequence = Column(Integer, )
+        host = Column(String, nullable=False, default='')
         recovery = Column(Integer, nullable=False, )
         pid = Column(Integer, nullable=True)
         status = Column(SQLEnum(TaskStatus), ) 
@@ -111,8 +112,8 @@ def task_table(base):
                 )
     
         def __repr__(self):
-            return "<Task(id='%s', run_id='%s', step_id='%s', sequence='%s', recovery='%s', pid='%s', status='%s', created='%s', updated='%s')>" % (
-                self.id_, self.run_id, self.step_id, self.sequence, self.recovery, self.pid, self.status, self.created, self.updated)
+            return "<Task(id='%s', run_id='%s', step_id='%s', sequence='%s', host='%s', recovery='%s', pid='%s', status='%s', created='%s', updated='%s')>" % (
+                self.id_, self.run_id, self.step_id, self.sequence, self.host, self.recovery, self.pid, self.status, self.created, self.updated)
     
     return Task
 
@@ -149,8 +150,8 @@ def delay_table(base):
                 )
     
         def __repr__(self):
-            return "<Delay(id='%s', run_id='%s', delay_id='%s', delay='%s', active='%s', activated='%s')>" % (
-                self.id_, self.run_id, self.delay_id, self.seconds, self.active, self.activated)
+            return "<Delay(id='%s', run_id='%s', delay_id='%s', sequence='%s', delay='%s', active='%s', activated='%s')>" % (
+                self.id_, self.run_id, self.delay_id, self.sequence, self.seconds, self.active, self.activated)
     
     return Delay   
  

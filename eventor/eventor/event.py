@@ -50,11 +50,11 @@ class Event(object):
     """
 
     def __init__(self, name, expr=None):
-        self.name=name
-        self.expr=expr
+        self.name = name
+        self.expr = expr
         if expr:
             self.expr=expr_to_str(expr)
-        self.id_=name #get_event_id()
+        self.id_ = name #get_event_id()
                     
     def __repr__(self):
         expr=''
@@ -69,7 +69,7 @@ class Event(object):
     #    db.add_event(event_id=self.id_, name=self.name,)
     
     def trigger_(self, db, sequence):
-        db.add_trigger(event_id=self.id_, sequence=sequence)
+        db.add_trigger(event_id=self.id_, sequence=sequence,)
     
     def trigger_if_not_exists(self, db, sequence, recovery):
         added=db.add_trigger_if_not_exists(event_id=self.id_, sequence=sequence, recovery=recovery)
