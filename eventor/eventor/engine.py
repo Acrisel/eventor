@@ -108,7 +108,9 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
     global module_logger
     
     if use_process:
-        module_logger=MpLogger.get_logger(logger_info=logger_info, name='') # name="%s.%s_%s" %(logger_info['name'], step.name, task.sequence))
+        module_logger=MpLogger.get_logger(logger_info=logger_info, name="%s.%s_%s" %(logger_info['name'], step.name, task.sequence))
+    else:
+        module_logger=MpLogger.get_logger(logger_info=logger_info, name="%s" %(logger_info['name'],))
     
     task.pid=os.getpid()
     os.environ['EVENTOR_STEP_SEQUENCE']=str(task.sequence)
@@ -190,7 +192,7 @@ class Eventor(object):
     """
     
     config_defaults={'workdir':'/tmp', 
-                     'logdir': '/tmp', 
+                     'logdir': '/log/eventor', 
                      'task_construct': mp.Process, 
                      #'synchrous_run': False, 
                      'max_concurrent': -1, 
@@ -227,7 +229,7 @@ class Eventor(object):
             host: hostname or ip address for steps with not specified host; if none, current runnign host will be used.
             shared_db: (boolean) if set, indicates that the database used is by multiple 
                 programs or instances thereof. 
-                
+            dedicated_logging: disabled   
             run_id: (str) if shared_db, run_id must be unique program execution among all programs 
                     sharing.  If not provided and shared_db is set, unique run_id will be generated.
                     When in recovery, and shared_db is set, run_id must be provided to identify the
@@ -279,7 +281,7 @@ class Eventor(object):
         eventor_kwargs = locals()
         del eventor_kwargs['self']
         
-        self.name=''
+        self.name = name
         config_root_name = os.environ.get('EVENTOR_CONFIG_TAG', eventor_config_tag)
         if isinstance(config, str):
             frame = inspect.stack()[1]
@@ -323,10 +325,11 @@ class Eventor(object):
         
         # TODO(Arnon): get to logging configuration (as in Database)
         # TODO(Arnon): drive encoding from parameter
-        logger_name = ''
-        if dedicated_logging:
-            logger_name = __name__
-        self.__logger = MpLogger(name=__name__, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
+        # TODO(Arnon): log name needs to be driven by calling 
+        logger_name = name
+        #if dedicated_logging:
+        #    logger_name = name
+        self.__logger = MpLogger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
         module_logger = self.__logger.start()
         
         self.__calling_module = calling_module()
@@ -513,21 +516,21 @@ class Eventor(object):
             EventorError: if func is not callable
         """
         try:
-            step=self.__memory.steps[name]
+            step = self.__memory.steps[name]
         except:
             pass
         else:
             return step
         
-        triggers=self.__convert_trigger_at_complete(triggers)
-        recovery=self.__convert_recovery_at_complete(recovery)
-        recovery=MergedChainedDict(recovery, Eventor.recovery_defaults)
-        recovery=dict([(step_to_task_status(status), replay) for status, replay in recovery.items()])
+        triggers = self.__convert_trigger_at_complete(triggers)
+        recovery = self.__convert_recovery_at_complete(recovery)
+        recovery = MergedChainedDict(recovery, Eventor.recovery_defaults)
+        recovery = dict([(step_to_task_status(status), replay) for status, replay in recovery.items()])
         
-        config=MergedChainedDict(config, self.__config, os.environ,)
+        config = MergedChainedDict(config, self.__config, os.environ,)
         # try to see if provided host is mapped in configuration
         host = host if self.hosts.get(host, host) is not None else self.host
-        step=Step(name=name, func=func, func_args=args, func_kwargs=kwargs, host=host, acquires=acquires, releases=releases, config=config, triggers=triggers, recovery=recovery)
+        step = Step(name=name, func=func, func_args=args, func_kwargs=kwargs, host=host, acquires=acquires, releases=releases, config=config, triggers=triggers, recovery=recovery, logger=module_logger)
         found=self.__memory.steps.get(step.id_)
         if found:
             raise EventorError("Step with similar name already defined: %s" % step.id_)

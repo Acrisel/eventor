@@ -9,7 +9,7 @@ import pprint
 from .eventor_types import EventorError, TaskStatus
 #from .utils import decorate_all, print_method_name
 
-module_logger=logging.getLogger(__name__)
+module_logger = logging.getLogger(__name__)
 
 #class Step(metaclass=decorate_all(print_method_name)):
 class Step(object):
@@ -25,10 +25,11 @@ class Step(object):
         also registered and could be referenced.   
     """
 
-    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, host=[], triggers={}, acquires=None, releases=None, recovery={}, config={}):
+    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, host=[], triggers={}, acquires=None, releases=None, recovery={}, config={}, logger=None):
         '''
         Constructor
         '''
+        global module_logger
         
         self.name = name
         self.id_ = name #get_step_id()
@@ -49,6 +50,8 @@ class Step(object):
         
         self.path = None
         self.iter_path = None
+        if logger is not None:
+            module_logger = logger
         
     def __repr__(self):
         if hasattr(self.func, '__name__'):
