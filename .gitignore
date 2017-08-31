@@ -17,6 +17,7 @@ __pycache__
 *.7z
 *.dmg
 *.gz
+*.tgz
 *.iso
 *.jar
 *.rar
