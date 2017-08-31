@@ -174,7 +174,7 @@ class Memtask(object):
     #        self.requestor.put(*self.resources)
     
 #class Eventor(metaclass=decorate_all(print_method(module_logger.debug))):
-class Eventor(object):
+class Engine(object):
     """Eventor manages events and steps that needs to be taken when raised.
     
     Eventor provides programming interface to create events, steps and associations among them.
@@ -305,8 +305,7 @@ class Eventor(object):
             self.host = self.hosts.get(host, host)
         
         self.__memory = MemEventor() 
-        self.__agent = agent
-        self.__memory.kwargs['agent'] = True
+        self.__agent = False
         self.__memory.kwargs.update(eventor_kwargs)
         #self.__steps=  dict() 
         #self.__events = dict() 
@@ -363,7 +362,7 @@ class Eventor(object):
         
     def __get_dbapi(self):
         filename = store_from_module(self.__calling_module)
-        db_mode = DbMode.write if self.__run_mode == RunMode.restart else DbMode.append
+        db_mode = DbMode.write if self.__run_mode==RunMode.restart else DbMode.append
         self.db = DbApi(config=self.__config, modulefile=filename, shared_db=self.shared_db, run_id=self.run_id, userstore=self.store, mode=db_mode, echo=False, logger=module_logger) #self.debug)
                 
     def __setup_db_connection(self):
@@ -381,7 +380,7 @@ class Eventor(object):
         #    else:
         #        self.__db_daly_adj=(datetime.now() - datetime.fromtimestamp(db_mtime)).total_seconds()
         self.__get_dbapi()
-        if self.__run_mode == RunMode.restart and not self.__agent:
+        if self.__run_mode == RunMode.restart:
             self.__write_info()
         else:
             self.__read_info(run_mode=self.__run_mode, recovery_run=self.__recovery_run)
@@ -403,6 +402,9 @@ class Eventor(object):
 
     def set_memory(self, memory):
         self.__memory = memory
+        
+    def set_agent(self, agent):
+        self.__agent = agent
         
     def _name(self, seq_path):
         result='/'

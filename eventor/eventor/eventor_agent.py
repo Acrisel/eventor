@@ -17,7 +17,6 @@ class EventorAgent(Eventor):
     def __init__(self, memory=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         super().set_memory(memory)
-        super().set_agent(True)
 
 
 def cmdargs():
