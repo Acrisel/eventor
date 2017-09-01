@@ -69,7 +69,7 @@ def construct_and_run():
     # because OSX adds /var -> /private/var
     if config.startswith('/private'):
         config = config[8:]
-    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=True)
+    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=True, import_=__file__)
     
     ev1s=ev.add_event('run_step1')
     ev2s=ev.add_event('run_step2')

@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 ##############################################################################
 #
@@ -57,36 +57,43 @@ import os
 
 logger=logging.getLogger(__name__)
 
-def prog(progname):
-    logger.info("doing what %s is doing" % progname)
-    logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
-    return progname
+class MyEnventor(evr.Eventor):
+    def __init__(self, ):
+        db = 'pgdb2'
+        config = os.path.abspath('example00.conf')
+        super().__init__(name=__class__.__name__, logging_level=logging.DEBUG, config=config, store=db, shared_db=True)
 
-def construct_and_run(): 
-    #db = 'sqfile00'
-    db = 'pgdb2'
-    config=os.path.abspath('example00.conf')
-    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=True, import_=__file__)
+    def prog(self, progname):
+        logger.info("doing what %s is doing" % progname)
+        logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
+        return progname
     
-    ev1s=ev.add_event('run_step1')
-    ev2s=ev.add_event('run_step2')
-    ev3s=ev.add_event('run_step3')
+    def construct_and_run(self): 
+        #db = 'sqfile00'
+        #db = 'pgdb2'
+        #config=os.path.abspath('example00.conf')
+        #ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=True)
+        
+        ev1s = self.add_event('run_step1')
+        ev2s = self.add_event('run_step2')
+        ev3s = self.add_event('run_step3')
+        
+        s1 = self.add_step('s1', func=self.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
+        s2 = self.add_step('s2', func=self.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
+        s3 = self.add_step('s3', func=self.prog, kwargs={'progname': 'prog3'},)
+        
+        self.add_assoc(ev1s, s1)
+        self.add_assoc(ev2s, s2)
+        self.add_assoc(ev3s, s3)
     
-    s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
-    s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
-    s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
-    
-    ev.add_assoc(ev1s, s1)
-    ev.add_assoc(ev2s, s2)
-    ev.add_assoc(ev3s, s3)
-
-    ev.trigger_event(ev1s, 1)
-    ev.run()
-    ev.close()
+        self.trigger_event(ev1s, 1)
+        self.run()
+        self.close()
     
 if __name__ == '__main__':
     import multiprocessing as mp
     mp.freeze_support()
     mp.set_start_method('spawn')
-    construct_and_run()
+    myeventor = MyEnventor()
+    myeventor.construct_and_run()
 

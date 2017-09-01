@@ -6,7 +6,7 @@ Created on Oct 19, 2016
 import logging
 import pprint
 
-from .eventor_types import EventorError, TaskStatus
+from eventor.eventor_types import EventorError, TaskStatus
 #from .utils import decorate_all, print_method_name
 
 module_logger = logging.getLogger(__name__)

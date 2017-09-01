@@ -97,8 +97,8 @@ class DbApi(object):
         self.shared_db = shared_db
         self.thread_sync = thread_sync
         
-        self.__sqlalchemy = get_sqlalchemy_conf(modulefile, userstore, config, root=root, echo =echo)
-        self.metadata = metadata=self.__sqlalchemy.get_metadata()
+        self.__sqlalchemy = get_sqlalchemy_conf(modulefile, userstore, config, root=root, echo=echo)
+        self.metadata = metadata = self.__sqlalchemy.get_metadata()
         
         Base = declarative_base(metadata=metadata)
         self.Info = info_table(Base)
@@ -111,8 +111,6 @@ class DbApi(object):
         else: 
             self.session=self.__sqlalchemy.get_session(force=True)
         self.open(mode=mode) 
-            
-        self.db_transaction_lock=threading.Lock()
     
     def set_thread_synchronization(self, value=True):
         self.thread_sync=value
@@ -125,13 +123,15 @@ class DbApi(object):
         if self.thread_sync:
             self.db_transaction_lock.release()
     
-    def open(self, mode=DbMode.write):        
+    def open(self, mode=DbMode.write): 
+        self.db_transaction_lock = threading.Lock()       
         if mode == DbMode.write:
             module_logger.debug("DbMode write: creating schema")
             self.create_db() 
             
     def close(self):
         self.session.close()
+        self.db_transaction_lock = None
     
     def create_schema(self):
         metadata = self.metadata
@@ -332,7 +332,7 @@ class DbApi(object):
             rows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.host==host).all()
         self.release()
         for row in rows:
-            result=task_from_db(row)
+            result = task_from_db(row)
             module_logger.debug("task_iter: task: %s" %(repr(result)))
             yield  result
     

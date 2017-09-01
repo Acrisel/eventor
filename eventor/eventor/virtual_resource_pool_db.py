@@ -91,23 +91,23 @@ class ResourcePool(NamedSingleton):
                 'resource_limit': -1, # max resources available
         }
     
-    __allow_set_policy=True
-    __resource_pool_lock=threading.Lock()
+    __allow_set_policy = True
+    __resource_pool_lock = threading.Lock()
     
-    __name=''
+    __name = ''
     
-    __ticket_sequence=Sequence('ResourcePool_ticket')
-    __pool_id_sequence=Sequence('ResourcePool_pool_id')
+    __ticket_sequence = Sequence('ResourcePool_ticket')
+    __pool_id_sequence = Sequence('ResourcePool_pool_id')
     
     def __init__(self, name='', resource_cls=Resource, policy={}):
         # sets resource pool policy overriding defaults
         self.name=name
-        self.__resource_cls=resource_cls
-        self.__available_resources=list()
-        self.__awaiting=OrderedDict()
-        self.__reserved=OrderedDict()
-        self.__inuse_resources=list()
-        self.__id=self.__pool_id_sequence()
+        self.__resource_cls = resource_cls
+        self.__available_resources = list()
+        self.__awaiting = OrderedDict()
+        self.__reserved = OrderedDict()
+        self.__inuse_resources = list()
+        self.__id = self.__pool_id_sequence()
         #self.mutex = threading.RLock()
         #self.__ticket_sequence=Sequence("ResourcePool.%s" % (resource_cls.__name__, ))
         

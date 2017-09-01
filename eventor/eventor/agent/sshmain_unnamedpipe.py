@@ -30,10 +30,11 @@ def get_pipe():
     pipe_writer = os.fdopen(pipeout, 'wb')
     return pipe_reader, pipe_writer
 
-def remote_agent(host, agentpy, pipein, args=(), ):
+def remote_agent(host, agentpy, pipein, args=(), kwargs={},):
     ''' Runs agentpy on remote host via ssh overriding stdin as pipein and argument as args.
     '''
-    cmd = "%s %s" % (agentpy, ' '.join(args))
+    kw = ["%s %s" %(name, value) for name, value in kwargs.items()]
+    cmd = "%s %s" % (agentpy, ' '.join(args), " ".join(kw))
     remote = sshcmd(host,  cmd, stdin=pipein)
     if remote.returncode != 0:
         raise Exception(remote.stderr.decode())
