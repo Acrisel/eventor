@@ -34,7 +34,7 @@ def remote_agent(host, agentpy, pipein, args=(), kwargs={},):
     ''' Runs agentpy on remote host via ssh overriding stdin as pipein and argument as args.
     '''
     kw = ["%s %s" %(name, value) for name, value in kwargs.items()]
-    cmd = "%s %s" % (agentpy, ' '.join(args), " ".join(kw))
+    cmd = "%s %s %s" % (agentpy, " ".join(kw), ' '.join(args))
     remote = sshcmd(host,  cmd, stdin=pipein)
     if remote.returncode != 0:
         raise Exception(remote.stderr.decode())
