@@ -29,7 +29,7 @@ def cmdargs():
     parser = argparse.ArgumentParser(description="%s runs EventorAgent object" % progname)
     parser.add_argument('host', type=str, 
                         help="""Host on which this command was sent to.""")
-    parser.add_argument('--import', type=str, required=False, 
+    parser.add_argument('--import', type=str, required=False, dest='import_module',
                         help="""import file before pickle loads.""")
     args = parser.parse_args()  
     #argsd=vars(args)
@@ -38,9 +38,9 @@ def cmdargs():
 
 def run():
     args = cmdargs()
-    if args.import is not None:
+    if args.import_module is not None:
         from importlib import import_module
-        import_module(args.import)
+        import_module(args.import_module)
     
     msgsize_raw = sys.stdin.buffer.read(4)
     msgsize = struct.unpack(">L", msgsize_raw)

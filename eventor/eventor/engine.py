@@ -223,7 +223,7 @@ class Eventor(object):
                        StepStatus.failure: StepReplay.rerun, 
                        StepStatus.success: StepReplay.skip,}  
         
-    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={}, eventor_config_tag='EVENTOR', agent=False, import_=None):
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={}, eventor_config_tag='EVENTOR', agent=False, import_module=None):
         """initializes steps object
         
         Args:
@@ -292,6 +292,7 @@ class Eventor(object):
         del eventor_kwargs['self']
         
         self.name = name
+        self.import_module = import_module
         config_root_name = os.environ.get('EVENTOR_CONFIG_TAG', eventor_config_tag)
         if isinstance(config, str):
             frame = inspect.stack()[1]
@@ -1320,7 +1321,7 @@ class Eventor(object):
         pid = os.fork()   
         if pid == 0:
             # child process
-            msg = remote_agent(host, 'eventor_agent.py', pipein, args=(host,))
+            msg = remote_agent(host, 'eventor_agent.py', pipein, args=(host,), kwargs={"--import" : self.import_module,} )
             os._exit(0)
             
         module_logger.debug('Agent process started: %s:%d' % (host, pid))    
