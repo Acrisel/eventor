@@ -292,7 +292,8 @@ class Eventor(object):
         del eventor_kwargs['self']
         
         self.name = name
-        self.import_module = import_module
+        # TODO(Arnon): implement calling module 
+        self.import_module = import_module if import_module is not None else "calling module"
         config_root_name = os.environ.get('EVENTOR_CONFIG_TAG', eventor_config_tag)
         if isinstance(config, str):
             frame = inspect.stack()[1]
