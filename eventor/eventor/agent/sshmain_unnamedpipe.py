@@ -37,6 +37,7 @@ def remote_agent(host, agentpy, pipein, args=(), kwargs={},):
     cmd = "%s %s %s" % (agentpy, " ".join(kw), ' '.join(args))
     remote = sshcmd(host,  cmd, stdin=pipein)
     if remote.returncode != 0:
+        print("SSH Failed:", remote.stderr.decode())
         raise Exception(remote.stderr.decode())
         
     return remote.stdout

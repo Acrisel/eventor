@@ -9,9 +9,7 @@ from logging.handlers import QueueListener
 import inspect
 import datetime
 import os
-import yaml
-import subprocess
-
+import socket
 
 def is_require_op(op):
     if op in ['or', 'and',]:
@@ -158,6 +156,18 @@ def print_method(print_func):
             return result
         return wrapper
     return print_method_name
+
+
+def port_is_open(host, port):
+    result = False
+    try:
+        s = socket.create_connection((host, port), 0.5)
+    except socket.error as e:
+        pass
+    else:
+        s.close()
+        result = True
+    return result
 
 
 if __name__ == '__main__':

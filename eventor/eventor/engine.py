@@ -14,7 +14,7 @@ import inspect
 from enum import Enum
 import os
 import pickle
-import dill
+#import dill
 import queue
 import time
 from collections import Mapping
@@ -24,7 +24,7 @@ from eventor.event import Event
 from eventor.delay import Delay
 from eventor.assoc import Assoc
 from eventor.dbapi import DbApi
-from eventor.utils import calling_module, traces, rest_sequences, store_from_module, get_delay_id
+from eventor.utils import calling_module, traces, rest_sequences, store_from_module, get_delay_id, port_is_open
 from eventor.eventor_types import Invoke, EventorError, TaskStatus, step_to_task_status, task_to_step_status, LoopControl, StepStatus, StepReplay, RunMode, DbMode
 from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
@@ -314,6 +314,8 @@ class Eventor(object):
         else:
             # try to see if provided host is mapped in configuration
             self.host = self.hosts.get(host, host)
+        # TODO(Arnon): drive ssh_port from configuration
+        self.ssh_port = 22
         
         self.__memory = MemEventor() 
         self.__agent = agent
@@ -1383,6 +1385,17 @@ class Eventor(object):
             self.__logger = logger_ # self.__logger = MpLogger.get_logger(logger_info=logger_info, name=logger_info['name'])
             
             agents = dict()
+            not_accessiable = list()
+            for host in hosts:
+                # check ssh port is accessiable
+                accessiable = port_is_open(host, self.ssh_port)
+                if not accessiable:
+                    not_accessiable.append(host)
+            if len(not_accessiable) > 0:
+                msg = "SSH port is closed: %s" % ", ".join(not_accessiable)
+                module_logger.critical(msg)
+                raise EventorError(msg)
+                
             for host in hosts:
                 child_pid = self.__start_agent(host, mem_pack)
                 agents[host] = child_pid

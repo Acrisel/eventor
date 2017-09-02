@@ -8,7 +8,7 @@ Created on Aug 30, 2017
 from eventor.engine import Eventor
 from eventor.etypes import MemEventor
 import pickle
-import dill
+#import dill
 import sys
 import struct
 
