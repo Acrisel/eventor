@@ -221,8 +221,9 @@ class DbApi(object):
     def add_trigger_if_not_exists(self, event_id, sequence, recovery):
         self.lock()
         module_logger.debug("DBAPI - cehcking if event trigger do not exist: %s(%s)" %(event_id, sequence,))
-        trigger = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.event_id==event_id, self.Trigger.sequence==sequence, self.Trigger.recovery==recovery).first()
-        if trigger is None:
+        trigger = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.event_id==event_id, self.Trigger.sequence==sequence, self.Trigger.recovery==recovery)
+        found = self.session.query(trigger.exists()).scalar()
+        if not found:
             module_logger.debug("DBAPI - adding event trigger %s(%s)" %(event_id, sequence))
             trigger = self.Trigger(run_id=self.run_id, event_id=event_id, sequence=sequence, recovery=recovery)
             self.session.add(trigger)
@@ -274,8 +275,9 @@ class DbApi(object):
         
     def add_task_if_not_exists(self, step_id, sequence, host, status, recovery=None):
         self.lock()
-        task = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==sequence, self.Task.host==host, self.Task.step_id == step_id, self.Task.recovery==recovery).first()
-        if task is None:
+        task = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==sequence, self.Task.host==host, self.Task.step_id == step_id, self.Task.recovery==recovery)
+        found = self.session.query(task.exists()).scalar()
+        if not found:
             task=self.Task(run_id=self.run_id, step_id=step_id, sequence=sequence, host=host, status=status, recovery=recovery)
             self.session.add(task)
             self.commit_db()
@@ -397,8 +399,9 @@ class DbApi(object):
         
     def add_delay_update_if_not_exists(self, delay_id, sequence, seconds, active=None, activated=None, recovery=None):
         self.lock()
-        delay=self.session.query(self.Delay).filter(self.Delay.run_id==self.run_id, self.Delay.sequence==sequence, self.Delay.delay_id == delay_id, self.Delay.recovery==recovery).first()
-        if delay is None:
+        delay = self.session.query(self.Delay).filter(self.Delay.run_id==self.run_id, self.Delay.sequence==sequence, self.Delay.delay_id == delay_id, self.Delay.recovery==recovery)
+        found = self. session.query(delay.exists()).scalar()
+        if found:
             delay=self.Delay(run_id=self.run_id, delay_id=delay_id, seconds=seconds, sequence=sequence, recovery=recovery, active=active, activated=activated)
             self.session.add(delay)
             self.commit_db()
