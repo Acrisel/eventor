@@ -72,9 +72,9 @@ def construct_and_run():
     ev2s=ev.add_event('run_step2')
     ev3s=ev.add_event('run_step3')
     
-    s1=ev.add_step('s1', func=eprog.prog, kwargs={'progname': 'prog1', 'logger': logger }, triggers={evr.StepStatus.success: (ev2s,),}) 
-    s2=ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2', 'logger': logger}, host='192.168.1.100', triggers={evr.StepStatus.success: (ev3s,), })
-    s3=ev.add_step('s3', func=eprog.prog, kwargs={'progname': 'prog3', 'logger': logger},)
+    s1=ev.add_step('s1', func=eprog.prog, kwargs={'progname': 'prog1',}, triggers={evr.StepStatus.success: (ev2s,),}) 
+    s2=ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2',}, host='192.168.1.100', triggers={evr.StepStatus.success: (ev3s,), })
+    s3=ev.add_step('s3', func=eprog.prog, kwargs={'progname': 'prog3',},)
     
     ev.add_assoc(ev1s, s1)
     ev.add_assoc(ev2s, s2)
