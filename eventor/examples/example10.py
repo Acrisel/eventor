@@ -13,10 +13,7 @@ logger=logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def prog(progname):
-    logger.info("doing what %s is doing" % progname)
-    logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
-    return progname
+import examples.example_00_prog as eprog
     
 
 def build_flow(run_mode):
@@ -26,9 +23,9 @@ def build_flow(run_mode):
     ev2s=ev.add_event('run_step2')
     ev3s=ev.add_event('run_step3')
 
-    s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
-    s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
-    s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
+    s1=ev.add_step('s1', func=eprog.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
+    s2=ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
+    s3=ev.add_step('s3', func=eprog.prog, kwargs={'progname': 'prog3'},)
 
     ev.add_assoc(ev1s, s1, delay=0)
     ev.add_assoc(ev2s, s2, delay=10)
