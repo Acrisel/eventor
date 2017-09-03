@@ -19,6 +19,9 @@ import queue
 import time
 from collections import Mapping
 from datetime import datetime
+import signal
+import sys
+
 from eventor.step import Step
 from eventor.event import Event
 from eventor.delay import Delay
@@ -30,7 +33,7 @@ from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
-from eventor.agent.sshmain_unnamedpipe import get_pipe, local_main, remote_agent
+from eventor.agent.sshmain_pipe import get_pipe, local_main, remote_agent
 
 try: 
     from setproctitle import setproctitle
@@ -85,6 +88,8 @@ class TaskAdminMsgType(Enum):
     result = 1
     update = 2
     
+    
+RemoteAgent = namedtuple("remoteHost", "pid stdin stdout")
     
 TaskAdminMsg = namedtuple('TaskAdminMsg', ['msg_type', 'value', ])
 TriggerRequest = namedtuple('TriggerRequest', ['type', 'value'])
@@ -340,6 +345,7 @@ class Eventor(object):
         #    logger_name = name
         
         self.__logger = MpLogger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
+        self.__logger_info = self.__logger.get_info()
         module_logger = self.__logger.start()
         
         self.__calling_module = calling_module()
@@ -1318,19 +1324,41 @@ class Eventor(object):
         result=self.db.get_task_status(task_names=task_names, sequence=sequence, recovery=self.__recovery)
         return result
     
+    def __kill_local_agent(self, host, pid):
+        # kills agent
+        module_logger.debug("Stopping remote agent %s @ %s" % (pid, host))
+        # TODO(Arnon) stop remote agents
+        
+    # TODO(Arnon): need to change this to work with multiprocessing, otherwise only UNIX is supported.
     def __start_agent(self, host, mem_pack):
-        pipein, pipeout = get_pipe() 
+        ''' start agent in remote host using ssh.
+        
+        Args:
+            host: address of remote host
+            mem_pack: pickled message to send to remote host
+        '''
+        remote_read, remote_write = get_pipe() 
       
         pid = os.fork()   
         if pid == 0:
             # child process
-            msg = remote_agent(host, 'eventor_agent.py', pipein, args=(host,), kwargs={"--import" : self.import_module,} )
+            logger = MpLogger.get_logger(self.__logger_info, "")
+            try:
+                msg = remote_agent(host, 'eventor_agent.py', remote_read, args=(host,), kwargs={"--import" : self.import_module,} )
+            except Exception as e:
+                logger.error("Failed to start remote agent %s" % host)
+                os._exit(1)
+            logger.debug("Remote agent completed %s" % host)    
             os._exit(0)
             
         module_logger.debug('Agent process started: %s:%d' % (host, pid))    
-        # this is parent  
-        local_main(pipeout, mem_pack, pack=False)
-
+        # this is parent 
+        try:
+            local_main(remote_write, mem_pack, pack=False)
+        except Exception as e:
+            module_logger.error("Failed to send workload to %s" % host)
+            self.__kill_local_agent(host, pid)
+            
         return pid
         
     def run(self,  max_loops=-1):
@@ -1386,8 +1414,8 @@ class Eventor(object):
             
             agents = dict()
             not_accessiable = list()
+            # check ssh port is accessible
             for host in hosts:
-                # check ssh port is accessiable
                 accessiable = port_is_open(host, self.ssh_port)
                 if not accessiable:
                     not_accessiable.append(host)

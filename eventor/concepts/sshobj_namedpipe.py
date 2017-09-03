@@ -11,7 +11,7 @@ from concepts.sshtypes import RemoteWorker
  
 
 '''
-Prerequsits:
+Prerequisite:
 
     set .profile with:
     

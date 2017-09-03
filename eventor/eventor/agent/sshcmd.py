@@ -7,7 +7,7 @@
 import subprocess
 import sys
 
-def sshcmd(host, command, stdin=None, user=None, check=False):
+def sshcmd(host, command, stdin=None, stdout=None, user=None, check=False):
     ''' Runs ssh command via subprocess.  Assuming .ssh/config is configured.
     
     Args:
@@ -15,6 +15,7 @@ def sshcmd(host, command, stdin=None, user=None, check=False):
         command: command to run on host
         user: (optional) user to use to login to host
         stdin: (optional) override sys.stdin
+        stdout: (optional) override sys.stdout
         check: pass to subprocess.run; if set, checks return code and raises subprocess.CalledProcessError if none-zero result
         
     Returns:
@@ -22,11 +23,13 @@ def sshcmd(host, command, stdin=None, user=None, check=False):
     '''
     
     where = "%s" % host if user is None else "%s@%s" % (user, command)
-    
+    if stdout is None:
+        stdout = subprocess.PIPE
+        
     ssh = subprocess.run(["ssh", where, command],
                            shell=False,
                            stdin=stdin,
-                           stdout=subprocess.PIPE,
+                           stdout=stdout,
                            stderr=subprocess.PIPE,
                            check=check)
     return ssh

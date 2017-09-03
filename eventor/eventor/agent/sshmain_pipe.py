@@ -12,7 +12,7 @@ import struct
  
 
 '''
-Prerequsits:
+Prerequisite:
 
     set .profile with:
     
@@ -24,10 +24,11 @@ Prerequsits:
         then eval \"$SSH_ORIGINAL_COMMAND\"; else exec \"$SHELL\"; fi" ssh-rsa ... 
 '''
 
-def get_pipe():
+def get_pipe(binary=True):
     pipein, pipeout = os.pipe()
-    pipe_reader = os.fdopen(pipein, 'rb')
-    pipe_writer = os.fdopen(pipeout, 'wb')
+    binary = 'b' if binary else ''
+    pipe_reader = os.fdopen(pipein, 'r' + binary)
+    pipe_writer = os.fdopen(pipeout, 'w' + binary)
     return pipe_reader, pipe_writer
 
 def remote_agent(host, agentpy, pipein, args=(), kwargs={},):
@@ -60,9 +61,9 @@ if __name__ == '__main__':
 
     if pid == 0:
         # child process
-        agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/eventor/concepts"
-        agentpy = os.path.join(agent_dir, "sshagent_unnamedpipe.py")
-        msg = remote_agent( '192.168.1.70', agentpy, pipein)
+        agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/eventor/agent"
+        agentpy = os.path.join(agent_dir, "sshagent_pipe.py")
+        msg = remote_agent( '192.168.1.100', agentpy, pipein)
         print("from remote: %s" % msg.decode(), )
         exit(0)
        

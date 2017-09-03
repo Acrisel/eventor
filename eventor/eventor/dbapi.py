@@ -401,7 +401,7 @@ class DbApi(object):
         self.lock()
         delay = self.session.query(self.Delay).filter(self.Delay.run_id==self.run_id, self.Delay.sequence==sequence, self.Delay.delay_id == delay_id, self.Delay.recovery==recovery)
         found = self. session.query(delay.exists()).scalar()
-        if found:
+        if not found:
             delay=self.Delay(run_id=self.run_id, delay_id=delay_id, seconds=seconds, sequence=sequence, recovery=recovery, active=active, activated=activated)
             self.session.add(delay)
             self.commit_db()
