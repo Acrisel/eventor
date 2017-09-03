@@ -62,7 +62,10 @@ def get_ip_address():
 def get_hostname(full=False):
     ip = get_ip_address()
     if full == False:
-        name = socket.gethostbyaddr(ip)[0]
+        try:
+            name = socket.gethostbyaddr(ip)[0]
+        except:
+            name = ip
     else:
         name = socket.getfqdn(ip)
     return name
@@ -345,8 +348,8 @@ class Eventor(object):
         #    logger_name = name
         
         self.__logger = MpLogger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
-        self.__logger_info = self.__logger.get_info()
         module_logger = self.__logger.start()
+        self.__logger_info = self.__logger.logger_info()
         
         self.__calling_module = calling_module()
         self.store = store

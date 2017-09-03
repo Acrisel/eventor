@@ -66,6 +66,7 @@ def construct_and_run():
     # because OSX adds /var -> /private/var
     if config.startswith('/private'):
         config = config[8:]
+    # TODO: assume import_module is __file__ if not provided
     ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=True, import_module="examples.example_00_prog")
     
     ev1s=ev.add_event('run_step1')
@@ -73,7 +74,7 @@ def construct_and_run():
     ev3s=ev.add_event('run_step3')
     
     s1=ev.add_step('s1', func=eprog.prog, kwargs={'progname': 'prog1',}, triggers={evr.StepStatus.success: (ev2s,),}) 
-    s2=ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2',}, host='192.168.1.100', triggers={evr.StepStatus.success: (ev3s,), })
+    s2=ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2',}, host='172.31.99.104', triggers={evr.StepStatus.success: (ev3s,), })
     s3=ev.add_step('s3', func=eprog.prog, kwargs={'progname': 'prog3',},)
     
     ev.add_assoc(ev1s, s1)
