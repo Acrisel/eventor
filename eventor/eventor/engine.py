@@ -211,8 +211,8 @@ class Eventor(object):
     
     """
     
-    config_defaults={'workdir':'$HOME//tmp', 
-                     'logdir': '$HOME/eventor/log', 
+    config_defaults={'workdir':'/tmp', 
+                     'logdir': '/var/eventor/log', 
                      'task_construct': 'process',  # or 'thread'
                      #'synchrous_run': False, 
                      'max_concurrent': -1, 
