@@ -80,7 +80,7 @@ if __name__ == '__main__':
        
     #remote_stdout = os.fdopen(os.dup(pipe_write.fileno()), 'wb')   
     worker = RemoteWorker()
-    local_main(pipe_write, worker)
+    local_main(pipe_read, pipe_write, worker)
     
     agent.join()
     

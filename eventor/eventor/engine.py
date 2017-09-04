@@ -1350,14 +1350,14 @@ class Eventor(object):
                 kwargs["--import-file"] = self.import_file
         
         args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
-        agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', remote_read, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
+        agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', remote_read, remote_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
         agent.start()
         
         module_logger.debug('Agent process started: %s:%d' % (host, agent.pid))    
         # this is parent 
         remote_stdin = os.fdopen(os.dup(remote_write.fileno()), 'wb')
         try:
-            local_main(remote_stdin, mem_pack, pack=False, logger=module_logger)
+            local_main(remote_read, remote_write, mem_pack, pack=False, logger=module_logger)
         except Exception as e:
             module_logger.error("Failed to send workload to %s" % host)
             module_logger.exception(e)
