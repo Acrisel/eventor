@@ -41,14 +41,16 @@ def local_agent(host, agentpy, pipein, logger_info=None, parentq=None, args=(), 
     if remote.returncode != 0:
         if logger:
             logger.critical("SSH Failed: %s" % remote.stderr.decode())
+        else:
+            print("SSH Failed: %s" % remote.stderr.decode())
         if parentq is not None:
             parentq.put((host, 'TERM'))
        
     if logger:
-        logger.debug("Remote agent exiting: stdout: %s" % (remote.stdout,))
+        logger.debug("Remote agent exiting: stdout: %s" % (remote.stdout.decode(),))
         
     if parentq is not None:
-        parentq.put((host, remote.stdout))
+        parentq.put((host, remote.stdout.decode()))
     else:
         print(host, remote.stdout)
 
