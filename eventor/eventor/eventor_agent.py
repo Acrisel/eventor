@@ -53,21 +53,25 @@ def cmdargs():
     return args
 
 
-def start_eventor(queue, **kwargs):
+def start_eventor(queue, logger_info, **kwargs):
+    module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
+    module_logger('Starting Eventor: ' % repr(kwargs))
     try:
         eventor = EventorAgent(**kwargs)
     except Exception as e:
         raise Exception("Failed to start agent with (%s)" % repr(kwargs)[1:-1]) from e
-    eventor.run()    
+    eventor.run()  
+    module_logger('Eventor finished: passing DONE to main process.')  
     queue.put('DONE')
     
     
-def pipe_listener(queue):
+def pipe_listener(queue,):
     # in this case, whiting for possible termination message from server
     msgsize_raw = sys.stdin.buffer.read(4)
     msgsize = struct.unpack(">L", msgsize_raw)
     msg_pack = sys.stdin.buffer.read(msgsize[0])
     msg = pickle.loads(msg_pack)
+    module_logger('Received message from remote parent: %s; passing to main process.' % msg)
     queue.put(msg)
     
 
@@ -104,6 +108,7 @@ def run():
     msgsize_raw = sys.stdin.buffer.read(4)
     msgsize = struct.unpack(">L", msgsize_raw)
     mem_pack = sys.stdin.buffer.read(msgsize[0])
+    
     try:
         memory = pickle.loads(mem_pack)
     except Exception as e:
@@ -118,12 +123,14 @@ def run():
     kwargs['host'] = args.host
     kwargs['memory'] = memory
     
-    module_logger.debug("Starting Eventor: %s" % kwargs)
+    module_logger.debug("Starting Eventor subprocess on remote host: %s" % kwargs)
     
     queue = mp.Queue()
     
+    logger_info = mplogger.logger_info()
+    
     try:
-        agent = mp.Process(target=start_eventor, args=(queue,), kwargs=kwargs, daemon=True)
+        agent = mp.Process(target=start_eventor, args=(queue, logger_info), kwargs=kwargs, daemon=True)
         agent.start()
     except Exception as e:
         module_logger.critical("Failed to start Eventor process.")
@@ -131,6 +138,8 @@ def run():
         # signal to parant via stdout
         print('TERM')
         return
+    
+    module_logger.debug("Eventor subprocess pid: %s" % agent.pid)
     
     # we set thread to Daemon so it would be killed when agent is gone
     try:
@@ -143,10 +152,13 @@ def run():
         print('TERM')
         return
     
+    module_logger.debug("Control pipe listener.")
+    
+    # wait for remote parent or from child Eventor 
     while True:
         msg = queue.get()
         if not msg: continue
-        module_logger.critical("Pulled message from Eventor queue: %s" % (msg,))
+        module_logger.critical("Pulled message from control queue: %s" % (msg,))
         if msg == 'DONE':
             # msg from child - eventor agent is done
             agent.join()
@@ -156,10 +168,10 @@ def run():
             # Well since process is daemon, it will be killed when parent is done
             print('TERM')
             break
+    
       
 
 if __name__ == '__main__':
-    import multiprocessing as mp
     mp.freeze_support()
     mp.set_start_method('spawn')
     run()
