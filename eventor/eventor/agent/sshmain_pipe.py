@@ -46,9 +46,11 @@ def local_agent(host, agentpy, pipein, logger_info=None, parentq=None, args=(), 
        
     if logger:
         logger.debug("Remote agent exiting: stdout: %s" % (remote.stdout,))
+        
     if parentq is not None:
         parentq.put((host, remote.stdout))
-    
+    else:
+        print(host, remote.stdout)
 
 def local_main(remote_stdin, load, pack=True, logger=None):
     workload = load
@@ -72,8 +74,9 @@ if __name__ == '__main__':
     agent = mp.Process(target=local_agent, args=( '192.168.1.100', agentpy, pipe_write), daemon=True)
     agent.start()
        
+    remote_stdout = os.fdopen(os.dup(pipe_write.fileno()), 'wb')   
     worker = RemoteWorker()
-    local_main(remote_stdin, worker)
+    local_main(remote_stdout, worker)
     
     
     #pid, status = os.waitpid(pid, os.WNOHANG)
