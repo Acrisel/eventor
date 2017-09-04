@@ -74,7 +74,7 @@ def run():
     args = cmdargs()
     mplogger = MpLogger(name=args.log, logging_level=logging.DEBUG, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=args.logdir, encoding='utf8')
     module_logger = mplogger.start()
-    module_logger.info("Starting agent: %s" % args)
+    module_logger.debug("Starting agent: %s" % args)
     if args.import_module is not None:
         if args.import_file is None:
             try:
@@ -103,7 +103,7 @@ def run():
     try:
         memory = pickle.loads(mem_pack)
     except Exception as e:
-        module_logger.critical("Failed to pickle loads the wrokload.")
+        module_logger.critical("Failed to pickle loads the workload.")
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')
@@ -113,9 +113,12 @@ def run():
     kwargs['host'] = args.host
     kwargs['memory'] = memory
     
+    module_logger.debug("Starting Eventor: %s" % kwargs)
+    
     queue = mp.Queue()
     # start_eventor(**kwargs)
     kwargs['queue'] = queue
+    
     try:
         agent = mp.Process(target=start_eventor, kwargs=kwargs, daemon=True)
         agent.start()
