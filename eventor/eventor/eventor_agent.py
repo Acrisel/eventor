@@ -146,7 +146,7 @@ def run():
     while True:
         msg = queue.get()
         if not msg: continue
-        module_logger.critical("Pulled message from Eventor queue: %s" % (msg,))
+        module_logger.critical("Pulled message from local agent queue: %s" % (msg,))
         if msg == 'DONE':
             # msg from child - eventor agent is done
             agent.join()

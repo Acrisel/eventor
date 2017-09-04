@@ -55,9 +55,9 @@ def local_agent(host, agentpy, pipein, pipeout, logger_info=None, parentq=None, 
     else:
         print(host, remote.stdout)
 
-def local_main(remote_stdin, remote_stdout, load, pack=True, logger=None):
+def local_main(remote_stdout, load, pack=True, logger=None):
     workload = load
-    remote_stdin.close()
+    
     stdout = os.fdopen(os.dup(remote_stdout.fileno()), 'wb')
     if pack:
         workload = pickle.dumps(load)
@@ -80,7 +80,9 @@ if __name__ == '__main__':
        
     #remote_stdout = os.fdopen(os.dup(pipe_write.fileno()), 'wb')   
     worker = RemoteWorker()
-    local_main(pipe_read, pipe_write, worker)
+    
+    pipe_read.close()
+    local_main(pipe_write, worker)
     
     agent.join()
     
