@@ -32,7 +32,7 @@ def get_pipe():
     return pipe_reader, pipe_writer
 
 def get_mp_pipe():
-    pipein, pipeout = mp.Pipe()
+    pipein, pipeout = mp.Pipe(False)
     return pipein, pipeout
 
 def remote_agent(host, agentpy, pipein, pipeout):
