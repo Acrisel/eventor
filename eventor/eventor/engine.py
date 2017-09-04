@@ -9,6 +9,7 @@ from acris import Sequence, MergedChainedDict
 from acrilog import MpLogger
 from acris import virtual_resource_pool as vrp
 import multiprocessing as mp
+from threading import Thread
 from collections import namedtuple
 import inspect
 from enum import Enum
@@ -186,8 +187,7 @@ def get_proc_constructor(task_construct):
     if task_construct == 'process':
         task_constructor = mp.Process  
     else:
-        import threading as th
-        task_constructor = th.Thread
+        task_constructor = Thread
     return task_constructor
 
     
@@ -1260,7 +1260,7 @@ class Eventor(object):
             # count ready triggers only if state is active
             # count ready tasks only if active
             total_todo = self.count_todos(with_delayeds=False)                       
-            loop = total_todo>0 
+            loop = total_todo>0 and not self.__term
             if loop:
                 loop = self.__check_control()
                 if loop:
@@ -1293,8 +1293,8 @@ class Eventor(object):
             #result=self.loop_once()
             # count ready triggers only if state is active
             # count ready tasks only if active
-            total_todo, min_delay=self.count_todos()                       
-            loop = total_todo>0 
+            total_todo, min_delay = self.count_todos()                       
+            loop = total_todo > 0 and not self.__term
             if loop:
                 loop = self.__check_control()
                 if loop:
@@ -1306,8 +1306,9 @@ class Eventor(object):
                 if not loop:
                     module_logger.info('Processing stopped, number outstanding tasks: %s' % total_todo)
             else:
-                human_result = "success" if result else 'failure'
-                module_logger.info('Processing finished with: %s' % human_result)
+                finished = 'finished' if not self.__term else 'terminated'
+                human_result = "incomplete" if total_todo > 0 else"success" if result else 'failure'
+                module_logger.info('Processing %s with: %s' % (finished, human_result))
                 
         #self.__logger.stop()  
         result=self.__state != EventorState.shutdown   
@@ -1332,46 +1333,52 @@ class Eventor(object):
         # kills agent
         module_logger.debug("Stopping remote agent %s @ %s" % (pid, host))
         # TODO(Arnon) stop remote agents
-        
+                 
     # TODO(Arnon): need to change this to work with multiprocessing, otherwise only UNIX is supported.
-    def __start_agent(self, host, mem_pack):
+    def __start_agent(self, host, mem_pack, parentq):
         ''' start agent in remote host using ssh.
         
         Args:
             host: address of remote host
             mem_pack: pickled message to send to remote host
+            parentq: to send back problems by child process
         '''
-        remote_read, remote_write = get_pipe() 
+        #remote_read, remote_write = get_pipe() 
+        remote_read, remote_write = mp.Pipe()
       
-        pid = os.fork()   
-        if pid == 0:
-            # child process
-            #logger = MpLogger.get_logger(self.__logger_info, "")
-            kwargs = dict()
-            if self.import_module is not None:
-                kwargs["--import-module"] = self.import_module
-                if self.import_file:
-                    kwargs["--import-file"] = self.import_file
-                
-            try:
-                msg = remote_agent(host, 'eventor_agent.py', remote_read, args=(host,), kwargs={"--import-module" : self.import_module,} )
-            except Exception as e:
-                #logger.error("Failed to start remote agent %s" % host)
-                os._exit(1)
-            #logger.debug("Remote agent completed %s" % host)    
-            os._exit(0)
-            
-        module_logger.debug('Agent process started: %s:%d' % (host, pid))    
+        #pid = os.fork()   
+        #if pid == 0:
+        #    # child process
+        #    #logger = MpLogger.get_logger(self.__logger_info, "")
+        kwargs = dict()
+        if self.import_module is not None:
+            kwargs["--import-module"] = self.import_module
+            if self.import_file:
+                kwargs["--import-file"] = self.import_file
+        # remote_agent(host, agentpy, pipein, args=(), kwargs={})
+        agent = mp.Process(target=remote_agent, args=(host, 'eventor_agent.py', remote_read, self.__logger_info, parentq, ), kwargs={"args": (host,), 'kwargs': kwargs}, daemon=True)    
+        agent.start()
+        #try:
+        #    msg = remote_agent(host, 'eventor_agent.py', remote_read, args=(host,), kwargs={"--import-module" : self.import_module,} )
+        #except Exception as e:
+        #    #logger.error("Failed to start remote agent %s" % host)
+        #    os._exit(1)
+        ##logger.debug("Remote agent completed %s" % host)    
+        #os._exit(0)
+        
+        module_logger.debug('Agent process started: %s:%d' % (host, agent.pid))    
         # this is parent 
+        stdout = os.fdopen(os.dup(remote_write.fileno()), 'wb')
         try:
-            local_main(remote_write, mem_pack, pack=False)
+            local_main(stdout, mem_pack, pack=False)
         except Exception as e:
             module_logger.error("Failed to send workload to %s" % host)
-            self.__kill_local_agent(host, pid)
+            #self.__kill_local_agent(host, pid)
+            agent = None
             
-        return pid
+        return agent
     
-    def check_remote_hosts(self, hosts):
+    def __check_remote_hosts(self, hosts):
         not_accessiable = list()
         # check ssh port is accessible
         for host in hosts:
@@ -1383,6 +1390,15 @@ class Eventor(object):
             module_logger.critical(msg)
             raise EventorError(msg)
 
+    def listent_to_remote(self, parentq):
+        while len(self.__agents) > 0:
+            raw = parentq.get()
+            if not raw: continue
+            host, msg = raw
+            module_logger.debug('Got msg from %s: %s' %(host, msg))
+            if msg == 'TERM':
+                self.__term = True
+                del self.__agents[host]
         
     def run(self,  max_loops=-1):
         ''' loops events structures to execute raise events and execute tasks.
@@ -1397,7 +1413,7 @@ class Eventor(object):
                  no task to run. 
         
         '''
-                
+        self.__term = False       
         if setproctitle is not None:
             run_id = "%s." % self.run_id if self.run_id else ''
             setproctitle("eventor: %s" % (run_id,))
@@ -1435,12 +1451,23 @@ class Eventor(object):
             # restore after pickle
             self.__logger = logger_ # self.__logger = MpLogger.get_logger(logger_info=logger_info, name=logger_info['name'])
             
-            self.check_remote_hosts(hosts)
-                
-            agents = dict()
+            self.__check_remote_hosts(hosts)
+            self.__agents = dict()
+            parentq = mp.Queue()
+            
             for host in hosts:
-                child_pid = self.__start_agent(host, mem_pack)
-                agents[host] = child_pid
+                child_proc = self.__start_agent(host, mem_pack, parentq)
+                if child_proc is not None:
+                    self.__agents[host] = child_proc
+            
+            if len(self.__agents) < len(hosts):
+                # TODO(Arnon): quit active hosts and halt the run
+                for agent in self.__agents:
+                    pass
+            
+            parentq_listner = Thread(target=self.listent_to_remote, args=(parentq,), daemon=True)
+            parentq_listner.start()
+                
             self.__get_dbapi()
         
         self.__controlq = mp.Queue()
@@ -1465,9 +1492,9 @@ class Eventor(object):
           
         # wait for agents, if htis is not already one  
         if not self.__agent:
-            for host, pid in agents.items():
-                pid, status = os.waitpid(pid, os.WNOHANG)
-                module_logger.debug('Agent process finished: %s:%d; %s' % (host, pid, status))     
+            for host, proc in self.__agents.items():
+                #pid, status = os.waitpid(pid, os.WNOHANG)
+                module_logger.debug('Agent process finished: %s:%d; ' % (host, proc.pid,))     
         return result
     
     

@@ -9,7 +9,7 @@ import pickle
 import os
 from eventor.agent.sshtypes import RemoteWorker
 import struct
- 
+from acrilog import MpLogger
 
 '''
 Prerequisite:
@@ -31,17 +31,19 @@ def get_pipe(binary=True):
     pipe_writer = os.fdopen(pipeout, 'w' + binary)
     return pipe_reader, pipe_writer
 
-def remote_agent(host, agentpy, pipein, args=(), kwargs={},):
+def remote_agent(host, agentpy, pipein, logger_info, parentq, args=(), kwargs={},):
     ''' Runs agentpy on remote host via ssh overriding stdin as pipein and argument as args.
     '''
+    logger = MpLogger.get_logger(logger_info, logger_info['name'])
+    stdin = os.fdopen(os.dup(pipein.fileno()), 'rb')
     kw = ["%s %s" %(name, value) for name, value in kwargs.items()]
     cmd = "%s %s %s" % (agentpy, " ".join(kw), ' '.join(args))
-    remote = sshcmd(host,  cmd, stdin=pipein)
+    remote = sshcmd(host,  cmd, stdin=stdin)
     if remote.returncode != 0:
-        print("SSH Failed:", remote.stderr.decode())
-        raise Exception(remote.stderr.decode())
-        
-    return remote.stdout
+        logger.critical("SSH Failed: %s" % remote.stderr.decode())
+        parentq.put((host, 'TERM'))
+       
+    logger.debug("remote agent exiting: stdout: %s" % (remote.stdout,))
 
 def local_main(stdout, load, pack=True):
     workload = load
