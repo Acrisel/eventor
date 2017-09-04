@@ -63,6 +63,7 @@ def start_eventor(queue, **kwargs):
     
     
 def pipe_listener(queue):
+    # in this case, whiting for possible termination message from server
     msgsize_raw = sys.stdin.buffer.read(4)
     msgsize = struct.unpack(">L", msgsize_raw)
     msg_pack = sys.stdin.buffer.read(msgsize[0])

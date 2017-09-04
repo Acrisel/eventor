@@ -48,14 +48,14 @@ def local_agent(host, agentpy, pipein, logger_info, parentq, args=(), kwargs={},
     logger.debug("Remote agent exiting: stdout: %s" % (remote.stdout,))
     parentq.put((host, remote.stdout))
 
-def local_main(stdout, load, pack=True):
+def local_main(remote_stdin, load, pack=True):
     workload = load
     if pack:
         workload = pickle.dumps(load)
     msgsize = len(workload)
     magsize_packed = struct.pack(">L", msgsize)
-    stdout.write(magsize_packed)
-    stdout.write(workload)
+    remote_stdin.write(magsize_packed)
+    remote_stdin.write(workload)
 
 
 if __name__ == '__main__':

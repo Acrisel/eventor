@@ -95,7 +95,7 @@ class TaskAdminMsgType(Enum):
     update = 2
     
     
-RemoteAgent = namedtuple("remoteHost", "pid stdin stdout")
+RemoteAgent = namedtuple("remoteHost", "proc stdin stdout")
     
 TaskAdminMsg = namedtuple('TaskAdminMsg', ['msg_type', 'value', ])
 TriggerRequest = namedtuple('TriggerRequest', ['type', 'value'])
@@ -1332,12 +1332,6 @@ class Eventor(object):
         result=self.db.get_task_status(task_names=task_names, sequence=sequence, recovery=self.__recovery)
         return result
     
-    def __kill_local_agent(self, host, pid):
-        # kills agent
-        module_logger.debug("Stopping remote agent %s @ %s" % (pid, host))
-        # TODO(Arnon) stop remote agents
-                 
-    # TODO(Arnon): need to change this to work with multiprocessing, otherwise only UNIX is supported.
     def __start_agent(self, host, mem_pack, parentq):
         ''' start agent in remote host using ssh.
         
@@ -1349,38 +1343,26 @@ class Eventor(object):
         #remote_read, remote_write = get_pipe() 
         remote_read, remote_write = mp.Pipe()
       
-        #pid = os.fork()   
-        #if pid == 0:
-        #    # child process
-        #    #logger = MpLogger.get_logger(self.__logger_info, "")
         kwargs = dict()
         if self.import_module:
             kwargs["--import-module"] = self.import_module
             if self.import_file:
                 kwargs["--import-file"] = self.import_file
-        # remote_agent(host, agentpy, pipein, args=(), kwargs={})
+        
         args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', remote_read, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
         agent.start()
-        #try:
-        #    msg = remote_agent(host, 'eventor_agent.py', remote_read, args=(host,), kwargs={"--import-module" : self.import_module,} )
-        #except Exception as e:
-        #    #logger.error("Failed to start remote agent %s" % host)
-        #    os._exit(1)
-        ##logger.debug("Remote agent completed %s" % host)    
-        #os._exit(0)
         
         module_logger.debug('Agent process started: %s:%d' % (host, agent.pid))    
         # this is parent 
-        stdout = os.fdopen(os.dup(remote_write.fileno()), 'wb')
+        remote_stdin = os.fdopen(os.dup(remote_write.fileno()), 'wb')
         try:
-            local_main(stdout, mem_pack, pack=False)
+            local_main(remote_stdin, mem_pack, pack=False)
         except Exception as e:
             module_logger.error("Failed to send workload to %s" % host)
-            #self.__kill_local_agent(host, pid)
             agent = None
             
-        return agent
+        return RemoteAgent(proc=agent, stdin=remote_stdin, stdout=None)
     
     def __check_remote_hosts(self, hosts):
         not_accessiable = list()
@@ -1403,6 +1385,13 @@ class Eventor(object):
             if msg == 'TERM':
                 self.__term = True
                 del self.__agents[host]
+                
+    def __exit_gracefully(self, signum, frame):
+        module_logger.debug('Caught termination signal, terminating')
+        self.__term = True
+        for host, agent in self.__agents.items():
+            module_logger.debug('Sending TERM to %s' % (host,))
+            local_main(agent.stdin, "TERM", pack=True)
         
     def run(self,  max_loops=-1):
         ''' loops events structures to execute raise events and execute tasks.
@@ -1450,13 +1439,17 @@ class Eventor(object):
             '''
             # test end
             
+            self.__agents = dict()
+            signal.signal(signal.SIGINT, self.__exit_gracefully)
+            signal.signal(signal.SIGTERM, self.__exit_gracefully)
+            
             mem_pack = pickle.dumps(self.__memory)
             
             # restore after pickle
             self.__logger = logger_ # self.__logger = MpLogger.get_logger(logger_info=logger_info, name=logger_info['name'])
             
             self.__check_remote_hosts(hosts)
-            self.__agents = dict()
+            
             parentq = mp.Queue()
             
             for host in hosts:
