@@ -16,3 +16,4 @@ workload = sys.stdin.buffer.read(msgsize[0])
 worker = pickle.loads(workload)
 
 worker.run()
+

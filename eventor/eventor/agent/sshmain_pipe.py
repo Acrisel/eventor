@@ -80,5 +80,7 @@ if __name__ == '__main__':
     worker = RemoteWorker()
     local_main(remote_stdout, worker)
     
+    agent.join()
+    
     
     #pid, status = os.waitpid(pid, os.WNOHANG)
