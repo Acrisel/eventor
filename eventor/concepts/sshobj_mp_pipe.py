@@ -36,21 +36,23 @@ def get_mp_pipe():
     return pipein, pipeout
 
 def remote_agent(host, agentpy, pipein, pipeout):
-    print('in remote_agent', file=sys.stderr)
+    print('in remote_agent 0', file=sys.stderr)
     pipeout.close()
-    stdin = os.fdopen(pipein.fileno(), 'rb')
-    print('in remote_agent', file=sys.stderr)
+    stdin = os.fdopen(os.dup(pipein.fileno()), 'rb')
+    print('in remote_agent 1', file=sys.stderr)
     remote = sshcmd(host, "python " + agentpy, stdin=stdin)
     if remote.returncode != 0:
-        print(remote.stderr.decode())
-    print('in remote_agent 99', file=sys.stderr)
-    return remote.stdout
+        print(remote.stderr.decode(), file=sys.stderr)
+    print('in remote_agent 99 stdout: %s; stderr: %s;' % (remote.stdout, remote.stderr), file=sys.stderr)
+    stdin.close()
+    #pipein.close()
+    #return remote.stdout
 
 def local_main(pipein, pipeout):
     print('in local_main 0', file=sys.stderr)
     pipein.close()
     print('in local_main 1', file=sys.stderr)
-    stdout = os.fdopen(pipeout.fileno(), 'wb')
+    stdout = os.fdopen(os.dup(pipeout.fileno()), 'wb')
     print('in local_main 2', file=sys.stderr)
     worker = RemoteWorker()
     workload = pickle.dumps(worker)
@@ -58,17 +60,19 @@ def local_main(pipein, pipeout):
     magsize_packed = struct.pack(">L", msgsize)
     stdout.write(magsize_packed)
     stdout.write(workload)
-    
+    stdout.close()
+    #pipeout.close()
     print('in local_main 99', file=sys.stderr)
 
 
 if __name__ == '__main__':
-
+    mp.set_start_method('spawn')
     pipein, pipeout = get_mp_pipe() 
     agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/concepts"
     agentpy = os.path.join(agent_dir, "sshagent_pipe.py")
     host='192.168.1.100'
-    remote = mp.Process(target=remote_agent, args=(host, agentpy, pipein, pipeout))
+    #host='172.31.99.104'
+    remote = mp.Process(target=remote_agent, args=(host, agentpy, pipein, pipeout), daemon=True)
     remote.start()
       
     '''

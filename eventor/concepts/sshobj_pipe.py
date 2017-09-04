@@ -54,9 +54,11 @@ if __name__ == '__main__':
 
     if pid == 0:
         # child process
-        agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/eventor/concepts"
+        agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/concepts"
         agentpy = os.path.join(agent_dir, "sshagent_pipe.py")
-        msg = remote_agent( '192.168.1.70', agentpy, pipein)
+        #host='192.168.1.100'
+        host='172.31.99.104'
+        msg = remote_agent( host, agentpy, pipein)
         print("from remote: %s" % msg.decode(), )
         exit(0)
        

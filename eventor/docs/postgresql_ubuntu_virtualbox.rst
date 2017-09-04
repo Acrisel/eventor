@@ -66,7 +66,8 @@ sudo /etc/init.d/postgresql restart
 sudo iptables -A INPUT -p tcp --dport 5432 -j ACCEPT
 
 test conncetion from remote: 
-    psql -h 192.168.1.100 -d pyground -U arnon 
+    psql -h 172.31.99.104 -d pyground -U arnon
+    psql -h 1192.168.1.100 -d pyground -U arnon 
 
 Python
 ======

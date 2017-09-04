@@ -231,7 +231,7 @@ class Eventor(object):
                        StepStatus.failure: StepReplay.rerun, 
                        StepStatus.success: StepReplay.skip,}  
         
-    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={}, eventor_config_tag='EVENTOR', agent=False, import_module=None):
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={}, eventor_config_tag='EVENTOR', agent=False, import_module=None, import_file=None):
         """initializes steps object
         
         Args:
@@ -301,7 +301,8 @@ class Eventor(object):
         
         self.name = name
         # TODO(Arnon): implement calling module 
-        self.import_module = import_module if import_module is not None else "calling module"
+        self.import_module = import_module #if import_module is not None else "calling module"
+        self.import_file = import_file
         config_root_name = os.environ.get('EVENTOR_CONFIG_TAG', eventor_config_tag)
         if isinstance(config, str):
             frame = inspect.stack()[1]
@@ -1345,13 +1346,19 @@ class Eventor(object):
         pid = os.fork()   
         if pid == 0:
             # child process
-            logger = MpLogger.get_logger(self.__logger_info, "")
+            #logger = MpLogger.get_logger(self.__logger_info, "")
+            kwargs = dict()
+            if self.import_module is not None:
+                kwargs["--import-module"] = self.import_module
+                if self.import_file:
+                    kwargs["--import-file"] = self.import_file
+                
             try:
-                msg = remote_agent(host, 'eventor_agent.py', remote_read, args=(host,), kwargs={"--import" : self.import_module,} )
+                msg = remote_agent(host, 'eventor_agent.py', remote_read, args=(host,), kwargs={"--import-module" : self.import_module,} )
             except Exception as e:
-                logger.error("Failed to start remote agent %s" % host)
+                #logger.error("Failed to start remote agent %s" % host)
                 os._exit(1)
-            logger.debug("Remote agent completed %s" % host)    
+            #logger.debug("Remote agent completed %s" % host)    
             os._exit(0)
             
         module_logger.debug('Agent process started: %s:%d' % (host, pid))    
@@ -1363,6 +1370,19 @@ class Eventor(object):
             self.__kill_local_agent(host, pid)
             
         return pid
+    
+    def check_remote_hosts(self, hosts):
+        not_accessiable = list()
+        # check ssh port is accessible
+        for host in hosts:
+            accessiable = port_is_open(host, self.ssh_port)
+            if not accessiable:
+                not_accessiable.append(host)
+        if len(not_accessiable) > 0:
+            msg = "SSH port is closed: %s" % ", ".join(not_accessiable)
+            module_logger.critical(msg)
+            raise EventorError(msg)
+
         
     def run(self,  max_loops=-1):
         ''' loops events structures to execute raise events and execute tasks.
@@ -1415,18 +1435,9 @@ class Eventor(object):
             # restore after pickle
             self.__logger = logger_ # self.__logger = MpLogger.get_logger(logger_info=logger_info, name=logger_info['name'])
             
-            agents = dict()
-            not_accessiable = list()
-            # check ssh port is accessible
-            for host in hosts:
-                accessiable = port_is_open(host, self.ssh_port)
-                if not accessiable:
-                    not_accessiable.append(host)
-            if len(not_accessiable) > 0:
-                msg = "SSH port is closed: %s" % ", ".join(not_accessiable)
-                module_logger.critical(msg)
-                raise EventorError(msg)
+            self.check_remote_hosts(hosts)
                 
+            agents = dict()
             for host in hosts:
                 child_pid = self.__start_agent(host, mem_pack)
                 agents[host] = child_pid
@@ -1448,7 +1459,7 @@ class Eventor(object):
                 #module_logger.debug('Starting loop cycle')
                 result = self.loop_cycle()
             human_result = "success" if result else 'failure'
-            total_todo, _=self.count_todos(with_delayeds=True) 
+            total_todo, _ = self.count_todos(with_delayeds=True) 
             module_logger.info('Processing finished with: %s; outstanding tasks: %s' % (human_result, total_todo))
             #module_logger.info('Processing finished')
           
