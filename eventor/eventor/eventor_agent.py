@@ -47,7 +47,8 @@ def start_eventor(queue, **kwargs):
     except Exception as e:
         raise Exception("Failed to start agent with (%s)" % repr(kwargs)[1:-1]) from e
     eventor.run()    
-    queue.put('done')
+    queue.put('DONE')
+    
     
 def pipe_listener(queue):
     msgsize_raw = sys.stdin.buffer.read(4)
@@ -55,6 +56,7 @@ def pipe_listener(queue):
     msg_pack = sys.stdin.buffer.read(msgsize[0])
     msg = pickle.loads(msg_pack)
     queue.put(msg)
+    
 
 def run():
     args = cmdargs()
@@ -90,11 +92,11 @@ def run():
     while True:
         msg = queue.get()
         if not msg: continue
-        if msg == 'done':
+        if msg == 'DONE':
             # msg from child - eventor agent is done
             agent.join()
             break
-        elif msg == 'quit':
+        elif msg == 'TERM':
             # got message to quit, need to kill primo process and be done
             # Well since process is daemon, it will be killed when parent is done
             break
