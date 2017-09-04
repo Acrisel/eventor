@@ -35,7 +35,7 @@ from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
-from eventor.agent.sshmain_pipe import get_pipe, local_main, remote_agent
+from eventor.agent.sshmain_pipe import get_pipe, local_main, local_agent
 from eventor.expandvars import expandvars
 
 try: 
@@ -212,7 +212,7 @@ class Eventor(object):
     """
     
     config_defaults={'workdir':'/tmp', 
-                     'logdir': '/var/eventor/log', 
+                     'logdir': '/var/log/eventor', 
                      'task_construct': 'process',  # or 'thread'
                      #'synchrous_run': False, 
                      'max_concurrent': -1, 
@@ -1360,7 +1360,7 @@ class Eventor(object):
                 kwargs["--import-file"] = self.import_file
         # remote_agent(host, agentpy, pipein, args=(), kwargs={})
         args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
-        agent = mp.Process(target=remote_agent, args=(host, 'eventor_agent.py', remote_read, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
+        agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', remote_read, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
         agent.start()
         #try:
         #    msg = remote_agent(host, 'eventor_agent.py', remote_read, args=(host,), kwargs={"--import-module" : self.import_module,} )

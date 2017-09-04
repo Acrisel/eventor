@@ -31,7 +31,7 @@ def get_pipe(binary=True):
     pipe_writer = os.fdopen(pipeout, 'w' + binary)
     return pipe_reader, pipe_writer
 
-def remote_agent(host, agentpy, pipein, logger_info, parentq, args=(), kwargs={},):
+def local_agent(host, agentpy, pipein, logger_info, parentq, args=(), kwargs={},):
     ''' Runs agentpy on remote host via ssh overriding stdin as pipein and argument as args.
     '''
     logname = logger_info['name']
