@@ -1386,12 +1386,12 @@ class Eventor(object):
             module_logger.debug('Got msg from %s: %s' %(host, msg))
             if msg == 'TERM':
                 self.__term = True
-                del self.__agents[host]
+                #del self.__agents[host]
                 
     def __exit_gracefully(self, signum, frame):
         module_logger.debug('Caught termination signal; terminating %s' %(", ".join(self.__agents.keys())))
         self.__term = True
-        for host, agent in self.__agents.items():
+        for host, agent in list(self.__agents.items()):
             module_logger.debug('Sending TERM to %s' % (host,))
             try:
                 local_main(agent.stdin, "TERM", pack=True, logger=module_logger)

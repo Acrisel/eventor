@@ -73,7 +73,7 @@ def pipe_listener(queue):
 
 def run():
     args = cmdargs()
-    mplogger = MpLogger(name=args.log, logging_level=logging.DEBUG, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=args.logdir, encoding='utf8')
+    mplogger = MpLogger(name=args.log+'.agent', logging_level=logging.DEBUG, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=args.logdir, encoding='utf8')
     module_logger = mplogger.start()
     module_logger.debug("Starting agent: %s" % args)
     if args.import_module is not None:
@@ -86,6 +86,7 @@ def run():
                 module_logger.exception(e)
                 # signal to parant via stdout
                 print('TERM')
+                return
         else:
             try:
                 spec = importlib.util.spec_from_file_location(args.import_module, args.import_file)
@@ -97,6 +98,7 @@ def run():
                 module_logger.exception(e)
                 # signal to parant via stdout
                 print('TERM')
+                return
     
     module_logger.debug("Fetching workload.")
     msgsize_raw = sys.stdin.buffer.read(4)
@@ -109,6 +111,7 @@ def run():
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')
+        return
         
     kwargs = memory.kwargs
     
@@ -127,6 +130,7 @@ def run():
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')
+        return
     
     # we set thread to Daemon so it would be killed when agent is gone
     try:
@@ -137,6 +141,7 @@ def run():
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')
+        return
     
     while True:
         msg = queue.get()
