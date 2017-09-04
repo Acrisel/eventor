@@ -35,7 +35,7 @@ from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
-from eventor.agent.sshmain_pipe import get_pipe, local_main, local_agent
+from eventor.agent.sshmain_pipe import local_main, local_agent
 from eventor.expandvars import expandvars
 
 try: 
@@ -1357,10 +1357,12 @@ class Eventor(object):
         # this is parent 
         remote_stdin = os.fdopen(os.dup(remote_write.fileno()), 'wb')
         try:
-            local_main(remote_stdin, mem_pack, pack=False)
+            local_main(remote_stdin, mem_pack, pack=False, logger=module_logger)
         except Exception as e:
             module_logger.error("Failed to send workload to %s" % host)
+            module_logger.exception(e)
             agent = None
+        module_logger.debug('Sent workload to: %s' % (host,))
             
         return RemoteAgent(proc=agent, stdin=remote_stdin, stdout=None)
     
@@ -1391,7 +1393,12 @@ class Eventor(object):
         self.__term = True
         for host, agent in self.__agents.items():
             module_logger.debug('Sending TERM to %s' % (host,))
-            local_main(agent.stdin, "TERM", pack=True)
+            try:
+                local_main(agent.stdin, "TERM", pack=True, logger=module_logger)
+            except Exception as e:
+                module_logger.error('Failed to sent TERM to %s' % (host,))
+                module_logger.exception(e)
+                
         
     def run(self,  max_loops=-1):
         ''' loops events structures to execute raise events and execute tasks.
