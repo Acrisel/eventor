@@ -34,16 +34,19 @@ def get_pipe(binary=True):
 def remote_agent(host, agentpy, pipein, logger_info, parentq, args=(), kwargs={},):
     ''' Runs agentpy on remote host via ssh overriding stdin as pipein and argument as args.
     '''
-    logger = MpLogger.get_logger(logger_info, logger_info['name'])
+    logname = logger_info['name']
+    logger = MpLogger.get_logger(logger_info, logname)
     stdin = os.fdopen(os.dup(pipein.fileno()), 'rb')
     kw = ["%s %s" %(name, value) for name, value in kwargs.items()]
     cmd = "%s %s %s" % (agentpy, " ".join(kw), ' '.join(args))
+    logger.debug("Starting SSH remote agent %s: command: %s" % (host, cmd))
     remote = sshcmd(host,  cmd, stdin=stdin)
     if remote.returncode != 0:
         logger.critical("SSH Failed: %s" % remote.stderr.decode())
         parentq.put((host, 'TERM'))
        
-    logger.debug("remote agent exiting: stdout: %s" % (remote.stdout,))
+    logger.debug("Remote agent exiting: stdout: %s" % (remote.stdout,))
+    parentq.put((host, remote.stdout))
 
 def local_main(stdout, load, pack=True):
     workload = load

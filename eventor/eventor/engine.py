@@ -1356,7 +1356,8 @@ class Eventor(object):
             if self.import_file:
                 kwargs["--import-file"] = self.import_file
         # remote_agent(host, agentpy, pipein, args=(), kwargs={})
-        agent = mp.Process(target=remote_agent, args=(host, 'eventor_agent.py', remote_read, self.__logger_info, parentq, ), kwargs={"args": (host,), 'kwargs': kwargs}, daemon=True)    
+        args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
+        agent = mp.Process(target=remote_agent, args=(host, 'eventor_agent.py', remote_read, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
         agent.start()
         #try:
         #    msg = remote_agent(host, 'eventor_agent.py', remote_read, args=(host,), kwargs={"--import-module" : self.import_module,} )
