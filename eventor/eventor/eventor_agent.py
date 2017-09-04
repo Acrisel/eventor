@@ -30,12 +30,12 @@ def cmdargs():
     progname = filename.rpartition('.')[0]
     
     parser = argparse.ArgumentParser(description="%s runs EventorAgent object" % progname)
-    parser.add_argument('host', type=str, 
-                        help="""Host on which this command was sent to.""")
     parser.add_argument('--import-module', type=str, required=False, dest='import_module',
                         help="""import module before pickle loads.""")
     parser.add_argument('--import-file', type=str, required=False, dest='import_file',
                         help="""import file before pickle loads.""")
+    parser.add_argument('host', type=str, 
+                        help="""Host on which this command was sent to.""")
     args = parser.parse_args()  
     #argsd=vars(args)
     return args

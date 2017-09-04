@@ -1351,7 +1351,7 @@ class Eventor(object):
         #    # child process
         #    #logger = MpLogger.get_logger(self.__logger_info, "")
         kwargs = dict()
-        if self.import_module is not None:
+        if self.import_module:
             kwargs["--import-module"] = self.import_module
             if self.import_file:
                 kwargs["--import-file"] = self.import_file
