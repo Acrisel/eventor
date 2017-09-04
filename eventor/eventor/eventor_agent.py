@@ -98,13 +98,14 @@ def run():
                 # signal to parant via stdout
                 print('TERM')
     
+    module_logger.debug("Fetching workload.")
     msgsize_raw = sys.stdin.buffer.read(4)
     msgsize = struct.unpack(">L", msgsize_raw)
     mem_pack = sys.stdin.buffer.read(msgsize[0])
     try:
         memory = pickle.loads(mem_pack)
     except Exception as e:
-        module_logger.critical("Failed to pickle loads the workload.")
+        module_logger.critical("Failed to pickle loads workload.")
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')

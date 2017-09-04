@@ -373,7 +373,7 @@ class Eventor(object):
                 raise EventorError("When shared_db is set in restart, run_id must be provided.")
             # in this case we need to produce unique run_id on this cluster
             self.run_id = get_unique_run_id()
-            module_logger.info("Created process run_id: %s" % self.run_id) 
+            module_logger.info("Created process %s run_id: %s" % (os.getpid(), self.run_id,)) 
             self.__memory.kwargs['run_id'] = self.run_id
         rest_sequences()   
         self.__setup_db_connection()
@@ -1387,7 +1387,7 @@ class Eventor(object):
                 del self.__agents[host]
                 
     def __exit_gracefully(self, signum, frame):
-        module_logger.debug('Caught termination signal, terminating')
+        module_logger.debug('Caught termination signal; terminating %s' %(", ".join(self.__agents.keys())))
         self.__term = True
         for host, agent in self.__agents.items():
             module_logger.debug('Sending TERM to %s' % (host,))
@@ -1489,9 +1489,9 @@ class Eventor(object):
           
         # wait for agents, if htis is not already one  
         if not self.__agent:
-            for host, proc in self.__agents.items():
+            for host, agent in self.__agents.items():
                 #pid, status = os.waitpid(pid, os.WNOHANG)
-                module_logger.debug('Agent process finished: %s:%d; ' % (host, proc.pid,))     
+                module_logger.debug('Agent process finished: %s:%d; ' % (host, agent.proc.pid,))     
         return result
     
     
