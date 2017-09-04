@@ -23,6 +23,7 @@ from datetime import datetime
 import signal
 import sys
 
+
 from eventor.step import Step
 from eventor.event import Event
 from eventor.delay import Delay
@@ -35,6 +36,7 @@ from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
 from eventor.agent.sshmain_pipe import get_pipe, local_main, remote_agent
+from eventor.expandvars import expandvars
 
 try: 
     from setproctitle import setproctitle
@@ -209,8 +211,8 @@ class Eventor(object):
     
     """
     
-    config_defaults={'workdir':'/tmp', 
-                     'logdir': '/log/eventor', 
+    config_defaults={'workdir':'$HOME//tmp', 
+                     'logdir': '$HOME/eventor/log', 
                      'task_construct': 'process',  # or 'thread'
                      #'synchrous_run': False, 
                      'max_concurrent': -1, 
@@ -312,7 +314,8 @@ class Eventor(object):
                 config=config
                 
         rootconfig = getrootconf(conf=config, root=config_root_name)
-        self.__config = MergedChainedDict(rootconfig, os.environ, Eventor.config_defaults) 
+        defaults = dict([(name, expandvars(value, os.environ)) for name, value in Eventor.config_defaults.items()])
+        self.__config = MergedChainedDict(rootconfig, os.environ, defaults) 
 
         hosts_root_name = os.environ.get('EVENTOR_CONFIG_HOSTS_TAG', 'HOSTS')
         self.hosts = rootconfig.get(hosts_root_name, {})
