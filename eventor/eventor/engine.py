@@ -1498,7 +1498,8 @@ class Eventor(object):
         if not self.__agent:
             for host, agent in self.__agents.items():
                 #pid, status = os.waitpid(pid, os.WNOHANG)
-                module_logger.debug('Agent process finished: %s:%d; ' % (host, agent.proc.pid,))     
+                module_logger.debug('Agent process finished: %s:%d; ' % (host, agent.proc.pid,))  
+                agent.proc.join()
         return result
     
     

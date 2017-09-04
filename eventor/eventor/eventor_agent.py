@@ -118,11 +118,9 @@ def run():
     module_logger.debug("Starting Eventor: %s" % kwargs)
     
     queue = mp.Queue()
-    # start_eventor(**kwargs)
-    kwargs['queue'] = queue
     
     try:
-        agent = mp.Process(target=start_eventor, kwargs=kwargs, daemon=True)
+        agent = mp.Process(target=start_eventor, args=(queue,), kwargs=kwargs, daemon=True)
         agent.start()
     except Exception as e:
         module_logger.critical("Failed to start Eventor process.")
