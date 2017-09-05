@@ -53,19 +53,32 @@ def cmdargs():
     return args
 
 
-def start_eventor(queue, logger_info, **kwargs):
-    module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
-    module_logger.debug('Starting EventorAgent: %s' % repr(kwargs))
+def start_eventor(queue, logger_info, **kwargs,):
+    public module_logger
+    
+    #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
+    module_logger.debug('Starting EventorAgent: %s.' % repr(kwargs))
     try:
         eventor = EventorAgent(**kwargs)
     except Exception as e:
         raise Exception("Failed to start agent with (%s)" % repr(kwargs)[1:-1]) from e
-    eventor.run()  
-    module_logger.debug('Eventor finished: passing DONE to main process.')  
+    
+    module_logger.debug('Initiated EventorAgent object, about to run().')
+    
+    try:
+        eventor.run()  
+    except Exception as e:
+        module_logger.critical("Failed to run EventorAgent, passing TERM to main process.")
+        module_logger.exception(e)
+        queue.put('TERM')
+        return
+    
+    module_logger.debug('EventorAgent finished: passing DONE to main process.')  
     queue.put('DONE')
     
     
 def pipe_listener(queue,):
+    public module_logger
     # in this case, whiting for possible termination message from server
     msgsize_raw = sys.stdin.buffer.read(4)
     msgsize = struct.unpack(">L", msgsize_raw)
@@ -76,6 +89,7 @@ def pipe_listener(queue,):
     
 
 def run():
+    public module_logger
     args = cmdargs()
     mplogger = MpLogger(name=args.log+'.agent', logging_level=logging.DEBUG, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=args.logdir, encoding='utf8')
     module_logger = mplogger.start()
@@ -128,18 +142,21 @@ def run():
     queue = mp.Queue()
     
     logger_info = mplogger.logger_info()
-    #start_eventor(queue, logger_info, **kwargs)
-    #return
+    start_eventor(queue, logger_info, **kwargs)
+    return
+    #module_logger = None
     try:
         agent = mp.Process(target=start_eventor, args=(queue, logger_info), kwargs=kwargs, daemon=True)
         agent.start()
     except Exception as e:
+        #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
         module_logger.critical("Failed to start Eventor process.")
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')
         return
     
+    #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
     module_logger.debug("Eventor subprocess pid: %s" % agent.pid)
     
     # we set thread to Daemon so it would be killed when agent is gone
@@ -156,6 +173,11 @@ def run():
     module_logger.debug("Starting control pipe listener.")
     
     # wait for remote parent or from child Eventor 
+    if not agent.is_alive():
+        module_logger.debug("agent is not alive! terminating.")
+        print('TERM')
+        return
+    
     while True:
         msg = queue.get()
         if not msg: continue
