@@ -233,7 +233,7 @@ class Eventor(object):
                        StepStatus.failure: StepReplay.rerun, 
                        StepStatus.success: StepReplay.skip,}  
         
-    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={}, eventor_config_tag='EVENTOR', agent=False, import_module=None, import_file=None):
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None):
         """initializes steps object
         
         Args:
@@ -311,7 +311,7 @@ class Eventor(object):
             module = inspect.getsourcefile(frame[0])
             config_path = os.path.join(os.path.dirname(module), config)
             if os.path.isfile(config_path):
-                config=config
+                config = config
                 
         rootconfig = getrootconf(conf=config, root=config_root_name)
         defaults = dict([(name, expandvars(value, os.environ)) for name, value in Eventor.config_defaults.items()])
@@ -329,10 +329,12 @@ class Eventor(object):
         # TODO(Arnon): drive ssh_port from configuration
         self.ssh_port = 22
         
-        self.__memory = MemEventor() 
-        self.__agent = agent
-        self.__memory.kwargs.update(eventor_kwargs)
-        self.__memory.kwargs['agent'] = True
+        self.__memory = MemEventor() if memory is None else memory
+        self.__agent = memory is not None
+        if not self.__agent:
+            self.__memory.kwargs.update(eventor_kwargs)
+            #self.__memory.kwargs['agent'] = True
+            #self.__memory.kargs['memory'] = self.__memory
         
         self.__tasks = dict() 
         
@@ -351,9 +353,15 @@ class Eventor(object):
         #if dedicated_logging:
         #    logger_name = name
         
-        self.__logger = MpLogger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
-        module_logger = self.__logger.start()
-        self.__logger_info = self.__logger.logger_info()
+        if not self.__agent:
+            self.__logger = MpLogger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
+            module_logger = self.__logger.start()
+            self.__logger_info = self.__logger.logger_info()
+        else:
+            module_logger = MpLogger.get_logger(memory.logger_info, logger_name)
+            self.__logger_info = memory.logger_info
+            self.__logger_info['name'] = logger_name
+            self.__logger = None
         
         self.__calling_module = calling_module()
         self.store = store
@@ -418,8 +426,8 @@ class Eventor(object):
         result="Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )\n    assocs( \n    {}\n   )  )".format(self.name, events, steps, assocs)
         return result
 
-    def set_memory(self, memory):
-        self.__memory = memory
+    #def set_memory(self, memory):
+    #    self.__memory = memory
         
     def _name(self, seq_path):
         result='/'
@@ -969,7 +977,7 @@ class Eventor(object):
                     'step': self.__memory.steps[task.step_id], 
                     'adminq': adminq, 
                     'use_process': use_process, 
-                    'logger_info': self.__logger.logger_info(),}
+                    'logger_info': self.__logger_info,}
             if max_concurrent < 0 or step.concurrent < max_concurrent: # no-limit
                 self.__update_task_status(task, TaskStatus.active)
                 triggered = self.__triggers_at_task_change(task)

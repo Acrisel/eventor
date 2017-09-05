@@ -16,6 +16,7 @@ import multiprocessing as mp
 from threading import Thread
 from acrilog import MpLogger
 import logging
+import pprint
 
 module_logger = None
 
@@ -24,10 +25,10 @@ level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(processName)-11s ][ %(leve
                 }
 
 
-class EventorAgent(Eventor):
-    def __init__(self, memory=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        super().set_memory(memory)
+#class EventorAgent(Eventor):
+#    def __init__(self, memory=None, *args, **kwargs):
+#        super().__init__(*args, **kwargs)
+#        super().set_memory(memory)
 
 
 def cmdargs():
@@ -55,12 +56,12 @@ def cmdargs():
 
 def start_eventor(queue, logger_info, **kwargs):
     global module_logger
-    #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
-    module_logger.debug('Starting EventorAgent: %s.' % repr(kwargs))
+    module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
+    module_logger.debug('Starting EventorAgent:\n%s' % pprint.pformat(kwargs, indent=4))
     try:
-        eventor = EventorAgent(**kwargs)
+        eventor = Eventor(**kwargs)
     except Exception as e:
-        raise Exception("Failed to start agent with (%s)" % repr(kwargs)[1:-1]) from e
+        raise Exception("Failed to start EventorAgent.") from e
     
     module_logger.debug('Initiated EventorAgent object, about to run().')
     
@@ -131,21 +132,21 @@ def run():
         print('TERM')
         return
         
-    kwargs = memory.kwargs
-    
+    logger_info = mplogger.logger_info()
+    kwargs = memory.kwargs.copy()
+    memory.logger_info = logger_info
     kwargs['host'] = args.host
     kwargs['memory'] = memory
-    
-    module_logger.debug("Starting Eventor subprocess on remote host: %s" % kwargs)
+    module_logger.debug("Starting Eventor subprocess on remote host.") #:\n%s" % pprint.pformat(kwargs, indent=4))
     
     queue = mp.Queue()
     
-    logger_info = mplogger.logger_info()
-    start_eventor(queue, logger_info, **kwargs)
-    return
+    
+    #start_eventor(queue, logger_info, **kwargs)
+    #return
     #module_logger = None
     try:
-        agent = mp.Process(target=start_eventor, args=(queue, logger_info), kwargs=kwargs, daemon=True)
+        agent = mp.Process(target=start_eventor, args=(queue, logger_info), kwargs=kwargs, daemon=False)
         agent.start()
     except Exception as e:
         #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
@@ -180,7 +181,7 @@ def run():
     while True:
         msg = queue.get()
         if not msg: continue
-        module_logger.critical("Pulled message from control queue: %s" % (msg,))
+        module_logger.debug("Pulled message from control queue: %s" % (msg,))
         if msg == 'DONE':
             # msg from child - eventor agent is done
             agent.join()
@@ -197,3 +198,4 @@ if __name__ == '__main__':
     mp.freeze_support()
     mp.set_start_method('spawn')
     run()
+    

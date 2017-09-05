@@ -5,6 +5,7 @@ Created on Aug 26, 2017
 '''
 
 from collections import namedtuple, Mapping
+from namedlist import namedlist
 
 def namedtuple_with_defaults(typename, field_names, default_values=()):
     T = namedtuple(typename, field_names)
@@ -16,7 +17,8 @@ def namedtuple_with_defaults(typename, field_names, default_values=()):
     T.__new__.__defaults__ = tuple(prototype)
     return T
 
-MemEventor = namedtuple_with_defaults("MemEventor", ["steps", "events", "assocs", "delays", "kwargs"], (dict(), dict(), dict(), dict(), dict()))
+#MemEventor = namedtuple_with_defaults("MemEventor", ["steps", "events", "assocs", "delays", "kwargs"], (dict(), dict(), dict(), dict(), dict()))
+MemEventor = namedlist("MemEventor", [("steps", dict()), ("events", dict()), ("assocs", dict()), ("delays", dict()), ("kwargs", dict()), ("logger_info", None)])
 
 
 if '__main__' == __name__:
