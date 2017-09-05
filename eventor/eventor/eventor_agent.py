@@ -53,9 +53,8 @@ def cmdargs():
     return args
 
 
-def start_eventor(queue, logger_info, **kwargs,):
-    public module_logger
-    
+def start_eventor(queue, logger_info, **kwargs):
+    global module_logger
     #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
     module_logger.debug('Starting EventorAgent: %s.' % repr(kwargs))
     try:
@@ -78,7 +77,7 @@ def start_eventor(queue, logger_info, **kwargs,):
     
     
 def pipe_listener(queue,):
-    public module_logger
+    global module_logger
     # in this case, whiting for possible termination message from server
     msgsize_raw = sys.stdin.buffer.read(4)
     msgsize = struct.unpack(">L", msgsize_raw)
@@ -89,7 +88,7 @@ def pipe_listener(queue,):
     
 
 def run():
-    public module_logger
+    global module_logger
     args = cmdargs()
     mplogger = MpLogger(name=args.log+'.agent', logging_level=logging.DEBUG, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=args.logdir, encoding='utf8')
     module_logger = mplogger.start()
