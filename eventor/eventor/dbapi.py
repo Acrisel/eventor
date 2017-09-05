@@ -228,6 +228,8 @@ class DbApi(object):
             trigger = self.Trigger(run_id=self.run_id, event_id=event_id, sequence=sequence, recovery=recovery)
             self.session.add(trigger)
             self.commit_db()
+        else:
+            trigger = trigger.first()
         self.release()
         return trigger_from_db(trigger)
     
@@ -281,8 +283,10 @@ class DbApi(object):
             task=self.Task(run_id=self.run_id, step_id=step_id, sequence=sequence, host=host, status=status, recovery=recovery)
             self.session.add(task)
             self.commit_db()
+        else:
+            task = task.first()
         self.release()
-        result=task_from_db(task)
+        result = task_from_db(task)
         module_logger.debug('DBAPI - add_task_if_not_exists: %s' % (repr(result), ))
         return result
         
@@ -405,10 +409,13 @@ class DbApi(object):
             delay=self.Delay(run_id=self.run_id, delay_id=delay_id, seconds=seconds, sequence=sequence, recovery=recovery, active=active, activated=activated)
             self.session.add(delay)
             self.commit_db()
-        elif delay.active != active:
-            if active: delay.activated=datetime.utcnow()
-            delay.active=active
-            self.commit_db()
+        else:
+            delay = delay.first()
+            if delay.active != active:
+                if active: 
+                    delay.activated=datetime.utcnow()
+                delay.active = active
+                self.commit_db()
         self.release()
         return delay_from_db(delay)
         

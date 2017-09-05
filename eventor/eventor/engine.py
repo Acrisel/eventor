@@ -1341,7 +1341,7 @@ class Eventor(object):
             parentq: to send back problems by child process
         '''
         #remote_read, remote_write = get_pipe() 
-        remote_read, remote_write = mp.Pipe()
+        pipe_read, pipe_write = mp.Pipe()
       
         kwargs = dict()
         if self.import_module:
@@ -1350,15 +1350,15 @@ class Eventor(object):
                 kwargs["--import-file"] = self.import_file
         
         args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
-        agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', remote_read, remote_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
+        agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', pipe_read, pipe_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
         agent.start()
         
         module_logger.debug('Agent process started: %s:%d' % (host, agent.pid))    
         # this is parent 
-        remote_read.close()
-        remote_stdin = os.fdopen(os.dup(remote_write.fileno()), 'wb')
+        pipe_read.close()
+        remote_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
         try:
-            local_main(remote_write, mem_pack, pack=False, logger=module_logger)
+            local_main(pipe_write, mem_pack, pack=False, logger=module_logger)
         except Exception as e:
             module_logger.error("Failed to send workload to %s" % host)
             module_logger.exception(e)
@@ -1429,23 +1429,6 @@ class Eventor(object):
             self.db = None
             logger_ = self.__logger
             self.__logger = None
-            
-            # test pickle
-            '''
-            value1 = list(self.__memory.steps.values())[0]
-            for item in value1.__dict__.keys():
-                print(item)
-                attr = getattr(value1, item)
-                pickle.dumps(attr)
-                
-            pickle.dumps(value1)
-            pickle.dumps(self.__memory.steps)
-            pickle.dumps(self.__memory.events)
-            pickle.dumps(self.__memory.assocs)
-            pickle.dumps(self.__memory.delays)
-            pickle.dumps(self.__memory.kwargs)
-            '''
-            # test end
             
             self.__agents = dict()
             signal.signal(signal.SIGINT, self.__exit_gracefully)

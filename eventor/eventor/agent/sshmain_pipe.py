@@ -7,7 +7,6 @@ Created on Aug 27, 2017
 from eventor.agent.sshcmd import sshcmd
 import pickle
 import os
-from eventor.agent.sshtypes import RemoteWorker
 import struct
 from acrilog import MpLogger
 
@@ -24,16 +23,16 @@ Prerequisite:
         then eval \"$SSH_ORIGINAL_COMMAND\"; else exec \"$SHELL\"; fi" ssh-rsa ... 
 '''
 
-def local_agent(host, agentpy, pipein, pipeout, logger_info=None, parentq=None, args=(), kwargs={},):
+def local_agent(host, agentpy, pipe_read, pipe_write, logger_info=None, parentq=None, args=(), kwargs={},):
     ''' Runs agentpy on remote host via ssh overriding stdin as pipein and argument as args.
     '''
-    pipeout.close()
+    pipe_write.close()
     if logger_info is not None:
         logname = logger_info['name']
         logger = MpLogger.get_logger(logger_info, logname)
     else:
         logger = None
-    stdin = os.fdopen(os.dup(pipein.fileno()), 'rb')
+    stdin = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
     kw = ["%s %s" %(name, value) for name, value in kwargs.items()]
     cmd = "%s %s %s" % (agentpy, " ".join(kw), ' '.join(args))
     if logger:
@@ -53,12 +52,12 @@ def local_agent(host, agentpy, pipein, pipeout, logger_info=None, parentq=None, 
     if parentq is not None:
         parentq.put((host, remote.stdout.decode()))
     else:
-        print(host, remote.stdout)
+        print(host, remote.stdout.decode())
 
-def local_main(remote_stdout, load, pack=True, logger=None):
+def local_main(pipe_write, load, pack=True, logger=None):
     workload = load
     
-    stdout = os.fdopen(os.dup(remote_stdout.fileno()), 'wb')
+    stdout = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
     if pack:
         workload = pickle.dumps(load)
     msgsize = len(workload)
@@ -67,23 +66,32 @@ def local_main(remote_stdout, load, pack=True, logger=None):
     stdout.write(workload)
 
 
-if __name__ == '__main__':
-    import multiprocessing as mp
-    mp.set_start_method('spawn')
+def start_agent(host, workload, pack=True):
     pipe_read, pipe_write = mp.Pipe(False)
     
     #remote_stdin = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
     agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/eventor/agent"
     agentpy = os.path.join(agent_dir, "sshagent_pipe.py")
-    agent = mp.Process(target=local_agent, args=( '192.168.1.100', agentpy, pipe_read, pipe_write,), daemon=True)
+    agent = mp.Process(target=local_agent, args=( host, agentpy, pipe_read, pipe_write,), daemon=True)
     agent.start()
        
-    #remote_stdout = os.fdopen(os.dup(pipe_write.fileno()), 'wb')   
-    worker = RemoteWorker()
+    if pack:
+        workload = pickle.dumps(workload)
     
     pipe_read.close()
-    local_main(pipe_write, worker)
+    local_main(pipe_write, workload)
     
+    return agent
+
+
+if __name__ == '__main__':
+    import multiprocessing as mp
+    mp.freeze_support()
+    mp.set_start_method('spawn')
+    
+    from eventor.agent.sshtypes import RemoteWorker
+    agent = start_agent('192.168.1.100', RemoteWorker(), pack=False)
+        
     agent.join()
     
     

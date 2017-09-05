@@ -55,7 +55,7 @@ def cmdargs():
 
 def start_eventor(queue, logger_info, **kwargs):
     module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
-    module_logger('Starting Eventor: ' % repr(kwargs))
+    module_logger('Starting EventorAgent: ' % repr(kwargs))
     try:
         eventor = EventorAgent(**kwargs)
     except Exception as e:
@@ -128,7 +128,8 @@ def run():
     queue = mp.Queue()
     
     logger_info = mplogger.logger_info()
-    
+    #start_eventor(queue, logger_info, **kwargs)
+    #return
     try:
         agent = mp.Process(target=start_eventor, args=(queue, logger_info), kwargs=kwargs, daemon=True)
         agent.start()
@@ -152,7 +153,7 @@ def run():
         print('TERM')
         return
     
-    module_logger.debug("Control pipe listener.")
+    module_logger.debug("Starting control pipe listener.")
     
     # wait for remote parent or from child Eventor 
     while True:
