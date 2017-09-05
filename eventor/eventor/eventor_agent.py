@@ -55,13 +55,13 @@ def cmdargs():
 
 def start_eventor(queue, logger_info, **kwargs):
     module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
-    module_logger('Starting EventorAgent: ' % repr(kwargs))
+    module_logger.debug('Starting EventorAgent: %s' % repr(kwargs))
     try:
         eventor = EventorAgent(**kwargs)
     except Exception as e:
         raise Exception("Failed to start agent with (%s)" % repr(kwargs)[1:-1]) from e
     eventor.run()  
-    module_logger('Eventor finished: passing DONE to main process.')  
+    module_logger.debug('Eventor finished: passing DONE to main process.')  
     queue.put('DONE')
     
     
