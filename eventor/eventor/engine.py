@@ -1379,7 +1379,7 @@ class Eventor(object):
         
         module_logger.debug('Agent process started: %s:%d' % (host, agent.pid))    
         # this is parent 
-        pipe_read.close()
+        #pipe_read.close()
         pipe_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
         try:
             send_to_agent(pipe_stdin, mem_pack, pack=False, logger=module_logger)
@@ -1403,7 +1403,7 @@ class Eventor(object):
             module_logger.critical(msg)
             raise EventorError(msg)
 
-    def listent_to_remote(self, parentq):
+    def __listent_to_remote(self, parentq):
         while len(self.__agents) > 0:
             raw = parentq.get()
             if not raw: continue
@@ -1423,6 +1423,49 @@ class Eventor(object):
             except Exception as e:
                 module_logger.error('Failed to sent TERM to %s' % (host,))
                 module_logger.exception(e)
+                
+    def __start_remote_agents(self):
+        hosts = set([step.host for step in self.__memory.steps.values()])
+        hosts.remove(self.host)
+        
+        # prepare to pickle
+        self.db.close()
+        self.db = None
+        logger_ = self.__logger
+        self.__logger = None
+        
+        self.__agents = dict()
+        signal.signal(signal.SIGINT, self.__exit_gracefully)
+        signal.signal(signal.SIGTERM, self.__exit_gracefully)
+        
+        mem_pack = pickle.dumps(self.__memory)
+        
+        # restore after pickle
+        self.__logger = logger_ # self.__logger = MpLogger.get_logger(logger_info=logger_info, name=logger_info['name'])
+        
+        self.__check_remote_hosts(hosts)
+        
+        parentq = mp.Queue()
+        parentq_listner = Thread(target=self.__listent_to_remote, args=(parentq,), daemon=True)
+        parentq_listner.start()
+        
+        for host in hosts:
+            agent = self.__start_agent(host, mem_pack, parentq)
+            if agent is not None:
+                self.__agents[host] = agent
+        
+        started =True
+        if len(self.__agents) < len(hosts):
+            # not all agents came up; send TREM to rest
+            # TODO(Arnon): Need to build test case for partial failure to start remote agents
+            for agent in self.__agents:
+                if agent.proc.is_alive():
+                    send_to_agent(agent.stdin, "TERM", pack=True, logger=module_logger)
+            started = False
+        
+        self.__get_dbapi(create=False)
+        
+        return started
                 
         
     def run(self,  max_loops=-1):
@@ -1445,43 +1488,10 @@ class Eventor(object):
             
         # start agents, if this is not already one
         if not self.__agent:
-            hosts = set([step.host for step in self.__memory.steps.values()])
-            hosts.remove(self.host)
-            
-            # prepare to pickle
-            self.db.close()
-            self.db = None
-            logger_ = self.__logger
-            self.__logger = None
-            
-            self.__agents = dict()
-            signal.signal(signal.SIGINT, self.__exit_gracefully)
-            signal.signal(signal.SIGTERM, self.__exit_gracefully)
-            
-            mem_pack = pickle.dumps(self.__memory)
-            
-            # restore after pickle
-            self.__logger = logger_ # self.__logger = MpLogger.get_logger(logger_info=logger_info, name=logger_info['name'])
-            
-            self.__check_remote_hosts(hosts)
-            
-            parentq = mp.Queue()
-            
-            for host in hosts:
-                child_proc = self.__start_agent(host, mem_pack, parentq)
-                if child_proc is not None:
-                    self.__agents[host] = child_proc
-            
-            if len(self.__agents) < len(hosts):
-                # TODO(Arnon): Need to build test case for partial failure to start remote agents
-                for agent in self.__agents:
-                    if agent.proc.is_alive():
-                        send_to_agent(agent.stdin, "TERM", pack=True, logger=module_logger)
-            
-            parentq_listner = Thread(target=self.listent_to_remote, args=(parentq,), daemon=True)
-            parentq_listner.start()
-                
-            self.__get_dbapi(create=False)
+            started = self.__start_remote_agents()  
+            if not  started:
+                module_logger.info('Processing terminated due to failure to start agents.')    
+                return False
         
         self.__controlq = mp.Queue()
         self.__adminq_mp_manager = mp_manager = mp.Manager()
