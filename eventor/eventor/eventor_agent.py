@@ -218,6 +218,7 @@ def run():
             print('TERM')
             break
     
+    sys.stdin.close()
       
 
 if __name__ == '__main__':
