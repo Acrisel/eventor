@@ -1473,7 +1473,7 @@ class Eventor(object):
                     self.__agents[host] = child_proc
             
             if len(self.__agents) < len(hosts):
-                # TODO(Arnon): Need to build test case for paritial failure to start remote agents
+                # TODO(Arnon): Need to build test case for partial failure to start remote agents
                 for agent in self.__agents:
                     if agent.proc.is_alive():
                         send_to_agent(agent.stdin, "TERM", pack=True, logger=module_logger)
