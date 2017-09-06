@@ -54,7 +54,7 @@ def local_agent(host, agentpy, pipe_read, pipe_write, logger_info=None, parentq=
     else:
         print(host, remote.stdout.decode())
 
-def local_main(pipe_write, load, pack=True, logger=None):
+def send_to_remote(pipe_write, load, pack=True, logger=None):
     workload = load
     
     stdout = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
@@ -79,7 +79,7 @@ def start_agent(host, workload, pack=True):
         workload = pickle.dumps(workload)
     
     pipe_read.close()
-    local_main(pipe_write, workload)
+    send_to_remote(pipe_write, workload)
     
     return agent
 

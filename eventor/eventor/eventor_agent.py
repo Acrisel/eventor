@@ -71,10 +71,9 @@ def start_eventor(queue, logger_info, **kwargs):
         module_logger.critical("Failed to run EventorAgent, passing TERM to main process.")
         module_logger.exception(e)
         queue.put('TERM')
-        return
-    
-    module_logger.debug('EventorAgent finished: passing DONE to main process.')  
-    queue.put('DONE')
+    else:
+        module_logger.debug('EventorAgent finished: passing DONE to main process.')  
+        queue.put('DONE')
     
     
 def pipe_listener(queue,):
@@ -82,8 +81,19 @@ def pipe_listener(queue,):
     # in this case, whiting for possible termination message from server
     msgsize_raw = sys.stdin.buffer.read(4)
     msgsize = struct.unpack(">L", msgsize_raw)
-    msg_pack = sys.stdin.buffer.read(msgsize[0])
-    msg = pickle.loads(msg_pack)
+    try:
+        msg_pack = sys.stdin.buffer.read(msgsize[0])
+    except Exception as e:
+        module_logger.critical('Failed to read STDIN.')
+        module_logger.exception(e)
+        queue.put('TERM')
+    try:
+        msg = pickle.loads(msg_pack)
+    except Exception as e:
+        module_logger.critical('Failed pickle loads message from STDIN.')
+        module_logger.exception(e)
+        queue.put('TERM')
+        
     module_logger('Received message from remote parent: %s; passing to main process.' % msg)
     queue.put(msg)
     
@@ -180,7 +190,7 @@ def run():
     
     # wait for remote parent or from child Eventor 
     if not agent.is_alive():
-        module_logger.debug("agent is not alive! terminating.")
+        module_logger.debug("Agent is not alive! terminating.")
         print('TERM')
         return
     
