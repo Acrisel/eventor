@@ -63,7 +63,7 @@ def start_eventor(queue, logger_info, **kwargs):
     except Exception as e:
         raise Exception("Failed to start EventorAgent.") from e
     
-    module_logger.debug('Initiated EventorAgent object, about to run().')
+    module_logger.debug('Initiated EventorAgent object, going to run().')
     
     try:
         eventor.run()  
