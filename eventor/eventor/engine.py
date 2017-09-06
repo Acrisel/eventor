@@ -35,7 +35,7 @@ from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
-from eventor.agent.sshmain_pipe import local_main, local_agent
+from eventor.agent.sshmain_pipe import send_to_remote, local_agent
 from eventor.expandvars import expandvars
 
 try: 
@@ -1382,7 +1382,7 @@ class Eventor(object):
         pipe_read.close()
         remote_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
         try:
-            local_main(pipe_write, mem_pack, pack=False, logger=module_logger)
+            send_to_remote(pipe_write, mem_pack, pack=False, logger=module_logger)
         except Exception as e:
             module_logger.error("Failed to send workload to %s" % host)
             module_logger.exception(e)
@@ -1419,7 +1419,7 @@ class Eventor(object):
         for host, agent in list(self.__agents.items()):
             module_logger.debug('Sending TERM to %s' % (host,))
             try:
-                local_main(agent.stdin, "TERM", pack=True, logger=module_logger)
+                send_to_remote(agent.stdin, "TERM", pack=True, logger=module_logger)
             except Exception as e:
                 module_logger.error('Failed to sent TERM to %s' % (host,))
                 module_logger.exception(e)
@@ -1473,9 +1473,10 @@ class Eventor(object):
                     self.__agents[host] = child_proc
             
             if len(self.__agents) < len(hosts):
-                # TODO(Arnon): quit active hosts and halt the run
+                # TODO(Arnon): Need to build test case for paritial failure to start remote agents
                 for agent in self.__agents:
-                    pass
+                    if agent.proc.is_alive():
+                        send_to_remote(agent.stdin, "TERM", pack=True, logger=module_logger)
             
             parentq_listner = Thread(target=self.listent_to_remote, args=(parentq,), daemon=True)
             parentq_listner.start()
