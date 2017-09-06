@@ -79,8 +79,18 @@ def start_eventor(queue, logger_info, **kwargs):
 def pipe_listener(queue,):
     global module_logger
     # in this case, whiting for possible termination message from server
-    msgsize_raw = sys.stdin.buffer.read(4)
-    msgsize = struct.unpack(">L", msgsize_raw)
+    try:
+        msgsize_raw = sys.stdin.buffer.read(4)
+    except Exception as e:
+        module_logger.critical('Failed to read STDIN.')
+        module_logger.exception(e)
+        queue.put('TERM')
+    try:
+        msgsize = struct.unpack(">L", msgsize_raw)
+    except Exception as e:
+        module_logger.critical('Failed pickle loads message size from STDIN.')
+        module_logger.exception(e)
+        queue.put('TERM')
     try:
         msg_pack = sys.stdin.buffer.read(msgsize[0])
     except Exception as e:
