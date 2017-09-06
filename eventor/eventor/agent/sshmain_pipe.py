@@ -54,10 +54,10 @@ def local_agent(host, agentpy, pipe_read, pipe_write, logger_info=None, parentq=
     else:
         print(host, remote.stdout.decode())
 
-def send_to_agent(pipe_stdin, load, pack=True, logger=None):
+def send_to_agent(pipe_write, load, pack=True, logger=None):
     workload = load
     
-    #stdout = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
+    pipe_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
     if pack:
         if logger:
             logger.debug("Pickle dumping workload.")
@@ -77,7 +77,7 @@ def send_to_agent(pipe_stdin, load, pack=True, logger=None):
 def start_agent(host, workload, pack=True):
     pipe_read, pipe_write = mp.Pipe(False)
     
-    #remote_stdin = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
+    #pipe_stdin = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
     agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/eventor/agent"
     agentpy = os.path.join(agent_dir, "sshagent_pipe.py")
     agent = mp.Process(target=local_agent, args=( host, agentpy, pipe_read, pipe_write,), daemon=True)
@@ -87,8 +87,8 @@ def start_agent(host, workload, pack=True):
         workload = pickle.dumps(workload)
     
     pipe_read.close()
-    pipe_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
-    send_to_agent(pipe_stdin, workload)
+    #pipe_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
+    send_to_agent(pipe_write, workload)
     
     return agent
 

@@ -1379,17 +1379,17 @@ class Eventor(object):
         
         module_logger.debug('Agent process started: %s:%d' % (host, agent.pid))    
         # this is parent 
-        #pipe_read.close()
-        pipe_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
+        pipe_read.close()
+        #pipe_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
         try:
-            send_to_agent(pipe_stdin, mem_pack, pack=False, logger=module_logger)
+            send_to_agent(pipe_write, mem_pack, pack=False, logger=module_logger)
         except Exception as e:
             module_logger.error("Failed to send workload to %s" % host)
             module_logger.exception(e)
             agent = None
         module_logger.debug('Sent workload to: %s' % (host,))
             
-        return RemoteAgent(proc=agent, stdin=pipe_stdin, stdout=None)
+        return RemoteAgent(proc=agent, stdin=pipe_write, stdout=None)
     
     def __check_remote_hosts(self, hosts):
         not_accessiable = list()
