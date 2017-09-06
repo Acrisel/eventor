@@ -99,22 +99,22 @@ def calling_module(depth=2):
 
 def store_from_module(module, module_location=False):
     location=os.path.dirname(module)
-    name=os.path.basename(module)
+    name = os.path.basename(module)
     
-    parts=name.rpartition('.')
+    parts = name.rpartition('.')
     if parts[0]:
         if parts[2] == 'py':
-            module_runner_file=parts[0]
+            module_runner_file = parts[0]
         else:
-            module_runner_file=name
+            module_runner_file = name
     else:
-        module_runner_file=parts[2]
-    filename='.'.join([module_runner_file, 'run.db'])  
+        module_runner_file = parts[2]
+    filename = '.'.join([module_runner_file, 'run.db'])  
     
     if module_location:
-        filename=os.path.join(location, filename)
+        filename = os.path.join(location, filename)
     else:
-        filename=os.path.join(os.getcwd(), filename)  
+        filename = os.path.join(os.getcwd(), filename)  
     return filename
 
 

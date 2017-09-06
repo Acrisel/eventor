@@ -82,12 +82,12 @@ Task=namedlist("Task", "id_ run_id step_id sequence host recovery pid status res
 
        
 def task_from_db(tobj):
-    result=Task(tobj.id_, tobj.run_id, tobj.step_id, tobj.sequence, tobj.host, tobj.recovery, tobj.pid, tobj.status, tobj.result, tobj.created, tobj.updated)
+    result = Task(tobj.id_, tobj.run_id, tobj.step_id, tobj.sequence, tobj.host, tobj.recovery, tobj.pid, tobj.status, tobj.result, tobj.created, tobj.updated)
     return result
 
 
 def task_to_db(obj, tcls):
-    result=tcls(obj.id_, obj.run_id, obj.step_id, obj.sequence, obj.host, obj.recovery, obj.pid, obj.status, obj.result, obj.created, obj.updated)
+    result = tcls(obj.id_, obj.run_id, obj.step_id, obj.sequence, obj.host, obj.recovery, obj.pid, obj.status, obj.result, obj.created, obj.updated)
     return result
 
 

@@ -58,10 +58,15 @@ class Step(object):
             fname = self.func.__name__
         else:
             fname = self.func.__class__.__name__
+            
+        str_args = ", ".join([repr(arg) for arg in self.func_args])
+        if str_args: str_args += ', ' 
+        str_kwargs = ", ".join(["%s=%s" % (name, repr(value)) for name, value in  self.func_kwargs.items()])
+
         
         #triggers=', '.join([pprint.pformat(t) for t in self.triggers])
         triggers = pprint.pformat(self.triggers)
-        return "Step( name({}), func({}), triggers({}))".format(self.name, fname, triggers)
+        return "Step( name({}), func( {}({}{}) ), triggers({}))".format(self.name, fname, str_args, str_kwargs, triggers)
     
     def __str__(self):
         return repr(self)
@@ -82,7 +87,8 @@ class Step(object):
         added = db.add_task_if_not_exists(step_id=self.id_, sequence=sequence, host=self.host, status=status, recovery=recovery)
         return added
     
-    def __call__(self, seq_path=None, loop_value=None,):
+    def __call__(self, seq_path=None, loop_value=None, logger=None):
+        if logger is not None: module_logger = logger
         module_logger.debug('[ Step %s ] Starting: %s' % (self._name(seq_path), repr(self) ))
         if self.func is not None:
             func = self.func
@@ -94,6 +100,11 @@ class Step(object):
             #if self.config['pass_resources']:
             #    self.func_kwargs.update({'eventor_task_resoures': resources})
             #stop_on_exception=self.config['stop_on_exception']
+            str_args = ", ".join([repr(arg) for arg in func_args])
+            if str_args: str_args += ', ' 
+            str_kwargs = ", ".join(["%s=%s" % (name, repr(value)) for name, value in  func_kwargs.items()])
+            name = func.__name__ if hasattr(self.func, '__name__') else func.__class__.__name__ 
+            module_logger.debug('[ Step %s ] running %s(%s%s)' % (self._name(seq_path), name,  str_args, str_kwargs))
             result = func(*func_args, **func_kwargs)
         else:
             result = True

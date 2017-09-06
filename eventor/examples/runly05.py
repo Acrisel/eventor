@@ -93,15 +93,15 @@ def construct_and_run():
     ev3s=ev.add_event('s0_s00_s3_start', expr=(ev2success,))
     
     metaprog=Container(ev=ev, progname='S0', loop=[1,2,], iter_triggers=(ev00first,))
-    s0first=ev.add_step('s0_start', func=metaprog, kwargs={'initial': True, }, config={'max_concurrent': -1, 'task_construct': Invoke})
-    s0next=ev.add_step('s0_next', func=metaprog, config={'task_construct': Invoke})
+    s0first=ev.add_step('s0_start', func=metaprog, kwargs={'initial': True, }, config={'max_concurrent': -1, 'task_construct': 'invoke'})
+    s0next=ev.add_step('s0_next', func=metaprog, config={'task_construct': 'invoke'})
     
     metaprog=Container(ev=ev, progname='S00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
     
     #s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
     #s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': threading.Thread})
-    s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': Invoke,})
-    s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': Invoke,})
+    s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': 'invoke',})
+    s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': 'invoke',})
     
     s1=ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
     s2=ev.add_step('s0.s00.s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })

@@ -118,10 +118,11 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
         sqid: sequencer id to pass to action '''
     global module_logger
     
+    # only if in separate process, need to initiate logger
     if use_process:
         module_logger = MpLogger.get_logger(logger_info=logger_info, name="%s.%s_%s" %(logger_info['name'], step.name, task.sequence))
-    else:
-        module_logger = MpLogger.get_logger(logger_info=logger_info, name="%s" %(logger_info['name'],))
+    #else:
+    #    module_logger = MpLogger.get_logger(logger_info=logger_info, name="%s" %(logger_info['name'],))
     
     task.pid = os.getpid()
     os.environ['EVENTOR_STEP_SEQUENCE'] = str(task.sequence)
@@ -139,7 +140,7 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
     
     try:
         # todo: need to pass task resources.
-        result = step(seq_path=task.sequence, )
+        result = step(seq_path=task.sequence, logger=module_logger)
     except Exception as e:
         trace = inspect.trace()
         trace = traces(trace) #[2:]
@@ -188,8 +189,10 @@ class Memtask(object):
 def get_proc_constructor(task_construct):
     if task_construct == 'process':
         task_constructor = mp.Process  
-    else:
+    elif 'thread':
         task_constructor = Thread
+    else:
+        task_constructor = Invoke
     return task_constructor
 
     
@@ -386,11 +389,15 @@ class Eventor(object):
         rest_sequences()   
         self.__setup_db_connection()
         
-    def __get_dbapi(self):
+    def __get_dbapi(self, create=True):
         filename = store_from_module(self.__calling_module)
         db_mode = DbMode.write if self.__run_mode == RunMode.restart else DbMode.append
-        self.db = DbApi(config=self.__config, modulefile=filename, shared_db=self.shared_db, run_id=self.run_id, userstore=self.store, mode=db_mode, echo=False, logger=module_logger) #self.debug)
-                
+        self.db = DbApi(config=self.__config, modulefile=filename, shared_db=self.shared_db, run_id=self.run_id, userstore=self.store, mode=db_mode, create=create, echo=False, logger=module_logger) #self.debug)
+         
+    def get_logger(self):
+        global module_logger
+        return module_logger
+           
     def __setup_db_connection(self):
         global module_logger
         #filename = store_from_module(self.__calling_module)
@@ -543,6 +550,7 @@ class Eventor(object):
         except:
             pass
         else:
+            module_logger.debug('add_step: already found in memory: skipping %s' %( repr(step), ))
             return step
         
         triggers = self.__convert_trigger_at_complete(triggers)
@@ -819,7 +827,10 @@ class Eventor(object):
                                         (task.step_id, task.sequence, repr(proc), proc.is_alive()))
                     #if proc.is_alive():
                     if not isinstance(proc, Invoke):
-                        module_logger.debug('[ Task %s/%s ] joining (exitcode=%s)' % (task.step_id, task.sequence, proc.exitcode))
+                        exitcode = ""
+                        if hasattr(proc, exitcode):
+                            exitcode = " (exitcode=%s)" % proc.exitcode
+                        module_logger.debug('[ Task %s/%s ] joining%s' % (task.step_id, task.sequence, exitcode))
                         if proc.is_alive():
                             proc.join()
                         #while proc.is_alive():
@@ -834,16 +845,16 @@ class Eventor(object):
                                     (task.step_id, task.sequence, repr(triggered), repr(stop_on_exception), repr(task.status)))
                 shutdown=(len(triggered) == 0 or stop_on_exception) and task.status == TaskStatus.failure 
                 module_logger.debug('[ Task %s/%s ] shutdown: %s' % (task.step_id, task.sequence, shutdown))
-                if task.status==TaskStatus.failure:
+                if task.status == TaskStatus.failure:
                     self.__log_error(task, shutdown)
                     if len(triggered) == 0:
-                        self.__state=EventorState.shutdown
+                        self.__state = EventorState.shutdown
                         
                 #if shutdown:
                 #    module_logger.info("Stopping running processes") 
                     
                     result=False
-            elif act_result.msg_type==TaskAdminMsgType.update: 
+            elif act_result.msg_type == TaskAdminMsgType.update: 
                 self.db.update_task(task=task)
                 # TODO: stop running processes            
         else:
@@ -866,7 +877,7 @@ class Eventor(object):
             module_logger.debug('Trying to read result queue')   
             
             try:
-                act_result=self.__adminq_mp.get_nowait() 
+                act_result = self.__adminq_mp.get_nowait() 
             except queue.Empty:
                 act_result=None
                 iterate_mp=False
@@ -876,7 +887,7 @@ class Eventor(object):
                 result_mp=self.__play_result(act_result)
             
             try:
-                act_result=self.__adminq_th.get_nowait() 
+                act_result = self.__adminq_th.get_nowait() 
             except queue.Empty:
                 act_result=None
                 iterate_th=False
@@ -983,13 +994,14 @@ class Eventor(object):
                 triggered = self.__triggers_at_task_change(task)
                 
                 #delay_task=not task.step_id.startswith('_evr_delay_')
-                module_logger.debug('[ Task {} ] Going to construct ({}/{}) and run task:\n    {}'.format(task.step_id, task.sequence, task_construct, repr(task), )) 
+                module_logger.debug('[ Task {}/{} ] Going to construct ({}) and run task:\n    {}'.format(task.step_id, task.sequence, task_construct, repr(task), )) 
                 
                 # prepare to pickle
-                self.db.close()
-                self.db = None
-                logger_ = self.__logger
-                self.__logger = None
+                if use_process:
+                    self.db.close()
+                    self.db = None
+                    logger_ = self.__logger
+                    self.__logger = None
                 
                 task_constructor = get_proc_constructor(task_construct)
                 proc = task_constructor(target=task_wrapper, kwargs=kwds)
@@ -1002,20 +1014,23 @@ class Eventor(object):
                     proc.start()
                 except Exception as e:
                     step.concurrent -= 1
-                    self.__get_dbapi()
+                    if use_process:
+                        self.__get_dbapi(create=False)
                     task.status = TaskStatus.failure
                     self.__update_task_status(task, TaskStatus.failure)
                     module_logger.critical('Exception in task execution: \n    {}'.format(task,)) #)
                     trace = inspect.trace()
                     trace = traces(trace)
                     module_logger.critical("%s\n    %s" % (repr(e), '\n    '.join(trace)))
-                    module_logger.info("Stopping running processes") 
+                    module_logger.info("Stopping running processes.") 
                     self.__state = EventorState.shutdown
                 else:
                     self.__task_proc[task.id_]=proc
-                    self.__get_dbapi()
+                    if use_process:
+                        self.__get_dbapi(create=False)
                 finally:
-                    self.__logger = logger_
+                    if use_process:
+                        self.__logger = logger_
             else:
                 module_logger.debug('[ Task {}/{} ] Delaying run (max_concurrent: {}, concurrent: {}) and run task:\n    {}'.format(task.step_id, task.sequence, max_concurrent, step.concurrent, repr(task), ))       
         else:
@@ -1314,15 +1329,16 @@ class Eventor(object):
                         module_logger.debug('Making a time delay sleep: %s' % sleep_time)
                     time.sleep(sleep_time) # time.sleep(sleep_loop)
                     loop = self.__check_control()
-                if not loop:
-                    module_logger.info('Processing stopped, number outstanding tasks: %s' % total_todo)
-            else:
-                finished = 'finished' if not self.__term else 'terminated'
-                human_result = "incomplete" if total_todo > 0 else"success" if result else 'failure'
-                module_logger.info('Processing %s with: %s' % (finished, human_result))
+                #if not loop:
+                #    module_logger.info('Processing stopped, number outstanding tasks: %s' % total_todo)
+            
+        result = self.__state != EventorState.shutdown 
+        finished = 'finished' if not self.__term else 'terminated'
+        human_result = "incomplete" if total_todo > 0 else "success" if result else 'failure'
+        module_logger.info('Processing %s with: %s' % (finished, human_result))
                 
         #self.__logger.stop()  
-        result=self.__state != EventorState.shutdown   
+          
         return result
     
     def loop_session_stop(self):
@@ -1464,7 +1480,7 @@ class Eventor(object):
             parentq_listner = Thread(target=self.listent_to_remote, args=(parentq,), daemon=True)
             parentq_listner.start()
                 
-            self.__get_dbapi()
+            self.__get_dbapi(create=False)
         
         self.__controlq = mp.Queue()
         self.__adminq_mp_manager = mp_manager = mp.Manager()
@@ -1483,10 +1499,10 @@ class Eventor(object):
                 result = self.loop_cycle()
             human_result = "success" if result else 'failure'
             total_todo, _ = self.count_todos(with_delayeds=True) 
-            module_logger.info('Processing finished with: %s; outstanding tasks: %s' % (human_result, total_todo))
+            module_logger.info('Processing finished with: %s (outstanding tasks: %s)' % (human_result, total_todo))
             #module_logger.info('Processing finished')
           
-        # wait for agents, if htis is not already one  
+        # wait for agents, if this is not already one  
         if not self.__agent:
             for host, agent in self.__agents.items():
                 #pid, status = os.waitpid(pid, os.WNOHANG)

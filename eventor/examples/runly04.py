@@ -63,7 +63,7 @@ class MetaProg(object):
         return True
         
 
-ev=evr.Eventor( logging_level=logging.INFO) # store=':memory:',
+ev=evr.Eventor( logging_level=logging.DEBUG) # store=':memory:',
 
 ev0first=ev.add_event('run_s0first')
 ev0next=ev.add_event('run_s0next')

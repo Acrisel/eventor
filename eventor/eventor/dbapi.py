@@ -66,13 +66,13 @@ def get_sqlalchemy_conf(modulefile, userstore, config, root=None, echo=False):
  
 class DbApi(object):
 
-    def __init__(self, modulefile=None, shared_db=False, run_id='', userstore=None, session=None, mode=DbMode.write, config={}, root=None, thread_sync=False, echo=False, logger=None):
+    def __init__(self, modulefile=None, shared_db=False, run_id='', userstore=None, session=None, mode=DbMode.write, config={}, root=None, thread_sync=False, create=True, echo=False, logger=None):
         '''
         Args:
             moduefile (path): file in which Eventor data would be stored and managed for reply/restart 
             if the value is :memory:, an in-memory temporary structures will be used
             userstore (path): store file provided by user
-            
+            create: if not set, assume already created and used in this session, skip create.
         Devising storage:
             If Store is provided:
                 If it is a database key in config:
@@ -110,7 +110,7 @@ class DbApi(object):
             self.session = session()   
         else: 
             self.session=self.__sqlalchemy.get_session(force=True)
-        self.open(mode=mode) 
+        self.open(mode=mode, create=create) 
     
     def set_thread_synchronization(self, value=True):
         self.thread_sync=value
@@ -123,9 +123,9 @@ class DbApi(object):
         if self.thread_sync:
             self.db_transaction_lock.release()
     
-    def open(self, mode=DbMode.write): 
+    def open(self, mode=DbMode.write, create=True): 
         self.db_transaction_lock = threading.Lock()       
-        if mode == DbMode.write:
+        if mode == DbMode.write and create:
             module_logger.debug("DbMode write: creating schema")
             self.create_db() 
             
@@ -229,6 +229,7 @@ class DbApi(object):
             self.session.add(trigger)
             self.commit_db()
         else:
+            module_logger.debug("DBAPI - trigger already in db, returning %s; %s" %(found, trigger,))
             trigger = trigger.first()
         self.release()
         return trigger_from_db(trigger)

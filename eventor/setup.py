@@ -92,7 +92,7 @@ setup_info={'name': NAME,
  'install_requires': [
      'SQLAlchemy>=1.1.5',
      'acris>=2.0.2',
-     'acrilog',
+     'acrilog>=1.1.4',
      'setproctitle>=1.1',
      'pyyaml>=3.12',
      'namedlist>=1.7',
