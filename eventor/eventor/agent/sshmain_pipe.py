@@ -72,6 +72,7 @@ def send_to_agent(pipe_write, load, pack=True, logger=None):
     pipe_stdin.write(workload)
     if logger:
         logger.debug("Message sent to agent.")
+    pipe_stdin.close()
 
 
 def start_agent(host, workload, pack=True):
