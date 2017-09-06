@@ -91,7 +91,7 @@ def pipe_listener(queue,):
 def run():
     global module_logger
     args = cmdargs()
-    mplogger = MpLogger(name=args.log+'.agent', logging_level=logging.DEBUG, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=args.logdir, encoding='utf8')
+    mplogger = MpLogger(name=args.log+'.agent', logging_level=logging.DEBUG, console=False, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=args.logdir, encoding='utf8')
     module_logger = mplogger.start()
     module_logger.debug("Starting agent: %s" % args)
     if args.import_module is not None:
@@ -131,20 +131,26 @@ def run():
         # signal to parant via stdout
         print('TERM')
         return
-        
+    
+    module_logger.debug("Memory received:\n%s" % pprint.pformat(memory, indent=4, ))
     logger_info = mplogger.logger_info()
-    kwargs = memory.kwargs.copy()
-    memory.logger_info = logger_info
-    kwargs['host'] = args.host
-    kwargs['memory'] = memory
+    
+    try:
+        kwargs = memory.kwargs.copy()
+        memory.logger_info = logger_info
+        kwargs['host'] = args.host
+        kwargs['memory'] = memory
+    except Exception as e:
+        module_logger.critical("Failed get kwargs from received  memory.")
+        module_logger.exception(e)
+        # signal to parant via stdout
+        print('TERM')
+        return
+        
     module_logger.debug("Starting Eventor subprocess on remote host.") #:\n%s" % pprint.pformat(kwargs, indent=4))
     
     queue = mp.Queue()
     
-    
-    #start_eventor(queue, logger_info, **kwargs)
-    #return
-    #module_logger = None
     try:
         agent = mp.Process(target=start_eventor, args=(queue, logger_info), kwargs=kwargs, daemon=False)
         agent.start()
