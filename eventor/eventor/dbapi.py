@@ -281,6 +281,7 @@ class DbApi(object):
         task = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==sequence, self.Task.host==host, self.Task.step_id == step_id, self.Task.recovery==recovery)
         found = self.session.query(task.exists()).scalar()
         if not found:
+            # it still may be that remote would inserted 
             task=self.Task(run_id=self.run_id, step_id=step_id, sequence=sequence, host=host, status=status, recovery=recovery)
             self.session.add(task)
             self.commit_db()

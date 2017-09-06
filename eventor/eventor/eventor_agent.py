@@ -171,6 +171,17 @@ def run():
     
     queue = mp.Queue()
     
+    # we set thread to Daemon so it would be killed when agent is gone
+    try:
+        listener = Thread(target=pipe_listener, args=(queue,), daemon=False)
+        listener.start()
+    except Exception as e:
+        module_logger.critical("Failed to queue listener thread.")
+        module_logger.exception(e)
+        # signal to parant via stdout
+        print('TERM')
+        return
+    
     try:
         agent = mp.Process(target=start_eventor, args=(queue, logger_info), kwargs=kwargs, daemon=False)
         agent.start()
@@ -184,17 +195,6 @@ def run():
     
     #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
     module_logger.debug("Eventor subprocess pid: %s" % agent.pid)
-    
-    # we set thread to Daemon so it would be killed when agent is gone
-    try:
-        plistener = Thread(target=pipe_listener, args=(queue,), daemon=True)
-        plistener.start()
-    except Exception as e:
-        module_logger.critical("Failed to queue listener thread.")
-        module_logger.exception(e)
-        # signal to parant via stdout
-        print('TERM')
-        return
     
     module_logger.debug("Starting control pipe listener.")
     
