@@ -35,7 +35,7 @@ from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
-from eventor.agent.sshmain_pipe import send_to_remote, local_agent
+from eventor.agent.sshmain_pipe import send_to_agent, local_agent
 from eventor.expandvars import expandvars
 
 try: 
@@ -1380,16 +1380,16 @@ class Eventor(object):
         module_logger.debug('Agent process started: %s:%d' % (host, agent.pid))    
         # this is parent 
         pipe_read.close()
-        remote_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
+        pipe_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
         try:
-            send_to_remote(pipe_write, mem_pack, pack=False, logger=module_logger)
+            send_to_agent(pipe_stdin, mem_pack, pack=False, logger=module_logger)
         except Exception as e:
             module_logger.error("Failed to send workload to %s" % host)
             module_logger.exception(e)
             agent = None
         module_logger.debug('Sent workload to: %s' % (host,))
             
-        return RemoteAgent(proc=agent, stdin=remote_stdin, stdout=None)
+        return RemoteAgent(proc=agent, stdin=pipe_stdin, stdout=None)
     
     def __check_remote_hosts(self, hosts):
         not_accessiable = list()
@@ -1419,7 +1419,7 @@ class Eventor(object):
         for host, agent in list(self.__agents.items()):
             module_logger.debug('Sending TERM to %s' % (host,))
             try:
-                send_to_remote(agent.stdin, "TERM", pack=True, logger=module_logger)
+                send_to_agent(agent.stdin, "TERM", pack=True, logger=module_logger)
             except Exception as e:
                 module_logger.error('Failed to sent TERM to %s' % (host,))
                 module_logger.exception(e)
@@ -1507,9 +1507,14 @@ class Eventor(object):
         if not self.__agent:
             for host, agent in self.__agents.items():
                 #pid, status = os.waitpid(pid, os.WNOHANG)
-                module_logger.debug('Joining with agent process: %s:%d; ' % (host, agent.proc.pid,))  
-                agent.proc.join()
-                module_logger.debug('Agent process finished: %s:%d; ' % (host, agent.proc.pid,))  
+                
+                if agent.proc.is_alive():
+                    #send_to_remote(agent.stdin)
+                    module_logger.debug('Joining with agent process: %s:%d; ' % (host, agent.proc.pid,))  
+                    agent.proc.join()
+                    module_logger.debug('Agent process finished: %s:%d; ' % (host, agent.proc.pid,))  
+                else:
+                    module_logger.debug('Agent process not alive, skipping: %s:%d; ' % (host, agent.proc.pid,))  
         return result
     
     

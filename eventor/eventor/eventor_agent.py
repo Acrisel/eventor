@@ -122,7 +122,7 @@ def run():
             except Exception as e:
                 module_logger.critical("Failed to import: %s;" % (args.import_module))
                 module_logger.exception(e)
-                # signal to parant via stdout
+                # signal to parent via stdout
                 print('TERM')
                 return
         else:
@@ -173,12 +173,12 @@ def run():
     
     # we set thread to Daemon so it would be killed when agent is gone
     try:
-        listener = Thread(target=pipe_listener, args=(queue,), daemon=False)
+        listener = Thread(target=pipe_listener, args=(queue,), daemon=True)
         listener.start()
     except Exception as e:
         module_logger.critical("Failed to queue listener thread.")
         module_logger.exception(e)
-        # signal to parant via stdout
+        # signal to parent via stdout
         print('TERM')
         return
     

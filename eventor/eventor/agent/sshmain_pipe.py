@@ -54,16 +54,16 @@ def local_agent(host, agentpy, pipe_read, pipe_write, logger_info=None, parentq=
     else:
         print(host, remote.stdout.decode())
 
-def send_to_remote(pipe_write, load, pack=True, logger=None):
+def send_to_agent(pipe_stdin, load, pack=True, logger=None):
     workload = load
     
-    stdout = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
+    #stdout = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
     if pack:
         workload = pickle.dumps(load)
     msgsize = len(workload)
     magsize_packed = struct.pack(">L", msgsize)
-    stdout.write(magsize_packed)
-    stdout.write(workload)
+    pipe_stdin.write(magsize_packed)
+    pipe_stdin.write(workload)
 
 
 def start_agent(host, workload, pack=True):
@@ -79,7 +79,8 @@ def start_agent(host, workload, pack=True):
         workload = pickle.dumps(workload)
     
     pipe_read.close()
-    send_to_remote(pipe_write, workload)
+    pipe_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
+    send_to_agent(pipe_stdin, workload)
     
     return agent
 
