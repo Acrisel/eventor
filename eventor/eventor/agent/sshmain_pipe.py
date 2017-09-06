@@ -71,7 +71,7 @@ def send_to_agent(pipe_stdin, load, pack=True, logger=None):
         logger.debug("Sending messages.")
     pipe_stdin.write(workload)
     if logger:
-        logger.debug("Message sent to agent." % msgsize)
+        logger.debug("Message sent to agent.")
 
 
 def start_agent(host, workload, pack=True):
