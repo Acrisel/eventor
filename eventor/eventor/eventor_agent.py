@@ -210,9 +210,9 @@ def run():
         module_logger.debug("Pulled message from control queue: %s" % (msg,))
         if msg == 'DONE':
             # msg from child - eventor agent is done
-            module_logger.debug("Joining with eventor process." % (msg,))
+            module_logger.debug("Joining with eventor process.")
             agent.join()
-            module_logger.debug("Eventor process joint." % (msg,))
+            module_logger.debug("Eventor process joint.")
             break
         elif msg == 'TERM':
             # got message to quit, need to kill primo process and be done
@@ -220,7 +220,7 @@ def run():
             print('TERM')
             break
     
-    module_logger.debug("Closing stdin." % (msg,))
+    module_logger.debug("Closing stdin.")
     sys.stdin.close()
       
 
