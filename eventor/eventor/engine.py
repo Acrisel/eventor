@@ -1476,7 +1476,7 @@ class Eventor(object):
                 # TODO(Arnon): Need to build test case for paritial failure to start remote agents
                 for agent in self.__agents:
                     if agent.proc.is_alive():
-                        send_to_remote(agent.stdin, "TERM", pack=True, logger=module_logger)
+                        send_to_agent(agent.stdin, "TERM", pack=True, logger=module_logger)
             
             parentq_listner = Thread(target=self.listent_to_remote, args=(parentq,), daemon=True)
             parentq_listner.start()

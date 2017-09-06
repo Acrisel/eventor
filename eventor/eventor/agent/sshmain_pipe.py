@@ -59,11 +59,19 @@ def send_to_agent(pipe_stdin, load, pack=True, logger=None):
     
     #stdout = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
     if pack:
+        if logger:
+            logger.debug("Pickle dumping workload.")
         workload = pickle.dumps(load)
     msgsize = len(workload)
     magsize_packed = struct.pack(">L", msgsize)
+    if logger:
+        logger.debug("Sending message length: %s." % msgsize)
     pipe_stdin.write(magsize_packed)
+    if logger:
+        logger.debug("Sending messages.")
     pipe_stdin.write(workload)
+    if logger:
+        logger.debug("Message sent to agent." % msgsize)
 
 
 def start_agent(host, workload, pack=True):
