@@ -1412,6 +1412,17 @@ class Eventor(object):
 
     def __listent_to_remote(self, parentq):
         while len(self.__agents) > 0:
+            for host, agent in self.__agents.items():
+                agent.poll()
+                returncode = agent.returncode()
+                if returncode is not None:
+                    stdout, stderr = agent.communicate()
+                    module_logger.debug('Got msg from %s: stdout: %s, stderr: ' %(host, stdout, stderr))
+                    if stdout == 'TERM':
+                        self.__term = True
+                        del self.__agents[host]
+                        
+            '''
             raw = parentq.get()
             if not raw: continue
             host, msg = raw
@@ -1419,6 +1430,7 @@ class Eventor(object):
             if msg == 'TERM':
                 self.__term = True
                 #del self.__agents[host]
+                '''
                 
     def __exit_gracefully(self, signum, frame):
         module_logger.debug('Caught termination signal; terminating %s' %(", ".join(self.__agents.keys())))
@@ -1428,10 +1440,12 @@ class Eventor(object):
             try:
                 agent.poll()
                 if agent.returncode is None: # still running
-                    agent.send("TERM", pickle_message=True,)
+                    response = agent.close()
             except Exception as e:
                 module_logger.error('Failed to sent TERM to %s' % (host,))
                 module_logger.exception(e)
+            else:
+                module_logger.debug('SSH agent terminated %s; %s' % (host, response))
                 
     def __start_remote_agents(self):
         hosts = set([step.host for step in self.__memory.steps.values()])

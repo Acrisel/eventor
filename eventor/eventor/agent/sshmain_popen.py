@@ -37,6 +37,12 @@ class SshAgent(object):
     def poll(self):
         self.remote.poll()
         
+    def returncode(self):
+        return self.remote.returncode
+    
+    def communicate(self, *args, **kwargs):
+        return self.remote.communicate(*args, **kwargs)
+        
     def wait(self):
         self.remote.wait()
         
