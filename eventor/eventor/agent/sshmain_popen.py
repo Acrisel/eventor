@@ -46,6 +46,16 @@ class SshAgent(object):
     def wait(self):
         self.remote.wait()
         
+    def check(self):
+        self.remote.poll()
+        if self.remote.returncode is not None:
+            self.logger.critical('Agent process crashed: %s' % (host,))
+            stdout, stderr = sshagent.remote.communicate()
+            self.logger.exception(stderr)
+            return False
+        else:
+            return True
+        
     def prepare_msg(self, msg, pickle_msg=True):
         workload = msg
         if pickle_msg:

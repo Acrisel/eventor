@@ -1386,11 +1386,9 @@ class Eventor(object):
         #agent.start()
         
         module_logger.debug('Agent process started: %s:%s' % (host, sshagent.pid)) 
-        sshagent.poll()
-        if sshagent.returncode() is not None:
+        sshagent.remote.poll()
+        if not sshagent.check():
             module_logger.critical('Agent process crashed: %s' % (host,))
-            stdout, stderr = sshagent.communicate()
-            module_logger.exception(stderr)
             return None
         # this is parent 
         #pipe_read.close()
@@ -1402,6 +1400,10 @@ class Eventor(object):
             module_logger.exception(e)
             #agent = None
         module_logger.debug('Sent workload to: %s' % (host,))
+        sshagent.remote.poll()
+        if not sshagent.check():
+            module_logger.critical('Agent process crashed after send: %s' % (host,))
+            return None
             
         return sshagent #RemoteAgent(proc=agent, stdin=pipe_write, stdout=None)
     
