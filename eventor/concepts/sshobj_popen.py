@@ -69,8 +69,9 @@ if __name__ == '__main__':
     mp.set_start_method('spawn')
     
     agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/concepts"
-    agentpy = os.path.join(agent_dir, "sshagent_popen_pipe.py")
-    host='192.168.1.100'
+    agentpy = os.path.join(agent_dir, "sshagent_popen.py")
+    #host='192.168.1.100'
+    host='10.7.0.97'
     #host='172.31.99.104'
     sshagent = SshAgent(host, agentpy)
     

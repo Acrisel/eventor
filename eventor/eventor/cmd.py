@@ -73,5 +73,4 @@ part of its hosting project.
 API DOC:
 ===============     
 """
-# TODO:
-# handler main commands
+# TODO(Arnon): handler main commands

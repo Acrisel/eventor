@@ -57,8 +57,8 @@ class SshAgent(object):
         self.remote.poll()
         if self.remote.returncode is not None:
             self.logger.critical('Agent process terminated: %s' % (host,))
-            stdout, stderr = sshagent.remote.communicate()
-            self.logger.exception(stderr)
+            _, stderr = sshagent.remote.communicate()
+            self.logger.exception(stdbin_decode(stderr))
             return False
         else:
             return True
