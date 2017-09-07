@@ -27,27 +27,43 @@ Prerequisite:
 '''
 
 class SshAgent(object):
-    def __init__(self, host, agentpy):
+    def __init__(self, host, agentpy, logger=None):
         try:
             self.remote = sshcmd(host, "python " + agentpy,)
         except Exception as e:
             raise
+        self.logger = logger
+        self.pid = self.remote.pid
 
-    def prepare_msg(self, msg):
-        workload = pickle.dumps(msg)
+    def poll(self):
+        self.remote.poll()
+        
+    def returncode(self):
+        return self.remote.returncode
+    
+    def communicate(self, *args, **kwargs):
+        return self.remote.communicate(*args, **kwargs)
+        
+    def wait(self):
+        self.remote.wait()
+        
+    def prepare_msg(self, msg, pickle_msg=True):
+        workload = msg
+        if pickle_msg:
+            workload = pickle.dumps(msg)
         msgsize = len(workload)
         magsize_packed = struct.pack(">L", msgsize)
         return magsize_packed + workload
     
-    def send(self, msg):
-        request = self.prepare_msg(msg)
+    def send(self, msg, pickle_msg=True):
+        request = self.prepare_msg(msg, pickle_msg=pickle_msg)
         self.remote.stdin.write(request)
         
     def close(self):
-        self.send('Terminate')
+        self.send('TERM', pickle_msg=True)
         response = self.remote.communicate()
         return response
-        
+         
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')

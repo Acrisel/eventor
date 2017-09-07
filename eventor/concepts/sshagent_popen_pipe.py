@@ -16,7 +16,7 @@ while True:
     worker = pickle.loads(workload)
     if not isinstance(worker, str): 
         worker.run()
-    elif worker == 'Terminate':
+    elif worker == 'TERM':
         break
     else:
         print(worker)

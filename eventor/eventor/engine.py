@@ -1378,6 +1378,7 @@ class Eventor(object):
         kw = ["%s %s" %(name, value) for name, value in kwargs.items()]
         args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         cmd = "%s %s %s" % (agentpy, " ".join(kw), ' '.join(args))
+        module_logger.debug('Agent command: %s: %s' % (host, cmd))
         sshagent = SshAgent(host, cmd, logger=module_logger)
         
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
@@ -1393,7 +1394,7 @@ class Eventor(object):
         except Exception as e:
             module_logger.error("Failed to send workload to %s" % host)
             module_logger.exception(e)
-            agent = None
+            #agent = None
         module_logger.debug('Sent workload to: %s' % (host,))
             
         return sshagent #RemoteAgent(proc=agent, stdin=pipe_write, stdout=None)
