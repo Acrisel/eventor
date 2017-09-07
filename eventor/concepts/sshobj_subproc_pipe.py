@@ -39,7 +39,7 @@ def remote_agent(host, agentpy, qrequest, qresponse):
         request, wait = raw_request
         timeout = None if not wait else 0
         try:
-            response = remote.communicae(input=request, timeout=timeout)
+            response = remote.communicate(input=request, timeout=timeout)
         except subprocess.TimeoutExpired:
             pass
         else:
