@@ -4,10 +4,9 @@ Created on Aug 27, 2017
 @author: arnon
 '''
 
-from concepts.sshcmd_popen import sshcmd
+from eventor.agent.sshcmd_popen import sshcmd
 import pickle
 import os
-from concepts.sshtypes import RemoteWorker
 import struct
 import multiprocessing as mp
 import sys
@@ -27,7 +26,7 @@ Prerequisite:
 '''
 
 class SshAgent(object):
-    def __init__(self, host, agentpy, logger=logger):
+    def __init__(self, host, agentpy, logger=None):
         try:
             self.remote = sshcmd(host, "python " + agentpy,)
         except Exception as e:
@@ -61,9 +60,9 @@ if __name__ == '__main__':
     #host='172.31.99.104'
     sshagent = SshAgent(host, agentpy)
     
-    worker = RemoteWorker()
-    sshagent.send(worker)
-    sshagent.send(worker)
+    #worker = RemoteWorker()
+    #sshagent.send(worker)
+    #sshagent.send(worker)
     
     response = sshagent.close()
     print('response: ', response)
