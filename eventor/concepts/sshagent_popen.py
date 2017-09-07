@@ -13,6 +13,7 @@ file = open("/var/log/eventor/eventor_concept_ssh_agent.log", "w")
 
 def log(msg):
     print(msg, file=file)
+    file.flush()
 
 log("starting loop.")
 while True:

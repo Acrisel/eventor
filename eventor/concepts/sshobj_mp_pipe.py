@@ -69,27 +69,6 @@ class SshAgent(object):
         self.__agent.join()
         return response
 
-'''
-def remote_agent(host, agentpy, pipe_read, pipe_write):
-    pipe_write.close()
-    stdin = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
-    remote = sshcmd(host, "python " + agentpy, stdin=stdin)
-    if remote.returncode != 0:
-        print(remote.stderr.decode(), file=sys.stderr)
-        return
-    print('remote_agent : %s' % (remote.stdout.decode(),))
-    stdin.close()
-
-def send_workload_to_agent(pipe_write):
-    stdout = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
-    worker = RemoteWorker()
-    workload = pickle.dumps(worker)
-    msgsize = len(workload)
-    magsize_packed = struct.pack(">L", msgsize)
-    stdout.write(magsize_packed)
-    stdout.write(workload)
-    stdout.close()
-'''
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
