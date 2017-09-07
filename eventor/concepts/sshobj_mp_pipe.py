@@ -4,7 +4,7 @@ Created on Aug 27, 2017
 @author: arnon
 '''
 
-from concepts.sshcmd import sshcmd
+from concepts.sshcmd_popen import sshcmd
 import pickle
 import os
 from concepts.sshtypes import RemoteWorker
@@ -24,6 +24,31 @@ Prerequisite:
         command=". ~/.profile; if [ -n \"$SSH_ORIGINAL_COMMAND\" ]; 
         then eval \"$SSH_ORIGINAL_COMMAND\"; else exec \"$SHELL\"; fi" ssh-rsa ... 
 '''
+
+class SshAgent(object):
+    def __init__(self, host, agentpy):
+        self.pipe_read, self.pipe_write = mp.Pipe()
+        stdin = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
+        try:
+            self.remote = sshcmd(host, "python " + agentpy, stdin=stdin)
+        except Exception as e:
+            raise
+
+    def prepare_msg(self, msg):
+        workload = pickle.dumps(msg)
+        msgsize = len(workload)
+        magsize_packed = struct.pack(">L", msgsize)
+        return magsize_packed + workload
+    
+    def send(self, msg):
+        request = self.prepare_msg(msg)
+        self.remote.stdin.write(request)
+        
+    def close(self):
+        self.send('Terminate')
+        response = self.remote.communicate()
+        return response
+
 
 def remote_agent(host, agentpy, pipe_read, pipe_write):
     pipe_write.close()

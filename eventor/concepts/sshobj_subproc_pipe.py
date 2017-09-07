@@ -32,8 +32,6 @@ class SshAgent(object):
             self.remote = sshcmd(host, "python " + agentpy,)
         except Exception as e:
             raise
-        self.qrequest = mp.Queue()
-        self.qresouse = mp.Queue()
 
     def prepare_msg(self, msg):
         workload = pickle.dumps(msg)
