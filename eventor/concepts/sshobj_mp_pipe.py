@@ -4,13 +4,15 @@ Created on Aug 27, 2017
 @author: arnon
 '''
 
-from concepts.sshcmd_popen import sshcmd
+#from concepts.sshcmd_popen import sshcmd
 import pickle
 import os
 from concepts.sshtypes import RemoteWorker
 import struct
 import multiprocessing as mp
 import sys
+import subprocess
+import threading as th
 
 '''
 Prerequisite:
@@ -26,30 +28,48 @@ Prerequisite:
 '''
 
 class SshAgent(object):
-    def __init__(self, host, agentpy):
-        self.pipe_read, self.pipe_write = mp.Pipe()
-        stdin = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
+    def __init__(self, host, command, user=None, logger=None):
+        pipe_read, pipe_write = mp.Pipe()
+        
+        self.__communicateq = mp.Queue()
+        where = "%s%s" % ('' if user is None else "@%s" % user, host)
+        self.__agent =  mp.Process(target=self.start_agent, args=(where, command, pipe_read, pipe_write, self.__communicateq), daemon=True) 
         try:
-            self.remote = sshcmd(host, "python " + agentpy, stdin=stdin)
+            self.__agent.start()
         except Exception as e:
             raise
-
-    def prepare_msg(self, msg):
+        print("agent .start() activated: %s." % self.__agent.pid)
+        self.logger = logger
+        pipe_read.close()
+        self.pipe_writef = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
+        
+    def start_agent(self, where, command, pipe_read, pipe_write, communicateq):
+        pipe_write.close()
+        pipe_readf = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
+        
+        sshrun = subprocess.run(["ssh", where, 'python', command],
+                                    shell=False, stdin=pipe_readf, 
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,)
+        
+        communicateq.put(sshrun.returncode, sshrun.stdout, sshrun.stderr)
+        
+    def __prepare(self, msg):
         workload = pickle.dumps(msg)
         msgsize = len(workload)
         magsize_packed = struct.pack(">L", msgsize)
         return magsize_packed + workload
     
     def send(self, msg):
-        request = self.prepare_msg(msg)
-        self.remote.stdin.write(request)
+        request = self.__prepare(msg)
+        self.pipe_writef.write(request)
         
     def close(self):
-        self.send('Terminate')
-        response = self.remote.communicate()
+        self.send('TERM')
+        response = self.__communicateq.get()
+        self.__agent.join()
         return response
 
-
+'''
 def remote_agent(host, agentpy, pipe_read, pipe_write):
     pipe_write.close()
     stdin = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
@@ -69,18 +89,24 @@ def send_workload_to_agent(pipe_write):
     stdout.write(magsize_packed)
     stdout.write(workload)
     stdout.close()
-
+'''
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
-    pipe_read, pipe_write = mp.Pipe()
+    mp.freeze_support()
+    
     agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/concepts"
-    agentpy = os.path.join(agent_dir, "sshagent_pipe.py")
+    agentpy = os.path.join(agent_dir, "sshagent_popen.py")
     host='192.168.1.100'
     #host='172.31.99.104'
-    remote = mp.Process(target=remote_agent, args=(host, agentpy, pipe_read, pipe_write), daemon=True)
-    remote.start()
-      
-    pipe_read.close()
-    send_workload_to_agent(pipe_write)
-    remote.join()
+    
+    sshagent = SshAgent(host, agentpy)
+    
+    worker = RemoteWorker()
+    print('Sending worker')
+    sshagent.send(worker)
+
+    print('Closing SSH pipe')
+    response = sshagent.close()
+    print('response: ', response)
+

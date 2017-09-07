@@ -30,6 +30,8 @@ def stdbin_decode(value, encodeing='ascii'):
     if value.endswith('\n'):
         value = value[:-1]
     return value
+
+class SSSHAGENTERROR(Exception): pass
     
 class SshAgent(object):
     def __init__(self, host, agentpy, logger=None):

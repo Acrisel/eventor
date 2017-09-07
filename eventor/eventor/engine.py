@@ -1374,7 +1374,7 @@ class Eventor(object):
             if self.import_file:
                 kwargs["--import-file"] = self.import_file
         
-        agentpy = 'eventor_agent.py' 
+        agentpy = 'eventor_agente.py' 
         kw = ["%s %s" %(name, value) for name, value in kwargs.items()]
         args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         cmd = "%s %s %s" % (agentpy, " ".join(kw), ' '.join(args))
@@ -1387,7 +1387,7 @@ class Eventor(object):
         
         module_logger.debug('Agent process started: %s:%s' % (host, sshagent.pid)) 
         if not sshagent.check():
-            module_logger.critical('Agent process crashed: %s' % (host,))
+            module_logger.critical('Agent process terminated unexpectedly: %s' % (host,))
             return None
         # this is parent 
         #pipe_read.close()
@@ -1400,9 +1400,9 @@ class Eventor(object):
             #agent = None
         module_logger.debug('Sent workload to: %s' % (host,))
         if not sshagent.check():
-            module_logger.critical('Agent process crashed after send: %s' % (host,))
+            module_logger.critical('Agent process terminated after send: %s' % (host,))
             return None
-            
+        module_logger.debug('Agent process checked okay: %s' % (host,))    
         return sshagent #RemoteAgent(proc=agent, stdin=pipe_write, stdout=None)
     
     def __check_remote_hosts(self, hosts):

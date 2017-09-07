@@ -69,15 +69,16 @@ def construct_and_run():
     # TODO: assume import_module is __file__ if not provided
     ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=True, import_module="examples.example_00_prog")
     
-    ev1s=ev.add_event('run_step1')
-    ev2s=ev.add_event('run_step2')
-    ev3s=ev.add_event('run_step3')
+    ev1s = ev.add_event('run_step1')
+    ev2s = ev.add_event('run_step2')
+    ev3s = ev.add_event('run_step3')
     
-    host='192.168.1.100'
-    #host='192.168.1.71'
-    s1=ev.add_step('s1', func=eprog.prog, kwargs={'progname': 'prog1',}, triggers={evr.StepStatus.success: (ev2s,),}) 
-    s2=ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2',}, host=host, triggers={evr.StepStatus.success: (ev3s,), })
-    s3=ev.add_step('s3', func=eprog.prog, kwargs={'progname': 'prog3',},)
+    #host = '192.168.1.100'
+    host = '10.7.0.97'
+    #host = '192.168.1.71'
+    s1 = ev.add_step('s1', func=eprog.prog, kwargs={'progname': 'prog1',}, triggers={evr.StepStatus.success: (ev2s,),}) 
+    s2 = ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2',}, host=host, triggers={evr.StepStatus.success: (ev3s,), })
+    s3 = ev.add_step('s3', func=eprog.prog, kwargs={'progname': 'prog3',},)
     
     ev.add_assoc(ev1s, s1)
     ev.add_assoc(ev2s, s2)
