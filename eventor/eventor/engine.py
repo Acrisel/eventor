@@ -35,7 +35,8 @@ from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
-from eventor.agent.sshmain_pipe import send_to_agent, local_agent
+#from eventor.agent.sshmain_pipe import send_to_agent, local_agent
+from eventor.agent.sshmain_popen import SshAgent
 from eventor.expandvars import expandvars
 
 try: 
@@ -1365,7 +1366,7 @@ class Eventor(object):
             parentq: to send back problems by child process
         '''
         #remote_read, remote_write = get_pipe() 
-        pipe_read, pipe_write = mp.Pipe()
+        #pipe_read, pipe_write = mp.Pipe()
       
         kwargs = dict()
         if self.import_module:
@@ -1373,23 +1374,29 @@ class Eventor(object):
             if self.import_file:
                 kwargs["--import-file"] = self.import_file
         
+        agentpy = 'eventor_agent.py' 
+        kw = ["%s %s" %(name, value) for name, value in kwargs.items()]
         args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
-        agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', pipe_read, pipe_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
-        agent.start()
+        cmd = "%s %s %s" % (agentpy, " ".join(kw), ' '.join(args))
+        sshagent = SshAgent(host, cmd, logger=module_logger)
         
-        module_logger.debug('Agent process started: %s:%d' % (host, agent.pid))    
+        #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
+        #agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', pipe_read, pipe_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
+        #agent.start()
+        
+        module_logger.debug('Agent process started: %s:%s' % (host, sshagent.pid))    
         # this is parent 
-        pipe_read.close()
+        #pipe_read.close()
         #pipe_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
         try:
-            send_to_agent(pipe_write, mem_pack, pack=False, logger=module_logger)
+            sshagent.send(mem_pack, pickle_msg=False,)
         except Exception as e:
             module_logger.error("Failed to send workload to %s" % host)
             module_logger.exception(e)
             agent = None
         module_logger.debug('Sent workload to: %s' % (host,))
             
-        return RemoteAgent(proc=agent, stdin=pipe_write, stdout=None)
+        return sshagent #RemoteAgent(proc=agent, stdin=pipe_write, stdout=None)
     
     def __check_remote_hosts(self, hosts):
         not_accessiable = list()
@@ -1419,7 +1426,9 @@ class Eventor(object):
         for host, agent in list(self.__agents.items()):
             module_logger.debug('Sending TERM to %s' % (host,))
             try:
-                send_to_agent(agent.stdin, "TERM", pack=True, logger=module_logger)
+                agent.poll()
+                if agent.returncode is None: # still running
+                    agent.send("TERM", pickle_message=True,)
             except Exception as e:
                 module_logger.error('Failed to sent TERM to %s' % (host,))
                 module_logger.exception(e)
@@ -1459,8 +1468,9 @@ class Eventor(object):
             # not all agents came up; send TREM to rest
             # TODO(Arnon): Need to build test case for partial failure to start remote agents
             for agent in self.__agents:
-                if agent.proc.is_alive():
-                    send_to_agent(agent.stdin, "TERM", pack=True, logger=module_logger)
+                agent.poll()
+                if agent.returncode is None: # still alive!
+                    agent.send("TERM", pickle_msg=True,)
             started = False
         
         self.__get_dbapi(create=False)
@@ -1517,11 +1527,11 @@ class Eventor(object):
         if not self.__agent:
             for host, agent in self.__agents.items():
                 #pid, status = os.waitpid(pid, os.WNOHANG)
-                
-                if agent.proc.is_alive():
+                agent.poll()
+                if agent.returncode is None: # still alive!
                     #send_to_remote(agent.stdin)
                     module_logger.debug('Joining with agent process: %s:%d; ' % (host, agent.proc.pid,))  
-                    agent.proc.join()
+                    agent.wait()
                     module_logger.debug('Agent process finished: %s:%d; ' % (host, agent.proc.pid,))  
                 else:
                     module_logger.debug('Agent process not alive, skipping: %s:%d; ' % (host, agent.proc.pid,))  
