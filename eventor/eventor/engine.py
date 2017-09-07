@@ -1385,7 +1385,13 @@ class Eventor(object):
         #agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', pipe_read, pipe_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
         #agent.start()
         
-        module_logger.debug('Agent process started: %s:%s' % (host, sshagent.pid))    
+        module_logger.debug('Agent process started: %s:%s' % (host, sshagent.pid)) 
+        sshagent.poll()
+        if sshagent.returncode() is not None:
+            module_logger.critical('Agent process crashed: %s' % (host,))
+            stdout, stderr = sshagent.communicate()
+            module_logger.exception(stderr)
+            return None
         # this is parent 
         #pipe_read.close()
         #pipe_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
