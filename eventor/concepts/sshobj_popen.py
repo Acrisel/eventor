@@ -11,8 +11,9 @@ from concepts.sshtypes import RemoteWorker
 import struct
 import multiprocessing as mp
 import sys
-import subprocess
-import fcntl
+from subprocess import Popen, PIPE
+import threading as th
+import queue
 
 '''
 Prerequisite:
@@ -37,35 +38,36 @@ def stdbin_decode(value, encodeing='ascii'):
 class SSHAGENTERROR(Exception): pass
 
 
-class SshAgent(subprocess.Popen):
-    def __init__(self, host, command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, user=None, logger=None):
-        where = "%s%s" % ('' if user is None else "@%s" % user, host)
-        #command = "ssh %s python %s" % (where, command)
-        super().__init__(["ssh", where, 'python', command],
-                           shell=False,
-                           stdin=stdin,
-                           stdout=stdout,
-                           stderr=stderr,
-                           close_fds=True,)
+class SshAgent(object):
+    def __init__(self, host, command, user=None, logger=None):
+        
         self.logger = logger
+        if logger:
+            self.__debug = self.logger.debug
+            self.__critical = self.logger.critical
+            self.__excetion = self.logger.exception
+        else:
+            self.__debug = print
+            self.__critical = print
+            self.__excetion = print
+
+        where = "%s%s" % ('' if user is None else "@%s" % user, host)
+        ssh_command = ["ssh", where, 'python', command]
+        self.__debug("Starting popen with: %s" % ssh_command)
+        self.sshproc = Popen(ssh_command, shell=False, stdin=PIPE, stdout=PIPE, stderr=PIPE, close_fds=False,)
+        
+        self.__closeq = mp.Queue()
+        self.__debug("Starting close watchdog.")
+        self.__closeth = th.Thread(target=self.__wait, args=(self.__closeq, ))
+        self.__closeth.start()
         
         # set stderr as none blocking
-        fl = fcntl.fcntl(self.stderr, fcntl.F_GETFL)
-        fcntl.fcntl(self.stderr, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        #fl = fcntl.fcntl(self.stderr, fcntl.F_GETFL)
+        #fcntl.fcntl(self.stderr, fcntl.F_SETFL, fl | os.O_NONBLOCK)
         
-    def check(self):
-        ''' returns None is still running, else (stdout, stderr)
-        '''
-        self.poll()
-        stderr_data = self.stderr.read()
-        if stderr_data:
-            if self.returncode is not None:
-                if self.logger is not None:
-                    self.logger.critical('Agent process terminated: %s' % (host, stderr_data))
-            stdout_data = self.stdout.read()
-            return self.returncode, stdout_data, stderr_data
-        return None
-        
+    def is_alive(self):
+        return self.__closeth.is_alive()
+            
     def prepare(self, msg, pickle_msg=True):
         workload = msg
         if pickle_msg:
@@ -76,13 +78,18 @@ class SshAgent(subprocess.Popen):
     
     def send(self, msg, pickle_msg=True):
         request = self.prepare(msg, pickle_msg=pickle_msg)
-        self.stdin.write(request)
+        self.sshproc.stdin.write(request)
+        
+    def __wait(self, closeq):
+        response = self.sshproc.communicate()
+        closeq.put(self.sshproc.returncode, response[0], response[1])
         
     def close(self):
         self.send('TERM', pickle_msg=True)
         #self.wait()
-        response = self.communicate()
-        return self.returncode, response[0], response[1]
+        response = self.__closeq.get()
+        return response
+        
          
 
 if __name__ == '__main__':
@@ -95,23 +102,28 @@ if __name__ == '__main__':
     #host='172.31.99.104'
     sshagent = SshAgent(host, agentpy)
     
-    result = sshagent.check()
-    if result is not None: 
-        print("Dead 1:", result)
+    print("checking if alive.")
+    result = sshagent.is_alive()
+    if not result: 
+        print("Dead 1:", sshagent.close())
         exit()
     
     worker = RemoteWorker()
+    print('Sending worker.')
     sshagent.send(worker)
     
     #sshagent.send_signal(signal.SIGTERM)
 
-    result = sshagent.check()
-    if result is not None: 
-        print("Dead 2:", result)
+    print("checking if alive.")
+    result = sshagent.is_alive()
+    if not result: 
+        print("Dead 2:", sshagent.close())
         exit()
 
+    print('Sending worker.')
     sshagent.send(worker)
     
+    print('closing.')
     response = sshagent.close()
     print('response: ', response)
     

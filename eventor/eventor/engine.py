@@ -36,7 +36,8 @@ from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
 #from eventor.agent.sshmain_pipe import send_to_agent, local_agent
-from eventor.agent.sshmain_popen import SshAgent
+#from eventor.agent.sshmain_popen import SshAgent
+from eventor.agent.sshagent_mp_pipe import SshAgent
 from eventor.expandvars import expandvars
 
 try: 
@@ -1386,20 +1387,20 @@ class Eventor(object):
         #agent.start()
         
         module_logger.debug('Agent process started: %s:%s' % (host, sshagent.pid)) 
-        if not sshagent.check():
+        if not sshagent.is_alive():
             module_logger.critical('Agent process terminated unexpectedly: %s' % (host,))
             return None
         # this is parent 
         #pipe_read.close()
         #pipe_stdin = os.fdopen(os.dup(pipe_write.fileno()), 'wb')
         try:
-            sshagent.send(mem_pack, pickle_msg=False,)
+            sshagent.send(mem_pack, pack=False,)
         except Exception as e:
             module_logger.error("Failed to send workload to %s" % host)
             module_logger.exception(e)
             #agent = None
         module_logger.debug('Sent workload to: %s' % (host,))
-        if not sshagent.check():
+        if not sshagent.is_alive():
             module_logger.critical('Agent process terminated after send: %s' % (host,))
             return None
         module_logger.debug('Agent process checked okay: %s' % (host,))    
@@ -1420,9 +1421,9 @@ class Eventor(object):
     def __listent_to_remote(self, parentq):
         while len(self.__agents) > 0:
             for host, agent in self.__agents.items():
-                agent.poll()
-                if agent.returncode() is not None:
-                    stdout, stderr = agent.communicate()
+                #agent.poll()
+                if not agent.is_alive():
+                    returncode, stdout, stderr = agent.response(timeout=0)
                     module_logger.debug('Got msg from %s: stdout: %s, stderr: ' %(host, stdout, stderr))
                     if stdout == 'TERM':
                         self.__term = True
@@ -1488,8 +1489,8 @@ class Eventor(object):
             # not all agents came up; send TREM to rest
             # TODO(Arnon): Need to build test case for partial failure to start remote agents
             for agent in self.__agents:
-                agent.poll()
-                if agent.returncode is None: # still alive!
+                #agent.poll()
+                if agent.is_alive(): # still alive!
                     agent.send("TERM", pickle_msg=True,)
             started = False
         
@@ -1547,8 +1548,8 @@ class Eventor(object):
         if not self.__agent:
             for host, agent in self.__agents.items():
                 #pid, status = os.waitpid(pid, os.WNOHANG)
-                agent.poll()
-                if agent.returncode is None: # still alive!
+                #agent.poll()
+                if agent.is_alive(): # still alive!
                     #send_to_remote(agent.stdin)
                     module_logger.debug('Joining with agent process: %s:%d; ' % (host, agent.proc.pid,))  
                     agent.wait()

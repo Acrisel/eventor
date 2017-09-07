@@ -27,6 +27,13 @@ Prerequisite:
         then eval \"$SSH_ORIGINAL_COMMAND\"; else exec \"$SHELL\"; fi" ssh-rsa ... 
 '''
 
+def stdbin_decode(value, encodeing='ascii'):
+    value = value.decode()
+    if value.endswith('\n'):
+        value = value[:-1]
+    return value
+
+
 class SshAgent(object):
     def __init__(self, host, command, user=None, logger=None):
         self.pipe_read, self.pipe_write = mp.Pipe()
@@ -48,10 +55,11 @@ class SshAgent(object):
             self.__agent.start()
         except Exception:
             raise
+        self.pid =self.__agent.pid
         
         self.__debug("agent .start() activated: %s." % self.__agent.pid)
             
-        self.pipe_read.close()
+        self.pipe_read.close()   
         
     def start_agent(self, where, command, pipe_read, pipe_write, communicateq):
         pipe_write.close()
@@ -65,6 +73,9 @@ class SshAgent(object):
         communicateq.put(response)
         self.__debug('Response placed in queue: %s' % (repr(response),))
         pipe_readf.close()
+        
+    def is_alive(self):
+        return self.__agent.is_alive()
         
     def __prepare(self, msg, pack=True):
         workload = msg
@@ -80,11 +91,18 @@ class SshAgent(object):
         pipe_writef.write(request)
         pipe_writef.close()
         
+    def response(self, timeout=-1):
+        result = self.__communicateq.get(timeout=timeout)
+        return result[0], stdbin_decode(result[1]), stdbin_decode(result[2])
+    
     def close(self):
         self.send('TERM')
-        response = self.__communicateq.get()
+        response = self.response()
         self.__agent.join()
         return response
+    
+    def wait(self):
+        self.__agent.join()
 
 
 if __name__ == '__main__':
