@@ -43,11 +43,11 @@ class SshAgent(object):
     
     def send(self, msg):
         request = self.prepare_msg(msg)
-        #remote.stdin.write(request)
+        self.remote.stdin.write(request)
         
     def close(self):
         self.send('Terminate')
-        response = self.communicate()
+        response = self.remote.communicate()
         return response
         
 
@@ -65,6 +65,6 @@ if __name__ == '__main__':
     sshagent.send(worker)
     
     response = sshagent.close()
-    print(response)
+    print('response: ', response)
     
 
