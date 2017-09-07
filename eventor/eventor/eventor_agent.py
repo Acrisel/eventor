@@ -221,7 +221,7 @@ def run():
             break
     
     module_logger.debug("Closing stdin.")
-    sys.stdin.close()
+    #sys.stdin.close()
       
 
 if __name__ == '__main__':

@@ -26,53 +26,45 @@ Prerequisite:
         then eval \"$SSH_ORIGINAL_COMMAND\"; else exec \"$SHELL\"; fi" ssh-rsa ... 
 '''
 
-def remote_agent(host, agentpy, qrequest, qresponse):
-    try:
-        remote = sshcmd(host, "python " + agentpy,)
-    except Exception as e:
-        raise
-    
-    while True:
-        raw_request = qrequest.get()
-        if raw_request == 'Terminate':
-            break
-        request, wait = raw_request
-        timeout = None if not wait else 0
+class SshAgent(object):
+    def __init__(self, host, agentpy):
         try:
-            response = remote.communicate(input=request, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            pass
-        else:
-            qresponse.put(response)
+            self.remote = sshcmd(host, "python " + agentpy,)
+        except Exception as e:
+            raise
+        self.qrequest = mp.Queue()
+        self.qresouse = mp.Queue()
+
+    def prepare_msg(self, msg):
+        workload = pickle.dumps(msg)
+        msgsize = len(workload)
+        magsize_packed = struct.pack(">L", msgsize)
+        return magsize_packed + workload
     
-
-
-def send_workload_to_agent(qrequest, qresouse):
-    worker = RemoteWorker()
-    workload = pickle.dumps(worker)
-    msgsize = len(workload)
-    magsize_packed = struct.pack(">L", msgsize)
-    #stdout.write(magsize_packed)
-    qrequest.put((magsize_packed, False))
-    qrequest.put((workload, True))
-    #stdout.close()
-    response = qresouse.get()
-    return response
-
+    def send(self, msg):
+        request = self.prepare_msg(msg)
+        #remote.stdin.write(request)
+        
+    def close(self):
+        self.send('Terminate')
+        response = self.communicate()
+        return response
+        
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
-    qrequest = mp.Queue()
-    qresouse = mp.Queue()
     
     agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/concepts"
     agentpy = os.path.join(agent_dir, "sshagent_popen_pipe.py")
     host='192.168.1.100'
     #host='172.31.99.104'
-    remote = mp.Process(target=remote_agent, args=(host, agentpy, qrequest, qresouse), daemon=True)
-    remote.start()
-      
-    response = send_workload_to_agent(qrequest, qresouse)
+    sshagent = SshAgent(host, agentpy)
+    
+    worker = RemoteWorker()
+    sshagent.send(worker)
+    sshagent.send(worker)
+    
+    response = sshagent.close()
     print(response)
-    qrequest.put('Terminate')
-    remote.join()
+    
+
