@@ -32,7 +32,14 @@ class SshAgent(object):
         except Exception as e:
             raise
         self.logger = logger
+        self.pid = self.remote.pid
 
+    def poll(self):
+        self.remote.poll()
+        
+    def wait(self):
+        self.remote.wait()
+        
     def prepare_msg(self, msg, pickle_msg=True):
         workload = msg
         if pickle_msg:
