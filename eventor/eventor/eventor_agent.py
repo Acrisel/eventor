@@ -114,6 +114,7 @@ def run():
     mplogger = MpLogger(name=args.log+'.agent', logging_level=logging.DEBUG, console=False, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=args.logdir, encoding='utf8')
     module_logger = mplogger.start()
     module_logger.debug("Starting agent: %s" % args)
+    
     if args.import_module is not None:
         if args.import_file is None:
             try:

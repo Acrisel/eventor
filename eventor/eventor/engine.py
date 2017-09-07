@@ -1386,7 +1386,6 @@ class Eventor(object):
         #agent.start()
         
         module_logger.debug('Agent process started: %s:%s' % (host, sshagent.pid)) 
-        sshagent.remote.poll()
         if not sshagent.check():
             module_logger.critical('Agent process crashed: %s' % (host,))
             return None
@@ -1400,7 +1399,6 @@ class Eventor(object):
             module_logger.exception(e)
             #agent = None
         module_logger.debug('Sent workload to: %s' % (host,))
-        sshagent.remote.poll()
         if not sshagent.check():
             module_logger.critical('Agent process crashed after send: %s' % (host,))
             return None
@@ -1423,8 +1421,7 @@ class Eventor(object):
         while len(self.__agents) > 0:
             for host, agent in self.__agents.items():
                 agent.poll()
-                returncode = agent.returncode()
-                if returncode is not None:
+                if agent.returncode() is not None:
                     stdout, stderr = agent.communicate()
                     module_logger.debug('Got msg from %s: stdout: %s, stderr: ' %(host, stdout, stderr))
                     if stdout == 'TERM':

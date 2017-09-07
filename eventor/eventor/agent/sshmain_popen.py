@@ -25,6 +25,12 @@ Prerequisite:
         then eval \"$SSH_ORIGINAL_COMMAND\"; else exec \"$SHELL\"; fi" ssh-rsa ... 
 '''
 
+def stdbin_decode(value, encodeing='ascii'):
+    value = value.decode()
+    if value.endswith('\n'):
+        value = value[:-1]
+    return value
+    
 class SshAgent(object):
     def __init__(self, host, agentpy, logger=None):
         try:
@@ -41,7 +47,8 @@ class SshAgent(object):
         return self.remote.returncode
     
     def communicate(self, *args, **kwargs):
-        return self.remote.communicate(*args, **kwargs)
+        stdout, stderr = self.remote.communicate(*args, **kwargs)
+        return stdbin_decode(stdout), stdbin_decode(stderr)
         
     def wait(self):
         self.remote.wait()
@@ -49,7 +56,7 @@ class SshAgent(object):
     def check(self):
         self.remote.poll()
         if self.remote.returncode is not None:
-            self.logger.critical('Agent process crashed: %s' % (host,))
+            self.logger.critical('Agent process terminated: %s' % (host,))
             stdout, stderr = sshagent.remote.communicate()
             self.logger.exception(stderr)
             return False
