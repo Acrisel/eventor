@@ -14,8 +14,9 @@ while True:
     msgsize = struct.unpack(">L", msgsize_raw)
     workload = sys.stdin.buffer.read(msgsize[0])
     worker = pickle.loads(workload)
-    if not isinstance(worker, str): #  != 'Terminate':      
+    if not isinstance(worker, str): 
         worker.run()
+    elif worker == 'Terminate':
+        break
     else:
         print(worker)
-        break
