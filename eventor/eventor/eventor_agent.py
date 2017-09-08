@@ -136,7 +136,7 @@ def run():
                 module_logger.critical("Failed to import: %s %s;" % (args.import_module, args.import_file))
                 module_logger.exception(e)
                 # signal to parant via stdout
-                print('TERM')
+                print(e)
                 return
     
     module_logger.debug("Fetching workload.")
@@ -147,7 +147,7 @@ def run():
     except Exception as e:
         module_logger.critical("Failed to read size of workload.")
         module_logger.exception(e)
-        print('TERM')
+        print(e)
         return
     
     try:
