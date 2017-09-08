@@ -909,7 +909,7 @@ class Eventor(object):
                 result_th=self.__play_result(act_result)
             
             result=result_mp #and result_th
-            module_logger.debug('connected result: %s, result_th: %s, result_mp: %s' % (result, result_th, result_mp))
+            module_logger.debug('Connected result: %s, result_th: %s, result_mp: %s' % (result, result_th, result_mp))
             #module_logger.debug('connected result: %s, result_mp: %s' % (result, result_mp))
                          
         return result

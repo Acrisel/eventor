@@ -141,7 +141,7 @@ def run():
                 module_logger.exception(e)
                 # signal to parant via stdout
                 print('TERM')
-                print(e, file=sys.stderr)
+                #print(e, file=sys.stderr)
                 return
     
     module_logger.debug("Fetching workload.")
@@ -153,7 +153,7 @@ def run():
         module_logger.critical("Failed to read size of workload.")
         module_logger.exception(e)
         print('TERM')
-        print(e, file=sys.stderr)
+        #print(e, file=sys.stderr)
         return
     
     try:
@@ -165,7 +165,7 @@ def run():
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')
-        print(e, file=sys.stderr)
+        #print(e, file=sys.stderr)
         return
     
     module_logger.debug("Memory received:\n%s" % pprint.pformat(memory, indent=4, ))
@@ -181,7 +181,7 @@ def run():
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')
-        print(e, file=sys.stderr)
+        #print(e, file=sys.stderr)
         return
         
     module_logger.debug("Starting Eventor subprocess on remote host.") #:\n%s" % pprint.pformat(kwargs, indent=4))
@@ -197,7 +197,7 @@ def run():
         module_logger.exception(e)
         # signal to parent via stdout
         print('TERM')
-        print(e, file=sys.stderr)
+        #print(e, file=sys.stderr)
         return
     
     try:
@@ -209,7 +209,7 @@ def run():
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')
-        print(e, file=sys.stderr)
+        #print(e, file=sys.stderr)
         return
     
     #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
@@ -221,7 +221,7 @@ def run():
     if not agent.is_alive():
         module_logger.debug("Agent is not alive! terminating.")
         print('TERM')
-        print(e, file=sys.stderr)
+        #print(e, file=sys.stderr)
         return
     
     while True:

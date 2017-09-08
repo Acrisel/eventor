@@ -64,7 +64,7 @@ class SshAgent(object):
             raise
         self.pid =self.__agent.pid
         
-        self.__debug("agent .start() activated: %s." % self.__agent.pid)
+        self.__debug("Agent .start() activated: %s." % self.__agent.pid)
  
         if wait is not None:
             while True:
