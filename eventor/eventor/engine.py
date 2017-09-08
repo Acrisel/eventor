@@ -1434,12 +1434,16 @@ class Eventor(object):
                 if not agent.is_alive():
                     response = agent.response()
                     returncode, stdout, stderr = response
-                    if stdout == 'TERM':
+                    if stdout == 'DONE':
+                        module_logger.debug('Agent finished %s.' %(repr(response)))
+                    elif stdout == 'TERM':
                         module_logger.critical('Agent terminated %s.' %(repr(response)))
                         #self.__term = True
                         self.__state = EventorState.shutdown
                     else:
-                        module_logger.debug('Agent finished %s.' %(repr(response)))
+                        # finished for unknown reason
+                        module_logger.critical('Agent aborted %s.' %(repr(response)))
+                        self.__state = EventorState.shutdown
                     del self.__agents[host]
             agent_count = len(self.__agents)
                 
