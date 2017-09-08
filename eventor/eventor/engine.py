@@ -195,13 +195,15 @@ class Memtask(object):
     #        self.requestor.put(*self.resources)
     
 
-def get_proc_constructor(task_construct):
+def get_proc_constructor(task_construct,):
     if task_construct == 'process':
         task_constructor = mp.Process  
-    elif 'thread':
+    elif task_construct == 'thread':
         task_constructor = Thread
-    else:
+    elif task_construct == 'invoke':
         task_constructor = Invoke
+    else:
+        task_constructor = None
     return task_constructor
 
     
@@ -816,22 +818,22 @@ class Eventor(object):
         self.db.update_task(task=task)
         if task.status in [TaskStatus.success, TaskStatus.failure]:
             self.__release_task_resources(task)
-        triggered=self.__triggers_at_task_change(task)
+        triggered = self.__triggers_at_task_change(task)
         return triggered
     
     def __play_result(self, act_result,):
         module_logger.debug('Result collected: \n    %s' % ( repr(act_result)) )  
-        stop_on_exception=self.__config['stop_on_exception']
+        stop_on_exception = self.__config['stop_on_exception']
         
         result=True
-        istask=isinstance(act_result.value, Task)
+        istask = isinstance(act_result.value, Task)
         module_logger.debug('Received %s(%s) to play (istask: %s)' %(type(act_result.value).__name__, repr(act_result.value), istask))
         if istask: 
-            task=act_result.value   
-            if act_result.msg_type==TaskAdminMsgType.result:
+            task = act_result.value   
+            if act_result.msg_type == TaskAdminMsgType.result:
                 delay_task=task.step_id.startswith('_evr_delay_')
                 if not delay_task:
-                    proc=self.__task_proc[task.id_]
+                    proc = self.__task_proc[task.id_]
                     module_logger.debug('[ Task %s/%s ] applying result, process: %s, is_allive: %s' % \
                                         (task.step_id, task.sequence, repr(proc), proc.is_alive()))
                     #if proc.is_alive():
@@ -848,11 +850,11 @@ class Eventor(object):
                     del self.__task_proc[task.id_]  
                     module_logger.debug('[ Task %s/%s ] deleted' % (task.step_id, task.sequence, ))
                 step = self.__memory.steps[task.step_id]
-                step.concurrent-=1
+                step.concurrent -= 1
                 triggered=self.__apply_task_result(task)
                 module_logger.debug('[ Task %s/%s ] triggered: %s, stop_on_exception: %s, task.status: %s' % \
                                     (task.step_id, task.sequence, repr(triggered), repr(stop_on_exception), repr(task.status)))
-                shutdown=(len(triggered) == 0 or stop_on_exception) and task.status == TaskStatus.failure 
+                shutdown = (len(triggered) == 0 or stop_on_exception) and task.status == TaskStatus.failure 
                 module_logger.debug('[ Task %s/%s ] shutdown: %s' % (task.step_id, task.sequence, shutdown))
                 if task.status == TaskStatus.failure:
                     self.__log_error(task, shutdown)
@@ -862,9 +864,10 @@ class Eventor(object):
                 #if shutdown:
                 #    module_logger.info("Stopping running processes") 
                     
-                    result=False
+                    result = False
             elif act_result.msg_type == TaskAdminMsgType.update: 
                 self.db.update_task(task=task)
+                
                 # TODO: stop running processes            
         else:
             # TODO: need to deal with action
@@ -1013,6 +1016,15 @@ class Eventor(object):
                     self.__logger = None
                 
                 task_constructor = get_proc_constructor(task_construct)
+                if task_constructor is None:
+                    module_logger.critical('[ Task {}/{} ] Failed to get task constructor for {}'.format(task.step_id, task.sequence, task_construct,)) 
+                    self.__state = EventorState.shutdown
+                    task.status = TaskStatus.failure
+                    if use_process:
+                        self.__get_dbapi(create=False)
+                    self.__update_task_status(task, TaskStatus.failure)
+                    return
+                
                 proc = task_constructor(target=task_wrapper, kwargs=kwds)
                 if use_process:
                     proc_id = "%s-" % self.run_id if self.run_id else ''
@@ -1562,12 +1574,12 @@ class Eventor(object):
                 #agent.poll()
                 if agent.is_alive(): # still alive!
                     #send_to_remote(agent.stdin)
-                    module_logger.debug('Joining with agent process: %s:%d; ' % (host, agent.proc.pid,))  
+                    module_logger.debug('Joining with agent process: %s:%d; ' % (host, agent.pid,))  
                     # TODO(Arnon): need to timeout and check if still alive.
                     agent.join()
-                    module_logger.debug('Agent process finished: %s:%d; ' % (host, agent.proc.pid,))  
+                    module_logger.debug('Agent process finished: %s:%d; ' % (host, agent.pid,))  
                 else:
-                    module_logger.debug('Agent process not alive, skipping: %s:%d; ' % (host, agent.proc.pid,))  
+                    module_logger.debug('Agent process not alive, skipping: %s:%d; ' % (host, agent.pid,))  
         return result
     
     
