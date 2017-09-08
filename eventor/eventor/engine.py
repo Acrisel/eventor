@@ -1381,7 +1381,7 @@ class Eventor(object):
         cmd = "%s %s %s" % (agentpy, " ".join(kw), ' '.join(args))
         module_logger.debug('Agent command: %s: %s' % (host, cmd))
         sshagent = SshAgent(host, cmd, logger=module_logger)
-        
+        sshagent.start(wait=0.2)
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         #agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', pipe_read, pipe_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
         #agent.start()
@@ -1389,6 +1389,7 @@ class Eventor(object):
         module_logger.debug('Agent process started: %s:%s' % (host, sshagent.pid)) 
         if not sshagent.is_alive():
             module_logger.critical('Agent process terminated unexpectedly: %s' % (host,))
+            sshagent.join()
             return None
         # this is parent 
         #pipe_read.close()
@@ -1419,25 +1420,20 @@ class Eventor(object):
             raise EventorError(msg)
 
     def __listent_to_remote(self, parentq):
-        while len(self.__agents) > 0:
-            for host, agent in self.__agents.items():
+        agent_count = len(self.__agents)
+        while agent_count > 0:
+            for host, agent in list(self.__agents.items()):
                 #agent.poll()
                 if not agent.is_alive():
-                    returncode, stdout, stderr = agent.response(timeout=0)
-                    module_logger.debug('Got msg from %s: stdout: %s, stderr: ' %(host, stdout, stderr))
+                    response = agent.response()
+                    returncode, stdout, stderr = response
                     if stdout == 'TERM':
+                        module_logger.critical('Agent terminated %s.' %(repr(response)))
                         self.__term = True
-                        del self.__agents[host]
-                        
-            '''
-            raw = parentq.get()
-            if not raw: continue
-            host, msg = raw
-            module_logger.debug('Got msg from %s: %s' %(host, msg))
-            if msg == 'TERM':
-                self.__term = True
-                #del self.__agents[host]
-                '''
+                    else:
+                        module_logger.debug('Agent finished %s.' %(repr(response)))
+                    del self.__agents[host]
+            agent_count = len(self.__agents)
                 
     def __exit_gracefully(self, signum, frame):
         module_logger.debug('Caught termination signal; terminating %s' %(", ".join(self.__agents.keys())))
@@ -1476,13 +1472,14 @@ class Eventor(object):
         self.__check_remote_hosts(hosts)
         
         parentq = mp.Queue()
-        parentq_listner = Thread(target=self.__listent_to_remote, args=(parentq,), daemon=True)
-        parentq_listner.start()
         
         for host in hosts:
             agent = self.__start_agent(host, mem_pack, parentq)
             if agent is not None:
                 self.__agents[host] = agent
+
+        parentq_listner = Thread(target=self.__listent_to_remote, args=(parentq,), daemon=True)
+        parentq_listner.start()
         
         started =True
         if len(self.__agents) < len(hosts):
@@ -1552,7 +1549,8 @@ class Eventor(object):
                 if agent.is_alive(): # still alive!
                     #send_to_remote(agent.stdin)
                     module_logger.debug('Joining with agent process: %s:%d; ' % (host, agent.proc.pid,))  
-                    agent.wait()
+                    # TODO(Arnon): need to timeout and check if still alive.
+                    agent.join()
                     module_logger.debug('Agent process finished: %s:%d; ' % (host, agent.proc.pid,))  
                 else:
                     module_logger.debug('Agent process not alive, skipping: %s:%d; ' % (host, agent.proc.pid,))  

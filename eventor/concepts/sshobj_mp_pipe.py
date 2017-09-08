@@ -13,6 +13,7 @@ import multiprocessing as mp
 import sys
 from subprocess import PIPE, run
 import threading as th
+import time
 
 '''
 Prerequisite:
@@ -27,12 +28,23 @@ Prerequisite:
         then eval \"$SSH_ORIGINAL_COMMAND\"; else exec \"$SHELL\"; fi" ssh-rsa ... 
 '''
 
+
+def stdbin_decode(value, encodeing='ascii'):
+    try:
+        value = value.decode()
+    except:
+        pass
+    if value.endswith('\n'):
+        value = value[:-1]
+    return value
+
 class SshAgent(object):
     def __init__(self, host, command, user=None, logger=None):
         self.pipe_read, self.pipe_write = mp.Pipe()
         
         self.__communicateq = mp.Queue()
-        where = "%s%s" % ('' if user is None else "@%s" % user, host)
+        self.command = command
+        self.where = "%s%s" % ('' if user is None else "@%s" % user, host)
         self.logger = logger
         if logger:
             self.__debug = self.logger.debug
@@ -42,15 +54,24 @@ class SshAgent(object):
             self.__debug = print
             self.__critical = print
             self.__excetion = print
-
-        self.__agent =  mp.Process(target=self.start_agent, args=(where, command, self.pipe_read, self.pipe_write, self.__communicateq), daemon=True) 
+            
+        self.result = None
+            
+    def start(self, wait=None):
+        self.__agent =  mp.Process(target=self.start_agent, args=(self.where, self.command, self.pipe_read, self.pipe_write, self.__communicateq), daemon=True) 
         try:
             self.__agent.start()
         except Exception:
             raise
-        
         self.__debug("agent .start() activated: %s." % self.__agent.pid)
-            
+        
+        if wait is not None:
+            while True:
+                time.sleep(wait)
+                self.__debug("Waiting for start: %s %s" % (self.__agent.is_alive(), self.__agent.exitcode))
+                if self.__agent.is_alive() or self.__agent.exitcode is not None:
+                    break
+
         self.pipe_read.close()
         
     def start_agent(self, where, command, pipe_read, pipe_write, communicateq):
@@ -74,16 +95,36 @@ class SshAgent(object):
         magsize_packed = struct.pack(">L", msgsize)
         return magsize_packed + workload
     
+    def is_alive(self):
+        return self.__agent.is_alive()
+    
     def send(self, msg, pack=True):
         pipe_writef = os.fdopen(os.dup(self.pipe_write.fileno()), 'wb')
         request = self.__prepare(msg, pack=pack)
         pipe_writef.write(request)
         pipe_writef.close()
         
+    def response(self, timeout=None):
+        if self.result is None:
+            try:
+                result = self.__communicateq.get(timeout=timeout)
+            except:
+                pass
+            if result:
+                self.result = result[0], stdbin_decode(result[1]), stdbin_decode(result[2])
+        self.__debug('Received from SSH control queue: %s'  % (repr(self.result)))
+        return self.result
+        
     def close(self):
-        self.send('TERM')
-        response = self.__communicateq.get()
+        if self.is_alive():
+            self.__debug('Sending TERM to pipe.')
+            self.send('TERM')
+        else:
+            self.__debug('Process is not alive, skipping TERM.')
+        response = self.response()
+        self.__debug('Joining with subprocess.')
         self.__agent.join()
+        self.__debug('Subprocess joined.')
         return response
 
 
@@ -92,13 +133,25 @@ if __name__ == '__main__':
     #mp.freeze_support()
     
     agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/concepts"
-    agentpy = os.path.join(agent_dir, "sshagent_popen.py")
+    agentpy = os.path.join(agent_dir, "sshagent_popene.py")
     host='192.168.1.100'
     #host='172.31.99.104'
     
     sshagent = SshAgent(host, agentpy)
-    
+    sshagent.start(wait=0.2)
+    print('Started')
+    if not sshagent.is_alive():
+        print(sshagent.response())
+        exit()
+        
     worker = RemoteWorker()
+    print('Sending worker')
+    sshagent.send(worker)
+    
+    if not sshagent.is_alive():
+        print(sshagent.response())
+        exit()
+
     print('Sending worker')
     sshagent.send(worker)
 

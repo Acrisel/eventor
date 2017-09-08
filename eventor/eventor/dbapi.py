@@ -220,6 +220,7 @@ class DbApi(object):
         
     def add_trigger_if_not_exists(self, event_id, sequence, recovery):
         self.lock()
+        # TODO(Arnon): since distributed, need to change to either "select for update" or "on duplicate key update"
         module_logger.debug("DBAPI - cehcking if event trigger do not exist: %s(%s)" %(event_id, sequence,))
         trigger = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.event_id==event_id, self.Trigger.sequence==sequence, self.Trigger.recovery==recovery)
         found = self.session.query(trigger.exists()).scalar()
