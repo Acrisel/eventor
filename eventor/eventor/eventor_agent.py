@@ -70,10 +70,10 @@ def start_eventor(queue, logger_info, **kwargs):
     except Exception as e:
         module_logger.critical("Failed to run EventorAgent, passing TERM to main process.")
         module_logger.exception(e)
-        queue.put('TERM')
+        queue.put(('TERM', e))
     else:
         module_logger.debug('EventorAgent finished: passing DONE to main process.')  
-        queue.put('DONE')
+        queue.put(('DONE', ''))
     
     
 def pipe_listener(queue,):
@@ -84,28 +84,32 @@ def pipe_listener(queue,):
     except Exception as e:
         module_logger.critical('Failed to read STDIN.')
         module_logger.exception(e)
-        queue.put('TERM')
+        queue.put(('TERM', e))
+        return
     try:
         msgsize = struct.unpack(">L", msgsize_raw)
     except Exception as e:
         module_logger.critical('Failed pickle loads message size from STDIN.')
         module_logger.exception(e)
-        queue.put('TERM')
+        queue.put(('TERM', e))
+        return
     try:
         msg_pack = sys.stdin.buffer.read(msgsize[0])
     except Exception as e:
         module_logger.critical('Failed to read STDIN.')
         module_logger.exception(e)
-        queue.put('TERM')
+        queue.put(('TERM', e))
+        return
     try:
         msg = pickle.loads(msg_pack)
     except Exception as e:
         module_logger.critical('Failed pickle loads message from STDIN.')
         module_logger.exception(e)
-        queue.put('TERM')
+        queue.put(('TERM', e))
+        return
         
     module_logger('Received message from remote parent: %s; passing to main process.' % msg)
-    queue.put(msg)
+    queue.put((msg, ''))
     
 
 def run():
@@ -136,7 +140,8 @@ def run():
                 module_logger.critical("Failed to import: %s %s;" % (args.import_module, args.import_file))
                 module_logger.exception(e)
                 # signal to parant via stdout
-                print(e)
+                print('TERM')
+                print(e, file=sys.stderr)
                 return
     
     module_logger.debug("Fetching workload.")
@@ -147,7 +152,8 @@ def run():
     except Exception as e:
         module_logger.critical("Failed to read size of workload.")
         module_logger.exception(e)
-        print(e)
+        print('TERM')
+        print(e, file=sys.stderr)
         return
     
     try:
@@ -159,6 +165,7 @@ def run():
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')
+        print(e, file=sys.stderr)
         return
     
     module_logger.debug("Memory received:\n%s" % pprint.pformat(memory, indent=4, ))
@@ -174,6 +181,7 @@ def run():
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')
+        print(e, file=sys.stderr)
         return
         
     module_logger.debug("Starting Eventor subprocess on remote host.") #:\n%s" % pprint.pformat(kwargs, indent=4))
@@ -189,6 +197,7 @@ def run():
         module_logger.exception(e)
         # signal to parent via stdout
         print('TERM')
+        print(e, file=sys.stderr)
         return
     
     try:
@@ -200,6 +209,7 @@ def run():
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')
+        print(e, file=sys.stderr)
         return
     
     #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
@@ -211,12 +221,14 @@ def run():
     if not agent.is_alive():
         module_logger.debug("Agent is not alive! terminating.")
         print('TERM')
+        print(e, file=sys.stderr)
         return
     
     while True:
         msg = queue.get()
         if not msg: continue
-        module_logger.debug("Pulled message from control queue: %s" % (msg,))
+        msg, error = msg
+        module_logger.debug("Pulled message from control queue: %s; %s" % (msg,error,))
         if msg == 'DONE':
             # msg from child - eventor agent is done
             module_logger.debug("Joining with eventor process.")
@@ -227,6 +239,7 @@ def run():
             # got message to quit, need to kill primo process and be done
             # Well since process is daemon, it will be killed when parent is done
             print('TERM')
+            print(error, file=sys.stderr)
             break
     
     module_logger.debug("Closing stdin.")

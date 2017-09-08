@@ -57,7 +57,7 @@ class SshAgent(object):
         self.result = None
     
     def start(self, wait=None):
-        self.__agent =  mp.Process(target=self.start_agent, args=(self.where, self.command, self.pipe_read, self.pipe_write, self.__communicateq), daemon=True) 
+        self.__agent =  mp.Process(target=self.start_agent, args=(self.where, self.command, self.pipe_read, self.pipe_write, self.__communicateq,), daemon=True) 
         try:
             self.__agent.start()
         except Exception:
@@ -75,7 +75,7 @@ class SshAgent(object):
            
         self.pipe_read.close()   
         
-    def start_agent(self, where, command, pipe_read, pipe_write, communicateq):
+    def start_agent(self, where, command, pipe_read, pipe_write, communicateq,):
         pipe_write.close()
         pipe_readf = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
         
