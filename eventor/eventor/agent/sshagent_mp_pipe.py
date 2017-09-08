@@ -79,7 +79,7 @@ class SshAgent(object):
         pipe_write.close()
         pipe_readf = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
         
-        cmd = ["ssh", where, 'python', command]
+        cmd = ["ssh", where, command]
         self.__debug('Starting subprocess run(%s)' %(cmd))
         sshrun = run(cmd, shell=False, stdin=pipe_readf, stdout=PIPE, stderr=PIPE, check=False,)
         self.__debug('subprocess.run() started.')
@@ -114,6 +114,7 @@ class SshAgent(object):
                 result = self.__communicateq.get(timeout=timeout)
             except:
                 result=None
+                
             if result:
                 returncode, stdout, stderr = result[0], stdbin_decode(result[1]), stdbin_decode(result[2])
                 if not stdout:

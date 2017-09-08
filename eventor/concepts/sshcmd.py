@@ -34,4 +34,4 @@ def sshcmd(host, command, stdin=None, stdout=None, user=None, check=False):
     return ssh
     
 if __name__ == '__main__':
-    print(sshcmd("acrisel", "ls -l", check=False).stdout)
+    print(sshcmd("192.168.56.10", "eventor_agent.py -h", check=False).stdout)

@@ -140,9 +140,11 @@ def run():
                 return
     
     module_logger.debug("Fetching workload.")
-    msgsize_raw = sys.stdin.buffer.read(4)
+    #msgsize_raw = sys.stdin.buffer.read(4)
+    msgsize_raw = sys.stdin.read(4)
     msgsize = struct.unpack(">L", msgsize_raw)
-    mem_pack = sys.stdin.buffer.read(msgsize[0])
+    #mem_pack = sys.stdin.buffer.read(msgsize[0])
+    mem_pack = sys.stdin.read(msgsize[0])
     
     try:
         memory = pickle.loads(mem_pack)

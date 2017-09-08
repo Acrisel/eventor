@@ -137,7 +137,13 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
 
     # Update task with PID
     update = TaskAdminMsg(msg_type=TaskAdminMsgType.update, value=task) 
-    adminq.put( update )
+    try:
+        adminq.put( update )
+    except Exception as e:
+        module_logger.critical('[ Step {}/{} ] Failed to update pid; aborting'.format(step.name, task.sequence))
+        module_logger.exception(e)
+        raise
+        
     module_logger.info('[ Step {}/{} ] Attempting to run'.format(step.name, task.sequence))
     
     try:
@@ -161,6 +167,7 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
 class EventorState(Enum):
     active = 1
     shutdown = 2
+    #exit = 3
     
     
 class RpCallback(object):
@@ -1375,7 +1382,7 @@ class Eventor(object):
             if self.import_file:
                 kwargs["--import-file"] = self.import_file
         
-        agentpy = 'eventor_agente.py' 
+        agentpy = 'eventor_agent.py' 
         kw = ["%s %s" %(name, value) for name, value in kwargs.items()]
         args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         cmd = "%s %s %s" % (agentpy, " ".join(kw), ' '.join(args))
@@ -1429,7 +1436,8 @@ class Eventor(object):
                     returncode, stdout, stderr = response
                     if stdout == 'TERM':
                         module_logger.critical('Agent terminated %s.' %(repr(response)))
-                        self.__term = True
+                        #self.__term = True
+                        self.__state = EventorState.shutdown
                     else:
                         module_logger.debug('Agent finished %s.' %(repr(response)))
                     del self.__agents[host]
@@ -1437,7 +1445,8 @@ class Eventor(object):
                 
     def __exit_gracefully(self, signum, frame):
         module_logger.debug('Caught termination signal; terminating %s' %(", ".join(self.__agents.keys())))
-        self.__term = True
+        #self.__term = True
+        self.__state = EventorState.shutdown
         for host, agent in list(self.__agents.items()):
             module_logger.debug('Sending TERM to %s' % (host,))
             try:
@@ -1509,6 +1518,7 @@ class Eventor(object):
                  no task to run. 
         
         '''
+        # TODO(Arnon): remote the use of __term; use self.__state = EventorState.shutdown instead
         self.__term = False       
         if setproctitle is not None:
             run_id = "%s." % self.run_id if self.run_id else ''

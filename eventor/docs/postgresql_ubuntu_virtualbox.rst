@@ -36,7 +36,33 @@ On Ubuntu Virtualbox install postgresql and pgAdmin or phpAdmin.
     
 
 
-Use bridge network on Virtualbox.
+Use host-only network on Virtualbox
+-----------------------------------
+
+VirtualBox -> Preferences -> Network -> Host-only Networks
+
+Make sure you have vboxnet0 or add new one.
+
+Edit vboxnet0 (or the one you use), disable DHCP Server.  Note IpV4 Address 192.168.56.1 (change if need be)
+
+In Virtualbox settings -> Networks
+
+Network Adapter 1: NAT
+Network Adapter 2: Host Only
+
+In Ubuntu, make sure you have enp0s8 in /etc/networks/interfaces
+
+sudoedit /etc/network/interfaces
+# interfaces(5) file used by ifup(8) and ifdown(8)
+auto lo
+iface lo inet loopback
+auto enp0s8
+iface enp0s8 inet static
+address 192.168.56.10
+netmask 255.255.255.0
+
+Note address is 192.168.56.10 is different from Host-only preference address.  You can chose a different one on the same subnet but must be different than the one on vboxnet0 (or what ever you chose).
+
 
 Open SSH
 ========
