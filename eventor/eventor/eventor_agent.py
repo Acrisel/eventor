@@ -140,13 +140,19 @@ def run():
                 return
     
     module_logger.debug("Fetching workload.")
-    #msgsize_raw = sys.stdin.buffer.read(4)
-    msgsize_raw = sys.stdin.read(4)
-    msgsize = struct.unpack(">L", msgsize_raw)
-    #mem_pack = sys.stdin.buffer.read(msgsize[0])
-    mem_pack = sys.stdin.read(msgsize[0])
+    try:
+        #msgsize_raw = sys.stdin.buffer.read(4)
+        msgsize_raw = sys.stdin.read(4)
+        msgsize = struct.unpack(">L", msgsize_raw)
+    except Exception as e:
+        module_logger.critical("Failed to read size of workload.")
+        module_logger.exception(e)
+        print('TERM')
+        return
     
     try:
+        #mem_pack = sys.stdin.buffer.read(msgsize[0])
+        mem_pack = sys.stdin.read(msgsize[0])
         memory = pickle.loads(mem_pack)
     except Exception as e:
         module_logger.critical("Failed to pickle loads workload.")
