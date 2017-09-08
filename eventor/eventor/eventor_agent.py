@@ -239,7 +239,7 @@ def run():
             # got message to quit, need to kill primo process and be done
             # Well since process is daemon, it will be killed when parent is done
             print('TERM')
-            print(error, file=sys.stderr)
+            #print(error, file=sys.stderr)
             break
     
     module_logger.debug("Closing stdin.")
