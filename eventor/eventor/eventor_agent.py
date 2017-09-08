@@ -89,7 +89,7 @@ def pipe_listener(queue,):
     try:
         msgsize = struct.unpack(">L", msgsize_raw)
     except Exception as e:
-        module_logger.critical('Failed pickle loads message size from STDIN.')
+        module_logger.critical('Failed pickle loads message size from STDIN; received: %s' % hex(msgsize_raw))
         module_logger.exception(e)
         queue.put(('TERM', e))
         return
