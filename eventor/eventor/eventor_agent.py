@@ -43,11 +43,11 @@ def cmdargs():
                         help="""import module before pickle loads.""")
     parser.add_argument('--import-file', type=str, required=False, dest='import_file',
                         help="""import file before pickle loads.""")
-    parser.add_argument('host', type=str, 
+    parser.add_argument('--host', type=str, 
                         help="""Host on which this command was sent to.""")
-    parser.add_argument('log', type=str, 
+    parser.add_argument('--log', type=str, 
                         help="""Logger name to use.""")
-    parser.add_argument('logdir', type=str, 
+    parser.add_argument('--logdir', type=str, 
                         help="""Logger outout directory.""")
     args = parser.parse_args()  
     #argsd=vars(args)
