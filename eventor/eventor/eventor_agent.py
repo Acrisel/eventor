@@ -77,6 +77,8 @@ def start_eventor(queue, logger_info, **kwargs):
     
     
 def pipe_listener(queue,):
+    ''' Pipe listener wait for one message.  Once receive (DONE or TERM) it ends.
+    '''
     global module_logger
     # in this case, whiting for possible termination message from server
     try:
@@ -109,6 +111,7 @@ def pipe_listener(queue,):
         return
         
     module_logger('Received message from remote parent: %s; passing to main process.' % msg)
+        
     queue.put((msg, ''))
     
 
@@ -193,6 +196,7 @@ def run():
     
     queue = mp.Queue()
     
+    module_logger.debug("Starting control pipe listener.")
     # we set thread to Daemon so it would be killed when agent is gone
     try:
         listener = Thread(target=pipe_listener, args=(queue,), daemon=True)
@@ -220,8 +224,6 @@ def run():
     #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
     module_logger.debug("Eventor subprocess pid: %s" % agent.pid)
     
-    module_logger.debug("Starting control pipe listener.")
-    
     # wait for remote parent or from child Eventor 
     if not agent.is_alive():
         module_logger.debug("Agent is not alive! terminating.")
@@ -238,6 +240,7 @@ def run():
             # msg from child - eventor agent is done
             module_logger.debug("Joining with eventor process.")
             agent.join()
+            listener.join()
             module_logger.debug("Eventor process joint.")
             break
         elif msg == 'TERM':
@@ -245,6 +248,7 @@ def run():
             # Well since process is daemon, it will be killed when parent is done
             print('TERM')
             print(error, file=sys.stderr)
+            # TODO(Arnon): how to terminate listener that is listening 
             break
     
     module_logger.debug("Closing stdin.")

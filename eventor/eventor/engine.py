@@ -1457,21 +1457,21 @@ class Eventor(object):
                         self.__state = EventorState.shutdown
                     else:
                         # finished for unknown reason
-                        module_logger.critical('Agent aborted. Returncode: %s; Output: %s; Error:\n' %(repr(returncode, stdout,),) + stderr)
+                        module_logger.critical('Agent aborted. Returncode: %s; Output: %s; Error:\n' %(repr(returncode), stdout) + stderr)
                         self.__state = EventorState.shutdown
                     del self.__agents[host]
             agent_count = len(self.__agents)
                 
-    def __exit_gracefully(self, signum, frame):
+    def __exit_gracefully(self, signum=None, frame=None):
         module_logger.debug('Caught termination signal; terminating %s' %(", ".join(self.__agents.keys())))
         #self.__term = True
         self.__state = EventorState.shutdown
         for host, agent in list(self.__agents.items()):
             module_logger.debug('Sending TERM to %s' % (host,))
             try:
-                agent.poll()
-                if agent.returncode is None: # still running
-                    response = agent.close()
+                #agent.poll()
+                #if agent.returncode is None: # still running
+                response = agent.close()
             except Exception as e:
                 module_logger.error('Failed to sent TERM to %s' % (host,))
                 module_logger.exception(e)
@@ -1579,6 +1579,7 @@ class Eventor(object):
                     #send_to_remote(agent.stdin)
                     module_logger.debug('Joining with agent process: %s:%d; ' % (host, agent.pid,))  
                     # TODO(Arnon): need to timeout and check if still alive.
+                    self.__exit_gracefully()
                     agent.join()
                     module_logger.debug('Agent process finished: %s:%d; ' % (host, agent.pid,))  
                 else:

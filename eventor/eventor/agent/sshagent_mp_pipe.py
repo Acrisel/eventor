@@ -57,7 +57,7 @@ class SshAgent(object):
         self.result = None
     
     def start(self, wait=None):
-        self.__agent =  mp.Process(target=self.start_agent, args=(self.where, self.command, self.pipe_read, self.pipe_write, self.__communicateq,), daemon=True) 
+        self.__agent =  mp.Process(target=self.run_agent, args=(self.where, self.command, self.pipe_read, self.pipe_write, self.__communicateq,), daemon=True) 
         try:
             self.__agent.start()
         except Exception:
@@ -75,17 +75,16 @@ class SshAgent(object):
            
         self.pipe_read.close()   
         
-    def start_agent(self, where, command, pipe_read, pipe_write, communicateq,):
+    def run_agent(self, where, command, pipe_read, pipe_write, communicateq,):
         pipe_write.close()
         pipe_readf = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
         
         cmd = ["ssh", where, command]
         self.__debug('Starting subprocess run(%s)' %(cmd))
         sshrun = run(cmd, shell=False, stdin=pipe_readf, stdout=PIPE, stderr=PIPE, check=False,)
-        self.__debug('subprocess.run() started.')
-        response = (sshrun.returncode, sshrun.stdout.decode(), sshrun.stderr.decode())
+        response = returncode, stdout, stderr = (sshrun.returncode, sshrun.stdout.decode(), sshrun.stderr.decode())
+        self.__debug('Response placed in queue: returncode: %s, stdout: %s, stderr: ' % (repr(returncode), stdout,) + repr('') if not stderr else '\n'+stderr)
         communicateq.put(response)
-        self.__debug('Response placed in queue: %s' % (repr(response),))
         pipe_readf.close()
         
     def is_alive(self):
