@@ -122,11 +122,12 @@ def run():
     if args.import_module is not None:
         if args.import_file is None:
             for module in args.import_module:
+                module_logger.debug("Importing %s." % (module))
                 try:
                     from importlib import import_module
                     import_module(module)
                 except Exception as e:
-                    module_logger.critical("Failed to import: %s;" % (module))
+                    module_logger.critical("Failed to import: %s." % (module))
                     module_logger.exception(e)
                     # signal to parent via stdout
                     print('TERM')
@@ -134,6 +135,7 @@ def run():
                     return
         else:
             for module in args.import_module:
+                module_logger.debug("Importing %s from %s." % (module, args.import_file))
                 try:
                     spec = importlib.util.spec_from_file_location(module, args.import_file)
                     spec_module = importlib.util.module_from_spec(spec)
