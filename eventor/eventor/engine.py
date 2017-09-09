@@ -1577,7 +1577,7 @@ class Eventor(object):
           
         # wait for agents, if this is not already one  
         if not self.__agent:
-            for host, agent in self.__agents.items():
+            for host, agent in list(self.__agents.items()):
                 #pid, status = os.waitpid(pid, os.WNOHANG)
                 #agent.poll()
                 if agent.is_alive(): # still alive!
