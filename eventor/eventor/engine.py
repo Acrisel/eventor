@@ -395,8 +395,12 @@ class Eventor(object):
                 raise EventorError("When shared_db is set in restart, run_id must be provided.")
             # in this case we need to produce unique run_id on this cluster
             self.run_id = get_unique_run_id()
-            module_logger.info("Created process %s run_id: %s" % (os.getpid(), self.run_id,)) 
+            module_logger.info("Process PID: %s; new run_id: %s." % (os.getpid(), self.run_id,)) 
             self.__memory.kwargs['run_id'] = self.run_id
+        elif self.run_id:
+            module_logger.info("Process PID: %s; assumed run_id: %s." % (os.getpid(), self.run_id,)) 
+        else:
+            module_logger.info("Process PID: %s; no run_id:." % (os.getpid(), )) 
         rest_sequences()   
         self.__setup_db_connection(create=not self.__agent)
         
