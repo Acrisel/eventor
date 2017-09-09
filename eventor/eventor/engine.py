@@ -1390,8 +1390,9 @@ class Eventor(object):
       
         kwargs = list()
         if self.import_module:
-            for module in self.import_module:
-                kwargs.append(("--import-module", module))
+            #for module in self.import_module:
+            #    kwargs.append(("--import-module", module))
+            kwargs.append(("--import-module", ' '.join(self.import_module)))
             if self.import_file:
                 kwargs.append(("--import-file", self.import_file))
         kwargs.extend([('--host', host), ('--log',self.__logger_info['name']), ('--logdir',self.__logger_info['logdir'])])
@@ -1451,12 +1452,12 @@ class Eventor(object):
                     if stdout == 'DONE':
                         module_logger.debug('Agent finished %s.' %(repr(response)))
                     elif stdout == 'TERM':
-                        module_logger.critical('Agent terminated %s.' %(repr(response)))
+                        module_logger.critical('Agent terminated. Returncode: %s; Error:\n' %(repr(returncode,),) + stderr)
                         #self.__term = True
                         self.__state = EventorState.shutdown
                     else:
                         # finished for unknown reason
-                        module_logger.critical('Agent aborted %s.' %(repr(response)))
+                        module_logger.critical('Agent aborted. Returncode: %s; Output: %s; Error:\n' %(repr(returncode, stdout,),) + stderr)
                         self.__state = EventorState.shutdown
                     del self.__agents[host]
             agent_count = len(self.__agents)
