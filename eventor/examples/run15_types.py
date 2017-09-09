@@ -7,8 +7,6 @@ Created on Sep 8, 2017
 import collections
 import acris  
 
-
-
 class Container(object):
     
     class IterGen(object):
