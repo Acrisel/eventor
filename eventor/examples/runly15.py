@@ -63,8 +63,7 @@ def construct_and_run():
     s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': 'invoke',})
     s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': 'invoke',})
     
-    host = 'ubuntud01'
-    s1=ev.add_step('s0.s00.s1', func=eprog.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}, host=host) 
+    s1=ev.add_step('s0.s00.s1', func=eprog.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}, host='ubuntud01') 
     s2=ev.add_step('s0.s00.s2', func=eprog.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
     
     s3=ev.add_step('s0.s00.s3', func=eprog.prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })

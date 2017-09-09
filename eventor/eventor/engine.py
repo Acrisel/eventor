@@ -1388,14 +1388,15 @@ class Eventor(object):
         #remote_read, remote_write = get_pipe() 
         #pipe_read, pipe_write = mp.Pipe()
       
-        kwargs = dict()
+        kwargs = list()
         if self.import_module:
-            kwargs["--import-module"] = self.import_module
+            for module in self.import_module:
+                kwargs.append(("--import-module", module))
             if self.import_file:
-                kwargs["--import-file"] = self.import_file
+                kwargs.append(("--import-file", self.import_file))
         
         agentpy = 'eventor_agent.py' 
-        kw = ["%s %s" %(name, value) for name, value in kwargs.items()]
+        kw = ["%s %s" %(name, value) for name, value in kwargs]
         args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         cmd = "%s %s %s" % (agentpy, " ".join(kw), ' '.join(args))
         module_logger.debug('Agent command: %s: %s' % (host, cmd))

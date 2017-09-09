@@ -39,7 +39,7 @@ def cmdargs():
     progname = filename.rpartition('.')[0]
     
     parser = argparse.ArgumentParser(description="%s runs EventorAgent object" % progname)
-    parser.add_argument('--import-module', type=str, required=False, dest='import_module',
+    parser.add_argument('--import-module', type=str, required=False, dest='import_module', nargs='*',
                         help="""import module before pickle loads.""")
     parser.add_argument('--import-file', type=str, required=False, dest='import_file',
                         help="""import file before pickle loads.""")
@@ -121,28 +121,30 @@ def run():
     
     if args.import_module is not None:
         if args.import_file is None:
-            try:
-                from importlib import import_module
-                import_module(args.import_module)
-            except Exception as e:
-                module_logger.critical("Failed to import: %s;" % (args.import_module))
-                module_logger.exception(e)
-                # signal to parent via stdout
-                print('TERM')
-                return
+            for module in args.import_module:
+                try:
+                    from importlib import import_module
+                    import_module(module)
+                except Exception as e:
+                    module_logger.critical("Failed to import: %s;" % (module))
+                    module_logger.exception(e)
+                    # signal to parent via stdout
+                    print('TERM')
+                    return
         else:
-            try:
-                spec = importlib.util.spec_from_file_location(args.import_module, args.import_file)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                # sys.modules[args.import_module] = module # not needed for now
-            except Exception as e:
-                module_logger.critical("Failed to import: %s %s;" % (args.import_module, args.import_file))
-                module_logger.exception(e)
-                # signal to parant via stdout
-                print('TERM')
-                #print(e, file=sys.stderr)
-                return
+            for module in args.import_module:
+                try:
+                    spec = importlib.util.spec_from_file_location(module, args.import_file)
+                    spec_module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(spec_module)
+                    # sys.modules[args.import_module] = module # not needed for now
+                except Exception as e:
+                    module_logger.critical("Failed to import: %s %s;" % (args.import_module, args.import_file))
+                    module_logger.exception(e)
+                    # signal to parant via stdout
+                    print('TERM')
+                    #print(e, file=sys.stderr)
+                    return
     
     module_logger.debug("Fetching workload.")
     try:
