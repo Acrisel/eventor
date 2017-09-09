@@ -110,7 +110,7 @@ def pipe_listener(queue,):
         queue.put(('TERM', e))
         return
         
-    module_logger('Received message from remote parent: %s; passing to main process.' % msg)
+    module_logger.debug('Received message from remote parent: %s; passing to main process.' % msg)
         
     queue.put((msg, ''))
     
