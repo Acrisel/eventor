@@ -126,7 +126,7 @@ class DbApi(object):
     def open(self, mode=DbMode.write, create=True): 
         self.db_transaction_lock = threading.Lock()       
         if mode == DbMode.write and create:
-            module_logger.debug("DbMode write: creating schema")
+            module_logger.debug("DbMode write: creating schema.")
             self.create_db() 
             
     def close(self):

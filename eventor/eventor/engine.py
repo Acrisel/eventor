@@ -398,7 +398,7 @@ class Eventor(object):
             module_logger.info("Created process %s run_id: %s" % (os.getpid(), self.run_id,)) 
             self.__memory.kwargs['run_id'] = self.run_id
         rest_sequences()   
-        self.__setup_db_connection()
+        self.__setup_db_connection(create=not self.__agent)
         
     def __get_dbapi(self, create=True):
         filename = store_from_module(self.__calling_module)
@@ -409,7 +409,7 @@ class Eventor(object):
         global module_logger
         return module_logger
            
-    def __setup_db_connection(self):
+    def __setup_db_connection(self, create=True):
         global module_logger
         #filename = store_from_module(self.__calling_module)
         #module_logger.info("Eventor store file: %s" % filename)
@@ -423,7 +423,7 @@ class Eventor(object):
         #        pass
         #    else:
         #        self.__db_daly_adj=(datetime.now() - datetime.fromtimestamp(db_mtime)).total_seconds()
-        self.__get_dbapi()
+        self.__get_dbapi(create=create)
         if self.__run_mode == RunMode.restart and not self.__agent:
             self.__write_info()
         else:
