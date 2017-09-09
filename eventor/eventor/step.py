@@ -46,7 +46,7 @@ class Step(object):
         self.host = host
         
         if func is not None and not callable(func):
-            raise EventorError('func must be callable: %s' % repr(func))
+            raise EventorError('Func must be callable: %s' % repr(func))
         
         self.path = None
         self.iter_path = None

@@ -230,8 +230,8 @@ class DbApi(object):
             self.session.add(trigger)
             self.commit_db()
         else:
-            module_logger.debug("DBAPI - trigger already in db, returning %s; %s" %(found, trigger,))
             trigger = trigger.first()
+            module_logger.debug("DBAPI - trigger already in db, returning %s; %s" %(found, trigger,))
         self.release()
         return trigger_from_db(trigger)
     

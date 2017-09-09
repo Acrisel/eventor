@@ -583,7 +583,14 @@ class Eventor(object):
         self.__memory.steps[step.id_] = step
         module_logger.debug('add_step: %s' %( repr(step), ))
         return step
-    
+
+    def __delay_func(self, sequence, recovery, activated=None, active=True, delay_id=None, seconds=None):
+        ''' Inserts delay into Delay table to be picked up by delay_loop
+        '''
+        #module_logger.debug('add_delay_if_not_exists: %s' %( repr(active), ))
+        delay = self.db.add_delay_update_if_not_exists(delay_id=delay_id, sequence=sequence, seconds=seconds, recovery=recovery, active=active, activated=activated)
+        module_logger.debug('add_delay_if_not_exists: %s' %( repr(delay), ))
+        return True
 
     def __get_start_delay_task(self, delay_id, seconds,):
         ''' checks Delay table `
@@ -592,7 +599,7 @@ class Eventor(object):
             ''' Inserts delay into Delay table to be picked up by delay_loop
             '''
             #module_logger.debug('add_delay_if_not_exists: %s' %( repr(active), ))
-            delay=self.db.add_delay_update_if_not_exists(delay_id=delay_id, sequence=sequence, seconds=seconds, recovery=recovery, active=active, activated=activated)
+            delay = self.db.add_delay_update_if_not_exists(delay_id=delay_id, sequence=sequence, seconds=seconds, recovery=recovery, active=active, activated=activated)
             module_logger.debug('add_delay_if_not_exists: %s' %( repr(delay), ))
             return True
         return delay_func
@@ -624,26 +631,28 @@ class Eventor(object):
             # since we have to delay, we need to create a Delay hidden task in 
             # between event and assocs.
             #delay_seq=Sequence('__delay_assoc')  
-            delay_id="_evr_delay_%s_%s" % (event.name, get_delay_id())
-            delay_event=self.add_event(delay_id)
-            delay_func=self.__get_start_delay_task(delay_id, seconds=delay,)
-            delay_step=self.add_step(delay_id, func=delay_func,) 
+            delay_id = "_evr_delay_%s_%s" % (event.name, get_delay_id())
+            delay_event = self.add_event(delay_id)
+            #delay_func = self.__get_start_delay_task(delay_id, seconds=delay,)
+            #delay_step = self.add_step(delay_id, func=delay_func,) 
+            delay_step = self.add_step(delay_id, func=None,) 
             self.add_assoc(event, delay_step)
             self.add_assoc(delay_event, *assocs)
-            module_logger.debug("adding delayed assoc: %s(%s) and %s(%s)" % (event, delay_step, delay_event, repr(assocs)))
-            self.__memory.delays[delay_id]=Delay(delay_id=delay_id, func=delay_func, seconds=delay, event=delay_event)
+            module_logger.debug("Adding delayed assoc: %s(%s) and %s(%s)" % (event, delay_step, delay_event, repr(assocs)))
+            #self.__memory.delays[delay_id] = Delay(delay_id=delay_id, func=delay_func, seconds=delay, event=delay_event)
+            self.__memory.delays[delay_id] = Delay(delay_id=delay_id, func=None, seconds=delay, event=delay_event)
             
         else:    
             try:
-                objs=self.__memory.assocs[event.id_]
+                objs = self.__memory.assocs[event.id_]
             except KeyError:
-                objs=list()
+                objs = list()
                 self.__memory.assocs[event.id_]=objs
     
             for obj in assocs:
-                assoc=Assoc(event, obj)
+                assoc = Assoc(event, obj)
                 objs.append(assoc)
-                module_logger.debug('add_assoc: %s' %( repr(assoc), ))
+                module_logger.debug('Add_assoc: %s' %( repr(assoc), ))
     
     def trigger_event(self, event, sequence=0, db=None):
         """Activates event 
@@ -942,25 +951,27 @@ class Eventor(object):
     def __initiate_delay(self, task, previous_task=None):
         ''' Runs delay function associated with task to register delay in delay table
         '''
-        delay=self.__memory.delays[task.step_id]
+        delay = self.__memory.delays[task.step_id]
         module_logger.debug("Initiating delay: %s (previous=%s)" % (delay.delay_id, repr(previous_task)))
-        active=True
-        activated=datetime.utcnow()
+        active = True
+        activated = datetime.utcnow()
         
         if previous_task is not None:
-            prev_delay=self.__previous_delays[task.sequence][task.step_id]
-            active=prev_delay.active
-            activated=prev_delay.activated
+            prev_delay = self.__previous_delays[task.sequence][task.step_id]
+            active = prev_delay.active
+            activated = prev_delay.activated
             module_logger.debug("Fetched delay from previous: active: %s, activated: %s" % (active, activated))
         
-        delay_func=delay.func
+        #delay_func = delay.func
         try:
-            result=delay_func(activated=activated, active=active, sequence=task.sequence, recovery=task.recovery)
+            #__delay_func(self, sequence, recovery, activated=None, active=True, delay_id=None, seconds=None):
+            result = self.__delay_func(activated=activated, active=active, sequence=task.sequence, recovery=task.recovery, delay_id=delay.delay_id, seconds=delay.seconds)
+            #result = delay_func(activated=activated, active=active, sequence=task.sequence, recovery=task.recovery)
         except Exception as e:
-            task.status=TaskStatus.failure
+            task.status = TaskStatus.failure
             module_logger.critical('Exception in task execution: \n    {}'.format(task,)) #)
-            trace=inspect.trace()
-            trace=traces(trace)
+            trace = inspect.trace()
+            trace = traces(trace)
             module_logger.critical("%s\n    %s" % (repr(e), '\n    '.join(trace)))
             module_logger.info("Stopping running processes") 
             self.__state=EventorState.shutdown
@@ -1149,7 +1160,7 @@ class Eventor(object):
             
             module_logger.debug("Evaluating task: %s, step: %s" % (repr(task), repr(step)))
             if task.status == TaskStatus.fueled or (task.status == TaskStatus.ready and not step.acquires):
-                delay_task=task.step_id.startswith('_evr_delay_')
+                delay_task = task.step_id.startswith('_evr_delay_')
                 if not delay_task:
                     module_logger.debug("No delay, initiate task: %s" % (task.id_, ))
                     self.__initiate_task(task, previous_task)
@@ -1174,11 +1185,11 @@ class Eventor(object):
         ''' checks Delay table 
         '''
         try:
-            delay=self.__memory.delays[db_delay.delay_id]
+            delay = self.__memory.delays[db_delay.delay_id]
         except:
             module_logger.error("Delay %s not found in Delays{%s}" % (db_delay.delay_id, repr(list(self.__memory.delays.keys()))))
             raise
-        event=delay.event
+        event = delay.event
         module_logger.debug("Triggering delayed event: %s(%s)" % (db_delay.delay_id, repr(event)))
         self.trigger_event(event=event, sequence=db_delay.sequence,)
         
@@ -1188,19 +1199,19 @@ class Eventor(object):
         
         loop_delay will scan active delays.  When mature, raise its associated event.
         '''
-        loop_seq=Sequence('_EventorDelayLoop')
+        loop_seq = Sequence('_EventorDelayLoop')
         self.loop_id=loop_seq() 
         
-        count=0
+        count = 0
         # all items are pulled so active can also be monitored for timely end
         #if self.__state==EventorState.active:
         module_logger.debug("Going to fetch delays: %s: recovery: %s" % (self.name, self.__recovery, ))
-        delays=self.db.get_delay_iter(recovery=self.__recovery,)
-        now=datetime.utcnow()
+        delays = self.db.get_delay_iter(recovery=self.__recovery,)
+        now = datetime.utcnow()
         
-        for delay in delays: #self.__memory.delays.items():
+        for delay in delays: 
             if not delay.active: continue
-            age=(now-delay.activated).total_seconds()
+            age = (now-delay.activated).total_seconds()
             module_logger.debug("Delay age: %s = %s" % (delay.delay_id, age))
             if age >= delay.seconds:
                 # delay is done, raise proper event.
@@ -1493,10 +1504,7 @@ class Eventor(object):
         module_logger.debug('Caught termination signal; terminating %s' %(", ".join(self.__agents.keys())))
         self.__send_msg_to_agents('TERM')
                 
-    def __start_remote_agents(self):
-        hosts = set([step.host for step in self.__memory.steps.values()])
-        hosts.remove(self.host)
-        
+    def __start_remote_agents(self, hosts):        
         # prepare to pickle
         self.db.close()
         self.db = None
@@ -1504,6 +1512,7 @@ class Eventor(object):
         self.__logger = None
         
         self.__agents = dict()
+        
         signal.signal(signal.SIGINT, self.__exit_gracefully)
         signal.signal(signal.SIGTERM, self.__exit_gracefully)
         
@@ -1528,10 +1537,11 @@ class Eventor(object):
         if len(self.__agents) < len(hosts):
             # not all agents came up; send TREM to rest
             # TODO(Arnon): Need to build test case for partial failure to start remote agents
-            for agent in self.__agents:
+            for agent in list(self.__agents):
                 #agent.poll()
                 if agent.is_alive(): # still alive!
                     agent.send("TERM", pickle_msg=True,)
+                    
             started = False
         
         self.__get_dbapi(create=False)
@@ -1559,10 +1569,15 @@ class Eventor(object):
             setproctitle("eventor: %s" % (run_id,))
             
         # start agents, if this is not already one
-        if not self.__agent:
-            started = self.__start_remote_agents()  
+        hosts = set([step.host for step in self.__memory.steps.values()])
+        hosts.remove(self.host)
+
+        self.__agents = dict()
+        if not self.__agent and len(hosts) > 0:
+            # start_remote_agents will fill __agents dict.
+            started = self.__start_remote_agents(hosts)  
             if not  started:
-                module_logger.info('Processing terminated due to failure to start agents.')    
+                module_logger.critical('Processing terminated due to failure to start agents.')    
                 return False
         
         self.__controlq = mp.Queue()
