@@ -25,48 +25,44 @@ import logging
 import os
 
 import examples.run15_types as runtyles # import IterGen, Container
-
-logger=logging.getLogger(__name__)
-
-
 import examples.example_00_prog as eprog
 
-def prog(progname):
-    logger.info("doing what %s is doing" % progname)
-    return progname
+
+logger = logging.getLogger(__name__)
+
 
 def construct_and_run():     
     db = 'pgdb2'
-    config=os.path.abspath('example00.conf')
+    config = os.path.abspath('example00.conf')
     if config.startswith('/private'):
         config = config[8:]   
-    ev=evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=True, import_module=["examples.example_00_prog", "examples.run15_types"],)
+    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=True, import_module=["examples.example_00_prog", "examples.run15_types"],)
     
-    ev0first=ev.add_event('s0_start')
-    ev0next=ev.add_event('s0_next')
-    ev00first=ev.add_event('s0_00_start')
-    ev00next=ev.add_event('s0_s00_next')
-    ev1s=ev.add_event('s0_s00_s1_start')
-    ev1success=ev.add_event('s0_s00_s1_success')
-    ev2s=ev.add_event('s0_s00_s2_start', expr=(ev1success,))
-    ev2success=ev.add_event('s0_s00_s2_success')
-    ev3s=ev.add_event('s0_s00_s3_start', expr=(ev2success,))
+    ev0first = ev.add_event('s0_start')
+    ev0next = ev.add_event('s0_next')
+    ev00first = ev.add_event('s0_00_start')
+    ev00next = ev.add_event('s0_s00_next')
+    ev1s = ev.add_event('s0_s00_s1_start')
+    ev1success = ev.add_event('s0_s00_s1_success')
+    ev2s = ev.add_event('s0_s00_s2_start', expr=(ev1success,))
+    ev2success = ev.add_event('s0_s00_s2_success')
+    ev3s = ev.add_event('s0_s00_s3_start', expr=(ev2success,))
     
     metaprog = runtyles.Container(ev=ev, progname='S0', loop=[1,2,], iter_triggers=(ev00first,))
-    s0first=ev.add_step('s0_start', func=metaprog, kwargs={'initial': True, }, config={'max_concurrent': -1, 'task_construct': 'invoke'})
-    s0next=ev.add_step('s0_next', func=metaprog, config={'task_construct': 'invoke'})
+    s0first = ev.add_step('s0_start', func=metaprog, kwargs={'initial': True, }, config={'max_concurrent': -1, 'task_construct': 'invoke'})
+    s0next = ev.add_step('s0_next', func=metaprog, config={'task_construct': 'invoke'})
     
     metaprog = runtyles.Container(ev=ev, progname='S00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
     
     #s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
     #s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': threading.Thread})
-    s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': 'invoke',})
-    s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': 'invoke',})
+    s00first = ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': 'invoke',})
+    s00next = ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': 'invoke',})
     
-    s1=ev.add_step('s0.s00.s1', func=eprog.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}, host='ubuntud01') 
-    s2=ev.add_step('s0.s00.s2', func=eprog.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
+    s1 = ev.add_step('s0.s00.s1', func=eprog.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}, host='ubuntud01') 
+    s2 = ev.add_step('s0.s00.s2', func=eprog.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
     
-    s3=ev.add_step('s0.s00.s3', func=eprog.prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
+    s3 = ev.add_step('s0.s00.s3', func=eprog.prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
     
     ev.add_assoc(ev0first, s0first)
     ev.add_assoc(ev0next, s0next)
