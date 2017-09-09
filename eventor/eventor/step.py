@@ -62,7 +62,6 @@ class Step(object):
         str_args = ", ".join([repr(arg) for arg in self.func_args])
         if str_args: str_args += ', ' 
         str_kwargs = ", ".join(["%s=%s" % (name, repr(value)) for name, value in  self.func_kwargs.items()])
-
         
         #triggers=', '.join([pprint.pformat(t) for t in self.triggers])
         triggers = pprint.pformat(self.triggers)
@@ -87,7 +86,7 @@ class Step(object):
         added = db.add_task_if_not_exists(step_id=self.id_, sequence=sequence, host=self.host, status=status, recovery=recovery)
         return added
     
-    def __call__(self, seq_path=None, loop_value=None, logger=None):
+    def __call__(self, seq_path=None, loop_value=None, logger=None, eventor=None):
         if logger is not None: module_logger = logger
         module_logger.debug('[ Step %s ] Starting: %s' % (self._name(seq_path), repr(self) ))
         if self.func is not None:
@@ -103,10 +102,14 @@ class Step(object):
             str_args = ", ".join([repr(arg) for arg in func_args])
             if str_args: str_args += ', ' 
             str_kwargs = ", ".join(["%s=%s" % (name, repr(value)) for name, value in  func_kwargs.items()])
+            if eventor is not None:
+                func_kwargs['eventor'] = eventor
             name = func.__name__ if hasattr(self.func, '__name__') else func.__class__.__name__ 
             module_logger.debug('[ Step %s ] running %s(%s%s)' % (self._name(seq_path), name,  str_args, str_kwargs))
             result = func(*func_args, **func_kwargs)
         else:
             result = True
+        if 'eventor' in func_kwargs:
+            del func_kwargs['eventor']
         module_logger.debug('[ Step %s ] Completed: %s' % (self._name(seq_path), repr(self) ))
         return result

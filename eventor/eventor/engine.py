@@ -111,7 +111,7 @@ class ResourceAllocationCallback(object):
         self.q.put(resources)
 
 
-def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=True, logger_info=None):
+def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=True, logger_info=None, eventor=None):
     ''' 
     Args:
         func: object with action method with the following signature:
@@ -148,7 +148,7 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
     
     try:
         # todo: need to pass task resources.
-        result = step(seq_path=task.sequence, logger=module_logger)
+        result = step(seq_path=task.sequence, logger=module_logger, eventor=eventor)
     except Exception as e:
         trace = inspect.trace()
         trace = traces(trace) #[2:]
@@ -1008,6 +1008,8 @@ class Eventor(object):
                 #delay_task=not task.step_id.startswith('_evr_delay_')
                 module_logger.debug('[ Task {}/{} ] Going to construct ({}) and run task:\n    {}'.format(task.step_id, task.sequence, task_construct, repr(task), )) 
                 
+                if task_construct == 'invoke':
+                    kwds['eventor'] = self
                 # prepare to pickle
                 if use_process:
                     self.db.close()
