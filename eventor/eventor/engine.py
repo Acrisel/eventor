@@ -1401,7 +1401,7 @@ class Eventor(object):
             kwargs.append(("--import-module", ' '.join(self.import_module)))
             if self.import_file:
                 kwargs.append(("--import-file", self.import_file))
-        kwargs.extend([('--host', host), ('--log',self.__logger_info['name']), ('--logdir',self.__logger_info['logdir'])])
+        kwargs.extend([('--host', host), ('--log',self.__logger_info['name']), ('--logdir',self.__logger_info['logdir']), ('--loglevel', self.__logger_info['logging_level'])])
         
         agentpy = 'eventor_agent.py' 
         kw = ["%s %s" %(name, value) for name, value in kwargs]

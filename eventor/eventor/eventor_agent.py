@@ -52,7 +52,9 @@ def cmdargs():
     parser.add_argument('--log', type=str, 
                         help="""Logger name to use.""")
     parser.add_argument('--logdir', type=str, 
-                        help="""Logger outout directory.""")
+                        help="""Logger output directory.""")
+    parser.add_argument('--loglevel', type=int, 
+                        help="""Logger level.""")
     args = parser.parse_args()  
     #argsd=vars(args)
     return args
@@ -122,7 +124,7 @@ def pipe_listener(queue,):
 def run():
     global module_logger
     args = cmdargs()
-    mplogger = MpLogger(name=args.log+'.agent', logging_level=logging.DEBUG, console=False, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=args.logdir, encoding='utf8')
+    mplogger = MpLogger(name=args.log+'.agent', logging_level=args.loglevel, console=False, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=args.logdir, encoding='utf8')
     module_logger = mplogger.start()
     module_logger.debug("Starting agent: %s" % args)
     
