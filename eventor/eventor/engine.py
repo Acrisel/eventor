@@ -1009,7 +1009,11 @@ class Eventor(object):
                 module_logger.debug('[ Task {}/{} ] Going to construct ({}) and run task:\n    {}'.format(task.step_id, task.sequence, task_construct, repr(task), )) 
                 
                 if task_construct == 'invoke':
+                    # If Invoke, we also pass eventor to task.
+                    # Since Invoke, contects remains in current process,
+                    # Therefore task can use eventor to add events and tasks. 
                     kwds['eventor'] = self
+                    
                 # prepare to pickle
                 if use_process:
                     self.db.close()

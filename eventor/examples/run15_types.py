@@ -41,9 +41,9 @@ class Container(object):
             try:
                 item = next(self.iter)
             except StopIteration:
-                item=None
+                item = None
             if item:
-                self.loop_index+=1
+                self.loop_index += 1
                 for trigger in self.iter_triggers:
                     eventor.trigger_event(trigger, self.loop_index)
                     #eventor.remote_trigger_event(trigger, self.loop_index,)
