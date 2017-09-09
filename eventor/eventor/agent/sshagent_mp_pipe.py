@@ -46,14 +46,6 @@ class SshAgent(object):
         self.where = "%s%s" % ('' if user is None else "@%s" % user, host)
         self.command = command
         self.logger = logger
-        if logger:
-            self.__debug = self.logger.debug
-            self.__critical = self.logger.critical
-            self.__excetion = self.logger.exception
-        else:
-            self.__debug = print
-            self.__critical = print
-            self.__excetion = print
         self.result = None
     
     def start(self, wait=None):
@@ -64,12 +56,12 @@ class SshAgent(object):
             raise
         self.pid =self.__agent.pid
         
-        self.__debug("Agent .start() activated: %s." % self.__agent.pid)
+        self.logger.debug("Agent .start() activated: %s." % self.__agent.pid)
  
         if wait is not None:
             while True:
                 time.sleep(wait)
-                self.__debug("Waiting for start: %s %s" % (self.__agent.is_alive(), self.__agent.exitcode))
+                self.logger.debug("Waiting for start: %s %s" % (self.__agent.is_alive(), self.__agent.exitcode))
                 if self.__agent.is_alive() or self.__agent.exitcode is not None:
                     break
            
@@ -80,10 +72,11 @@ class SshAgent(object):
         pipe_readf = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
         
         cmd = ["ssh", where, command]
-        self.__debug('Starting subprocess run(%s)' %(cmd))
+        self.logger.debug('Starting subprocess run(%s)' %(cmd))
         sshrun = run(cmd, shell=False, stdin=pipe_readf, stdout=PIPE, stderr=PIPE, check=False,)
-        response = returncode, stdout, stderr = (sshrun.returncode, sshrun.stdout.decode(), sshrun.stderr.decode())
-        self.__debug('Response placed in queue: returncode: %s, stdout: %s, stderr: ' % (repr(returncode), stdout,) + repr('') if not stderr else '\n'+stderr)
+        returncode, stdout, stderr = sshrun.returncode, sshrun.stdout.decode(), sshrun.stderr.decode()
+        response = (returncode, stdout, stderr) 
+        self.logger.debug('Response placed in SSH queue: returncode: %s, stdout: %s, stderr: ' % (repr(returncode), stdout) + '' if not stderr else '\n'+stderr)
         communicateq.put(response)
         pipe_readf.close()
         
@@ -95,19 +88,19 @@ class SshAgent(object):
         if pack:
             workload = pickle.dumps(msg)
         msgsize = len(workload)
-        self.__debug('Preparing message of size: %s.' % (msgsize,))
+        self.logger.debug('Preparing message of size: %s.' % (msgsize,))
         msgsize_packed = struct.pack(">L", msgsize)
         return msgsize_packed + workload
     
     def send(self, msg, pack=True):
         pipe_writef = os.fdopen(os.dup(self.pipe_write.fileno()), 'wb')
         request = self.__prepare(msg, pack=pack)
-        self.__debug('Writing message of actual size %s to pipe.' % (len(request),))
+        self.logger.debug('Writing message of actual size %s to pipe.' % (len(request),))
         pipe_writef.write(request)
         pipe_writef.close()
         
     def response(self, timeout=None):
-        self.__debug('Getting response from SSH control queue.')
+        self.logger.debug('Getting response from SSH control queue.')
         if self.result is None:
             try:
                 result = self.__communicateq.get(timeout=timeout)
@@ -119,19 +112,19 @@ class SshAgent(object):
                 if not stdout:
                     stdout = 'TERM'
                 self.result = returncode, stdout, stderr
-        self.__debug('Received from SSH control queue: %s'  % (repr(self.result)))
+        self.logger.debug('Received from SSH control queue: %s'  % (repr(self.result)))
         return self.result
     
     def close(self, msg='TREM'):
         if self.is_alive():
-            self.__debug('Sending %s to pipe.' % msg)
+            self.logger.debug('Sending %s to pipe.' % msg)
             self.send(msg)
         else:
-            self.__debug('Process is not alive, skipping %s.' % msg)
+            self.logger.debug('Process is not alive, skipping %s.' % msg)
         response = self.response()
-        self.__debug('Joining with subprocess.')
+        self.logger.debug('Joining with subprocess.')
         self.__agent.join()
-        self.__debug('Subprocess joined.')
+        self.logger.debug('Subprocess joined.')
         return response
     
     def join(self):
