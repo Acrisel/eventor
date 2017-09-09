@@ -253,7 +253,7 @@ def run():
     
     module_logger.debug("Closing stdin.")
     #sys.stdin.close()
-      
+    module_logger.stop()
 
 if __name__ == '__main__':
     mp.freeze_support()

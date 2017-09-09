@@ -122,12 +122,12 @@ class SshAgent(object):
         self.__debug('Received from SSH control queue: %s'  % (repr(self.result)))
         return self.result
     
-    def close(self):
+    def close(self, msg='TREM'):
         if self.is_alive():
-            self.__debug('Sending TERM to pipe.')
-            self.send('TERM')
+            self.__debug('Sending %s to pipe.' % msg)
+            self.send(msg)
         else:
-            self.__debug('Process is not alive, skipping TERM.')
+            self.__debug('Process is not alive, skipping %s.' % msg)
         response = self.response()
         self.__debug('Joining with subprocess.')
         self.__agent.join()
