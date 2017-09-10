@@ -124,11 +124,13 @@ def pipe_listener(queue,):
 
 def imports_from_cmd(imports_str):
     imports = dict()
+    
     for import_str in imports_str:
         import_file, _, import_modules_str = import_str.partition(':')
         import_modules = import_modules_str.split(':')
         file_modules = imports.get(import_file, list())
         file_modules.extend(import_modules)
+        imports[import_file] = file_modules
     imports = [(import_file, set(modules)) for import_file, modules in imports.items()]
     return imports   
 
