@@ -131,7 +131,7 @@ def imports_from_cmd(imports_str):
         file_modules = imports.get(import_file, list())
         file_modules.extend(import_modules)
         imports[import_file] = file_modules
-    imports = [(import_file, set(modules)) for import_file, modules in imports.items()]
+    imports = [(import_file, set(modules)) for import_file, modules in imports.items() if modules]
     return imports   
 
 def run():
