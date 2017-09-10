@@ -24,7 +24,7 @@ import eventor as evr
 import logging
 import os
 
-import examples.run15_types as runtyles # import IterGen, Container
+import examples.runly15_types as runtyles # import IterGen, Container
 import examples.example_00_prog as eprog
 
 
@@ -73,7 +73,7 @@ def construct_and_run():
     ev.add_assoc(ev2s, s2)
     ev.add_assoc(ev3s, s3)
     
-    ev.trigger_event(ev0first, 0)
+    ev.trigger_event(ev0first, '0')
     ev.run()
     ev.close()
     

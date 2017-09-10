@@ -334,14 +334,16 @@ class DbApi(object):
     def get_task_iter(self, host, recovery, status=None):
         # TODO: do we really need recovery here
         self.lock()
-        rows = self.session.query(self.Task)
+        #rows = self.session.query(self.Task)
         if status:
-            rows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.host==host, self.Task.status.in_(status)).all()
+            dbrows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.host==host, self.Task.status.in_(status)).all()
         else:
-            rows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.host==host).all()
+            dbrows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.host==host).all()
+        rows = [task_from_db(row) for row in dbrows]
         self.release()
-        for row in rows:
-            result = task_from_db(row)
+        
+        for result in rows:
+            #result = task_from_db(row)
             module_logger.debug("task_iter: task: %s" %(repr(result)))
             yield  result
     

@@ -28,7 +28,7 @@ from acris import Mediator
 
 from eventor import Invoke
 import examples.example_00_prog as eprog
-import examples.run15_types as runtyles
+import examples.runly15_types as runtyles
 
 logger=logging.getLogger(__name__)
 

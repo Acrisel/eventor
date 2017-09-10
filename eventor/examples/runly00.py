@@ -80,7 +80,7 @@ def construct_and_run():
     ev.add_assoc(ev2s, s2)
     ev.add_assoc(ev3s, s3)
 
-    ev.trigger_event(ev1s, 1)
+    ev.trigger_event(ev1s, '1')
     ev.run()
     ev.close()
     

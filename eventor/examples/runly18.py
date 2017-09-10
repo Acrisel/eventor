@@ -88,18 +88,7 @@ def construct_and_run():
     ev.run() #max_loops=1)
     ev.close()
     
-    '''
-    run_id = ev.run_id
-    
-    for loop in range(4):
-        delay = 5 if loop in [1,2] else 15
-        time.sleep(delay)
-        ev = build_flow(run_mode=evr.RunMode.continue_, run_id=run_id)
-        result=ev.run(max_loops=1)
-        ev.close()
-        print('Result: %s' % result)
-    '''
-
+ 
 if __name__ == '__main__':
     import multiprocessing as mp
     mp.freeze_support()

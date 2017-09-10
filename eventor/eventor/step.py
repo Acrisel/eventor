@@ -61,7 +61,7 @@ class Step(object):
             
         str_args = ", ".join([repr(arg) for arg in self.func_args])
         if str_args: str_args += ', ' 
-        str_kwargs = ", ".join(["%s=%s" % (name, repr(value)) for name, value in  self.func_kwargs.items()])
+        str_kwargs = ", ".join(["%s=%s" % (name, repr(value)) for name, value in  self.func_kwargs.items() if name != 'eventor'])
         
         #triggers=', '.join([pprint.pformat(t) for t in self.triggers])
         triggers = pprint.pformat(self.triggers)
@@ -109,7 +109,7 @@ class Step(object):
             result = func(*func_args, **func_kwargs)
         else:
             result = True
-        if 'eventor' in func_kwargs:
-            del func_kwargs['eventor']
+        #if 'eventor' in func_kwargs:
+        #    del func_kwargs['eventor']
         module_logger.debug('[ Step %s ] Completed: %s' % (self._name(seq_path), repr(self) ))
         return result
