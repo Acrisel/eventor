@@ -329,8 +329,7 @@ class Eventor(object):
             raise EventorError("Import_file is provided but not import_module.")
         # TODO(Arnon): implement calling module 
         imports = make_imports(import_file, import_module)
-        if imports:
-            self.imports = [imports]
+        self.imports = [imports] if imports else []
         
         config_root_name = os.environ.get('EVENTOR_CONFIG_TAG', eventor_config_tag)
         if isinstance(config, str):
