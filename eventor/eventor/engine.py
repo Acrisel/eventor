@@ -210,7 +210,7 @@ def make_imports(import_file, import_module):
     imports = None
     import_module = import_module if import_module is not None else []
     import_file = import_file if import_file is not None else ''
-    if len(import_modules) > 0:
+    if len(import_module) > 0:
         imports = "%s:%s" % (import_file, ':'.join(import_module))
     return imports
 
