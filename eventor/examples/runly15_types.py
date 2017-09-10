@@ -45,11 +45,11 @@ class Container(object):
             if item:
                 self.loop_index += 1
                 for trigger in self.iter_triggers:
-                    eventor.trigger_event(trigger, self.loop_index)
+                    eventor.trigger_event(trigger, str(self.loop_index))
                     #eventor.remote_trigger_event(trigger, self.loop_index,)
             else:
                 for trigger in self.end_triggers:
-                    eventor.trigger_event(trigger, self.loop_index)
+                    eventor.trigger_event(trigger, str(self.loop_index))
                     #eventor.remote_trigger_event(trigger, self.loop_index,)
             
         return True

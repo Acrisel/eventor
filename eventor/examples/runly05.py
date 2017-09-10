@@ -70,7 +70,7 @@ def construct_and_run():
     ev.add_assoc(ev2s, s2)
     ev.add_assoc(ev3s, s3)
     
-    ev.trigger_event(ev0first, 0)
+    ev.trigger_event(ev0first, '0')
     ev.run()
     ev.close()
     
