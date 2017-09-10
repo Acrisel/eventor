@@ -67,7 +67,7 @@ def construct_and_run():
     if config.startswith('/private'):
         config = config[8:]
     # TODO: assume import_module is __file__ if not provided
-    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.INFO, config=config, store=db, shared_db=True, import_module=["examples.example_00_prog",])
+    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=True) #, import_module=["examples.example_00_prog",])
     
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')
@@ -81,7 +81,7 @@ def construct_and_run():
     ev.add_assoc(ev2s, s2)
     ev.add_assoc(ev3s, s3)
 
-    ev.trigger_event(ev1s, 1)
+    ev.trigger_event(ev1s, '1')
     ev.run()
     ev.close()
     
