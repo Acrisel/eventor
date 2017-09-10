@@ -206,6 +206,12 @@ def get_proc_constructor(task_construct,):
         task_constructor = None
     return task_constructor
 
+def make_imports(import_file, import_module):
+    import_module = import_module if import_module is not None else []
+    import_file = import_file if import_file is not None else ''
+    imports = "%s:%s" % (import_file, ':'.join(import_module))
+    return imports
+
     
 #class Eventor(metaclass=decorate_all(print_method(module_logger.debug))):
 class Eventor(object):
@@ -316,9 +322,12 @@ class Eventor(object):
         del eventor_kwargs['self']
         
         self.name = name
+        
+        if import_file is not None and import_module is None:
+            raise EventorError("Import_file is provided but not import_module.")
         # TODO(Arnon): implement calling module 
-        self.import_module = import_module #if import_module is not None else "calling module"
-        self.import_file = import_file
+        self.imports = make_imports(import_file, import_module)
+        
         config_root_name = os.environ.get('EVENTOR_CONFIG_TAG', eventor_config_tag)
         if isinstance(config, str):
             frame = inspect.stack()[1]
@@ -377,6 +386,7 @@ class Eventor(object):
             self.__logger_info['name'] = logger_name
             self.__logger = None
         
+        # TODO(Arnon): in case of Sequent, depth is 3 and not 2 as default.  Need to find way to drive calling module.
         self.__calling_module = calling_module()
         self.store = store
         self.debug = logging_level == logging.DEBUG
@@ -531,7 +541,7 @@ class Eventor(object):
     def get_step(self, name):
         return self.__memory.steps.get(name, None)
     
-    def add_step(self, name, func=None, args=(), kwargs={}, triggers={}, host=None, acquires=None, releases=None, recovery={}, config={}):
+    def add_step(self, name, func=None, args=(), kwargs={}, triggers={}, host=None, acquires=None, releases=None, recovery={}, config={}, import_file=None, import_module=None):
         """add a step to steps object
     
         config parameters can include the following keys:
@@ -1395,7 +1405,7 @@ class Eventor(object):
         return result
     
     def get_task_status(self, task_names, sequence,):
-        result=self.db.get_task_status(task_names=task_names, sequence=sequence, recovery=self.__recovery)
+        result=self.db.get_task_status(task_names=task_names, sequence=sequence, recovery=self.__recovery, host=self.host)
         return result
     
     def __start_agent(self, host, mem_pack, parentq):
@@ -1410,12 +1420,12 @@ class Eventor(object):
         #pipe_read, pipe_write = mp.Pipe()
       
         kwargs = list()
-        if self.import_module:
+        if self.imports:
             #for module in self.import_module:
             #    kwargs.append(("--import-module", module))
-            kwargs.append(("--import-module", ' '.join(self.import_module)))
-            if self.import_file:
-                kwargs.append(("--import-file", self.import_file))
+            kwargs.append(("--imports", self.imports))
+            #if self.import_file:
+            #    kwargs.append(("--import-file", self.import_file))
         kwargs.extend([('--host', host), ('--log',self.__logger_info['name']), ('--logdir',self.__logger_info['logdir']), ('--loglevel', self.__logger_info['logging_level'])])
         
         agentpy = 'eventor_agent.py' 
