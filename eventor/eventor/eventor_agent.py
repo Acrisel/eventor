@@ -141,7 +141,7 @@ def run():
     
     if args.imports is not None:
         imports = imports_from_cmd(args.imports)
-        for import_file, import_modules in imports.items():
+        for import_file, import_modules in imports:
             if not import_file:
                 for module in import_modules:
                     module_logger.debug("Importing %s." % (module))
