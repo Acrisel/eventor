@@ -326,7 +326,9 @@ class Eventor(object):
         if import_file is not None and import_module is None:
             raise EventorError("Import_file is provided but not import_module.")
         # TODO(Arnon): implement calling module 
-        self.imports = make_imports(import_file, import_module)
+        imports = make_imports(import_file, import_module)
+        if imports:
+            self.imports = [imports]
         
         config_root_name = os.environ.get('EVENTOR_CONFIG_TAG', eventor_config_tag)
         if isinstance(config, str):
@@ -570,6 +572,14 @@ class Eventor(object):
         raises:
             EventorError: if func is not callable
         """
+        
+        if import_file is not None and import_module is None:
+            raise EventorError("Import_file is provided but not import_module.")
+        # TODO(Arnon): implement calling module 
+        imports = make_imports(import_file, import_module)
+        if imports:
+            self.imports.append(imports)
+
         try:
             step = self.__memory.steps[name]
         except:
@@ -577,6 +587,7 @@ class Eventor(object):
         else:
             module_logger.debug('add_step: already found in memory: skipping %s' %( repr(step), ))
             return step
+        
         
         triggers = self.__convert_trigger_at_complete(triggers)
         recovery = self.__convert_recovery_at_complete(recovery)
@@ -1420,10 +1431,10 @@ class Eventor(object):
         #pipe_read, pipe_write = mp.Pipe()
       
         kwargs = list()
-        if self.imports:
+        for imports in self.imports:
             #for module in self.import_module:
             #    kwargs.append(("--import-module", module))
-            kwargs.append(("--imports", self.imports))
+            kwargs.append(("--imports", imports))
             #if self.import_file:
             #    kwargs.append(("--import-file", self.import_file))
         kwargs.extend([('--host', host), ('--log',self.__logger_info['name']), ('--logdir',self.__logger_info['logdir']), ('--loglevel', self.__logger_info['logging_level'])])
