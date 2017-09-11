@@ -7,6 +7,7 @@ Created on Oct 31, 2016
 from eventor.eventor_types import EventorError
 import logging
 from _ast import arg
+import collections
 
 module_logger=logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ def expr_to_str(*args):
             result=arg
         elif isinstance(arg, Event):
             result=arg.id_
-        elif type(arg) == tuple:
+        elif isinstance(arg, collections.Iterable):
             result= "(" + expr_to_str(*arg) +")" 
         else:
             raise EventorError("unknown variable in logical operation: %s" % repr(arg))
@@ -53,14 +54,14 @@ class Event(object):
         self.name = name
         self.expr = expr
         if expr:
-            self.expr=expr_to_str(expr)
+            self.expr = expr_to_str(expr)
         self.id_ = name #get_event_id()
                     
     def __repr__(self):
         expr=''
         if self.expr:
             expr=", %s" % self.expr
-        return "Event(%s%s)" % (self.id_, expr)
+        return "Event(%s%s)" % (repr(self.id_), expr)
         
     def __str__(self):
         return repr(self)
@@ -74,6 +75,13 @@ class Event(object):
     def trigger_if_not_exists(self, db, sequence, recovery):
         added = db.add_trigger_if_not_exists(event_id=self.id_, sequence=sequence, recovery=recovery)
         return added
+    
+    def add_expr(self, expr):
+        ''' override with new expr
+        '''
+        if expr:
+            self.expr = expr_to_str(expr)
+        
     
 if __name__ == '__main__':
     e1=Event('E1')

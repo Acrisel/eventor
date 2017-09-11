@@ -40,10 +40,13 @@ from eventor.etypes import MemEventor
 from eventor.agent.sshagent_mp_pipe import SshAgent
 from eventor.expandvars import expandvars
 
+'''
 try: 
     from setproctitle import setproctitle
 except: 
     setproctitle=None
+'''
+setproctitle=None
 #from eventor.loop_event import LoopEvent
 
 #module_logger=logging.getLogger(__name__)
@@ -58,8 +61,12 @@ from eventor.utils import decorate_all, print_method
 import socket
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("8.8.8.8", 80))
-    address = s.getsockname()[0]
+    try:
+        s.connect(("8.8.8.8", 80))
+    except OSError:
+        address = 'localhost'
+    else:
+        address = s.getsockname()[0]
     s.close()
     return address
 
@@ -193,7 +200,9 @@ class Memtask(object):
     #def __del__(self):
     #    if self.requestor and self.resources:
     #        self.requestor.put(*self.resources)
-    
+
+# This is to keep program artifacts as they are given for __repr__ purpoces     
+ProgramArtifacts = namedtuple('ProgramArtifacts', "events steps assocs")
 
 def get_proc_constructor(task_construct,):
     if task_construct == 'process':
@@ -417,6 +426,8 @@ class Eventor(object):
         rest_sequences()   
         self.__setup_db_connection(create=not self.__agent)
         
+        self.__program_artifacts = ProgramArtifacts(dict(), dict(), list())
+        
     def __get_dbapi(self, create=True):
         filename = store_from_module(self.__calling_module)
         db_mode = DbMode.write if self.__run_mode == RunMode.restart else DbMode.append
@@ -460,6 +471,29 @@ class Eventor(object):
         assocs='\n    '.join([ str(assoc) for assoc in self.__memory.assocs.values()])
         result="Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )\n    assocs( \n    {}\n   )  )".format(self.name, events, steps, assocs)
         return result
+    
+    def program_repr(self):
+        prog = list()
+        for name, value in self.__program_artifacts.events.items():
+            text = "%s = add_event(%s, expr=%s)" % (name, repr(name), repr(value))
+            prog.append(text)
+
+        signature = ['func', 'args', 'kwargs', 'triggers', 'host', 'acquires', 'releases', 'recovery', 'config', 'import_file', 'import_module']
+        for name, values in self.__program_artifacts.steps.items():
+            args = list()
+            for title, arg in zip(signature, values):
+                args.append("%s=%s" %(title, repr(arg)))
+            text = "%s = add_step(%s, %s)" % (name, repr(name), ', '.join(args))
+            prog.append(text)
+            
+        signature = ['event', 'assocs', 'delay']
+        for values in self.__program_artifacts.assocs:
+            items = dict(zip(signature, values))
+            assocs = ["%s(%s)" %(type(assoc).__name__, repr(assoc.name)) for assoc in items['assocs']]
+            args = "%s, %s, delay=%s" %(items['event'].name, ', '.join(assocs), repr(items['delay']))
+            text = "add_assoc(%s)" % (args)
+            prog.append(text)
+        return '\n'.join(prog)
 
     #def set_memory(self, memory):
     #    self.__memory = memory
@@ -524,10 +558,13 @@ class Eventor(object):
         
         Args:
             name: (string) unique identifier provided by caller
+            expr: 
             
         returns:
             new event that was added to Eventor; this event can be used further in assoc method
         """
+        self.__program_artifacts.events[name] = expr
+        
         try:
             event = self.__memory.events[name]
         except:
@@ -573,6 +610,7 @@ class Eventor(object):
         raises:
             EventorError: if func is not callable
         """
+        self.__program_artifacts.steps[name] = (func.__name__ if func is not None else 'None', args, kwargs, triggers, host, acquires, releases, recovery, config, import_file, import_module)
         
         if import_file is not None and import_module is None:
             raise EventorError("Import_file is provided but not import_module.")
@@ -648,6 +686,7 @@ class Eventor(object):
         raises:
             EnventorError: if event is not of event type or obj is not instance of Event or Step
         """
+        self.__program_artifacts.assocs.append((event, assocs, delay))
         
         if delay > 0:
             # since we have to delay, we need to create a Delay hidden task in 
@@ -674,7 +713,7 @@ class Eventor(object):
             for obj in assocs:
                 assoc = Assoc(event, obj)
                 objs.append(assoc)
-                module_logger.debug('Add_assoc: %s' %( repr(assoc), ))
+                module_logger.debug('add_assoc: %s' %( repr(assoc), ))
     
     def trigger_event(self, event, sequence=0, db=None):
         """Activates event 
@@ -918,56 +957,71 @@ class Eventor(object):
         threading.Thread and Invoke: adminq_th
         '''
         
-        result=True
-        iterate_mp=iterate_th=True
-        while iterate_mp or iterate_th: 
+        result = True
+        iterate_mp = iterate_th = iterate_in = True
+        while iterate_mp or iterate_th or iterate_in: 
             module_logger.debug('Trying to read result queue')   
             
             try:
                 act_result = self.__adminq_mp.get_nowait() 
             except queue.Empty:
-                act_result=None
-                iterate_mp=False
-                result_mp=True
+                act_result = None
+                iterate_mp = False
+                result_mp = True
             else:    
-                module_logger.debug("Going to play MP result: %s" % (repr(act_result)))
-                result_mp=self.__play_result(act_result)
+                module_logger.debug("Going to play Process result: %s" % (repr(act_result)))
+                result_mp = self.__play_result(act_result)
             
             try:
                 act_result = self.__adminq_th.get_nowait() 
             except queue.Empty:
-                act_result=None
-                iterate_th=False
-                result_th=True
+                act_result = None
+                iterate_th = False
+                result_th = True
             else:    
-                module_logger.debug("Going to play TH result: %s" % (repr(act_result)))
-                result_th=self.__play_result(act_result)
+                module_logger.debug("Going to play Thread result: %s" % (repr(act_result)))
+                result_th = self.__play_result(act_result)
             
-            result=result_mp #and result_th
-            module_logger.debug('Connected result: %s, result_th: %s, result_mp: %s' % (result, result_th, result_mp))
-            #module_logger.debug('connected result: %s, result_mp: %s' % (result, result_mp))
+            try:
+                act_result = self.__adminq_in.get_nowait() 
+            except queue.Empty:
+                act_result = None
+                iterate_in = False
+                result_in = True
+            else:    
+                module_logger.debug("Going to play Invoke result: %s" % (repr(act_result)))
+                result_in = self.__play_result(act_result)
+            
+            # TODO(Arnon): Validate that Th and Pr needs to be combined without Invoke
+            result = result_mp and result_th
+            module_logger.debug('Collected and played result: %s, thread: %s, process: %s, invoke: %s' % (result, result_th, result_mp, result_in))
+            #module_logger.debug('Collected result: %s, result_mp: %s' % (result, result_mp))
                          
         return result
     
     def __triggers_at_task_change(self, task):
         step = self.__memory.steps[task.step_id]
         status = task_to_step_status(task.status)
-        triggers = step.triggers.get(status, None)
+        triggers = step.triggers.get(status, [])
+        module_logger.debug("Found triggers for task %s/%s status %s: %s" % (repr(task.step_id), task.sequence, status, repr(triggers)))
         triggered = list()
-        if triggers:
-            for event in triggers: 
-                result = event.trigger_if_not_exists(self.db, task.sequence, self.__recovery)
-                if result: 
-                    triggered.append( (event.id_, task.sequence) )
-                    module_logger.debug("Triggered post task: %s[%s]" % (repr(event.id_), task.sequence))
+        #if triggers:
+        for event in triggers: 
+            result = event.trigger_if_not_exists(self.db, task.sequence, self.__recovery)
+            if result: 
+                triggered.append( (event.id_, task.sequence) )
+                module_logger.debug("Triggered post task: %s[%s]" % (repr(event.id_), task.sequence))
+                
         return triggered
     
     def __get_admin_queue(self, task_construct):
         #if isinstance(task_construct, mp.Process):
         if task_construct == 'process': # mp.Process:
             result = self.__adminq_mp
-        else:
+        elif task_construct == 'thread':
             result = self.__adminq_th
+        else: # invoke
+            result = self.__adminq_in
         return result
     
     def __initiate_delay(self, task, previous_task=None):
@@ -1002,7 +1056,7 @@ class Eventor(object):
             task.status=TaskStatus.success
             
         result=TaskAdminMsg(msg_type=TaskAdminMsgType.result, value=task) 
-        adminq=self.__adminq_th
+        adminq = self.__adminq_th
         adminq.put( result )
 
                
@@ -1168,7 +1222,7 @@ class Eventor(object):
         
         # all items are pulled so active can also be monitored for timely end
         # There is no need to check status.  
-        #Loops will end if there is nothing to do.
+        # Loops will end if there is nothing to do.
         # if self.__state==EventorState.active:
         module_logger.debug("Going to fetch tasks: %s: recovery: %s" % (self.name, self.__recovery, ))
         tasks = self.db.get_task_iter(host=self.host, recovery=self.__recovery, status=[TaskStatus.ready, TaskStatus.allocate, TaskStatus.fueled, TaskStatus.active ])
@@ -1274,28 +1328,28 @@ class Eventor(object):
         return loop
     
     def count_todos(self, sequence=None, with_delayeds=True):
-        stop_on_exception=self.__config['stop_on_exception']
-        module_logger.debug('[ Step %s ] Counting todos; state: %s, recovery: %s' % (self._name(sequence), self.__state, self.__recovery))
-        todo_triggers=0
-        task_to_count=[TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
+        stop_on_exception = self.__config['stop_on_exception']
+        module_logger.debug('[ Step %s ] Counting TODOs; state: %s, recovery: %s' % (self._name(sequence), self.__state, self.__recovery))
+        todo_triggers = 0
+        task_to_count = [TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
         
         # count triggers
         if self.__state == EventorState.active or not stop_on_exception:
             todo_triggers = self.db.count_trigger_ready(sequence=sequence, recovery=self.__recovery)
         else:
-            task_to_count=[TaskStatus.active,]  
+            task_to_count = [TaskStatus.active,]  
             
         # count tasks                   
-        active_and_todo_tasks=self.db.count_tasks(status=task_to_count, sequence=sequence, recovery=self.__recovery) 
-        total_todo=todo_triggers + active_and_todo_tasks  
-        result=total_todo
+        active_and_todo_tasks = self.db.count_tasks(status=task_to_count, sequence=sequence, recovery=self.__recovery) 
+        total_todo = todo_triggers + active_and_todo_tasks  
+        result = total_todo
         # count delay:
         if with_delayeds:
-            active_delays, min_delay=self.db.count_active_delays(sequence=sequence, recovery=self.__recovery) 
-            total_todo+=active_delays
+            active_delays, min_delay = self.db.count_active_delays(sequence=sequence, recovery=self.__recovery) 
+            total_todo += active_delays
             result=(total_todo, min_delay)
                              
-        module_logger.debug('[ Step %s ] total todo: %s (triggers: %s, tasks: %s)' % (self._name(sequence), total_todo, todo_triggers, active_and_todo_tasks))
+        module_logger.debug('[ Step %s ] Total TODOs: %s (triggers: %s, tasks: %s)' % (self._name(sequence), total_todo, todo_triggers, active_and_todo_tasks))
         
         
         return result
@@ -1309,23 +1363,23 @@ class Eventor(object):
         Returns:
             Count of in process 
         '''
-        stop_on_exception=self.__config['stop_on_exception']
+        stop_on_exception = self.__config['stop_on_exception']
         
-        module_logger.debug('[ Step %s ] Counting todos; state: %s, recovery: %s' % (self._name(sequence), self.__state, self.__recovery))
-        todo_triggers=0
-        task_to_count=[TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
+        module_logger.debug('[ Step %s ] Counting TODOs like: %s; state: %s, recovery: %s' % (self._name(sequence), sequence, self.__state, self.__recovery))
+        todo_triggers = 0
+        task_to_count = [TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
         # If step (mega-step) is active, needs to add triggers ready.
         # else, we need to take only those tasks that are active.
         if self.__state == EventorState.active or not stop_on_exception:
-            todo_triggers=self.db.count_trigger_ready_like(sequence=sequence, recovery=self.__recovery)
+            todo_triggers = self.db.count_trigger_ready_like(sequence=sequence, recovery=self.__recovery)
         else:
             # since step is not active, we are interested only with active steps with in this mega-step.
-            task_to_count=[TaskStatus.active,] 
+            task_to_count = [TaskStatus.active,] 
                             
-        active_and_todo_tasks=self.db.count_tasks_like(status=task_to_count, sequence=sequence, recovery=self.__recovery) 
-        active_delays, min_delay=self.db.count_active_delays(sequence=sequence, recovery=self.__recovery) 
-        total_todo=todo_triggers + active_and_todo_tasks+active_delays                       
-        module_logger.debug('[ Step %s ] total todo: %s (triggers: %s, tasks: %s)' % (self._name(sequence), total_todo, todo_triggers, active_and_todo_tasks))
+        active_and_todo_tasks = self.db.count_tasks_like(status=task_to_count, sequence=sequence, recovery=self.__recovery) 
+        active_delays, min_delay = self.db.count_active_delays(sequence=sequence, recovery=self.__recovery) 
+        total_todo = todo_triggers + active_and_todo_tasks + active_delays                       
+        module_logger.debug('[ Step %s ] Total TODOs: %s (triggers: %s, tasks: %s)' % (self._name(sequence), total_todo, todo_triggers, active_and_todo_tasks))
         
         return (total_todo, min_delay)
     
@@ -1606,6 +1660,7 @@ class Eventor(object):
         self.__adminq_mp_manager = mp_manager = mp.Manager()
         self.__adminq_mp = mp_manager.Queue()
         self.__adminq_th = queue.Queue()
+        self.__adminq_in = queue.Queue()
         self.__requestors = vrp.Requestors()
         self.__rp_notify = queue.Queue()
         self.__requestq = queue.Queue()

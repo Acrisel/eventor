@@ -22,11 +22,11 @@
 
 import eventor as evr
 import logging
-import collections
-import threading
-from acris import Mediator
-
-from eventor import Invoke
+#import collections
+#import threading
+#from acris import Mediator
+import os
+#from eventor import Invoke
 import examples.example_00_prog as eprog
 import examples.runly15_types as runtyles
 
@@ -34,7 +34,11 @@ logger=logging.getLogger(__name__)
 
 
 def construct_and_run():        
-    ev = evr.Eventor( logging_level=logging.DEBUG) # store=':memory:',
+    db = 'sqfile00'
+    #db = 'pgdb2'
+    config=os.path.abspath('example00.conf')
+    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=False,) # import_module=__file__)
+    #ev = evr.Eventor( logging_level=logging.INFO) # store=':memory:',
     
     ev0first = ev.add_event('s0_start')
     ev0next = ev.add_event('s0_next')
@@ -52,8 +56,6 @@ def construct_and_run():
     
     metaprog = runtyles.Container(progname='S00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
     
-    #s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
-    #s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': threading.Thread})
     s00first = ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': 'invoke',})
     s00next = ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': 'invoke',})
     
@@ -71,7 +73,8 @@ def construct_and_run():
     ev.add_assoc(ev3s, s3)
     
     ev.trigger_event(ev0first, '0')
-    ev.run()
+    print(ev.program_repr())
+    #ev.run()
     ev.close()
     
 if __name__ == '__main__':

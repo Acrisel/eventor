@@ -88,10 +88,12 @@ class Invoke(object):
         self.is_alive_flag = False
         return result
     
-    @threaded
+    #@threaded
     def join(self, timeout=None):
         return
     
-    @threaded
+    #@threaded
     def is_alive(self):
         return self.is_alive_flag
+    
+    

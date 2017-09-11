@@ -57,11 +57,11 @@ def get_sqlalchemy_conf(modulefile, userstore, config, root=None, echo=False):
         else:
             conf={'DB': {'adhoc': {'dialect': 'sqlite', 'query': {'cache':'shared'}}}}
             
-        module_logger.debug("Using adhoc DB config: %s" %(repr(conf)))
+        module_logger.debug("DBAPI: Using adhoc DB config: %s" %(repr(conf)))
         sqldb=SQLAlchemyConf(conf=conf, root='DB', database='adhoc',quiet=True, echo=echo)
     else:
-        module_logger.debug("Using DB config: %s" %(repr(config)))
-    module_logger.debug("SQLAlchemyConf: %s" % (repr(sqldb),))
+        module_logger.debug("DBAPI: Using DB config: %s" %(repr(config)))
+    module_logger.debug("DBAPI: SQLAlchemyConf: %s" % (repr(sqldb),))
     return sqldb
  
 class DbApi(object):
@@ -126,7 +126,7 @@ class DbApi(object):
     def open(self, mode=DbMode.write, create=True): 
         self.db_transaction_lock = threading.Lock()       
         if mode == DbMode.write and create:
-            module_logger.debug("DbMode write: creating schema.")
+            module_logger.debug("DBAPI: DbMode write: creating schema.")
             self.create_db() 
             
     def close(self):
@@ -143,7 +143,7 @@ class DbApi(object):
         if len(schemas) > 0:
             for schema in schemas:
                 if not self.shared_db:
-                    module_logger.debug("Not in shared_db mode: dropping before creating schema %s" % (schema,))
+                    module_logger.debug("DBAPI: Not in shared_db mode: dropping before creating schema %s" % (schema,))
                     metadata.bind.execute("DROP SCHEMA IF EXISTS %s CASCADE " % schema)
                 metadata.bind.execute("CREATE SCHEMA IF NOT EXISTS %s" % schema)
         elif self.__sqlalchemy.dbconf['dialect'] == 'sqlite':
@@ -151,7 +151,7 @@ class DbApi(object):
             if not self.shared_db:
                 database=self.__sqlalchemy.dbconf['database']
                 if os.path.isfile(database):
-                    module_logger.debug("Not in shared_db mode: removing database file: %s" % (database))
+                    module_logger.debug("DBAPI: Not in shared_db mode: removing database file: %s" % (database))
                     os.remove(database)
 
         
@@ -221,17 +221,17 @@ class DbApi(object):
     def add_trigger_if_not_exists(self, event_id, sequence, recovery):
         self.lock()
         # TODO(Arnon): since distributed, need to change to either "select for update" or "on duplicate key update"
-        module_logger.debug("DBAPI - cehcking if event trigger do not exist: %s(%s)" %(event_id, sequence,))
+        module_logger.debug("DBAPI: checking if event trigger do not exist: %s(%s)" %(event_id, sequence,))
         trigger = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.event_id==event_id, self.Trigger.sequence==sequence, self.Trigger.recovery==recovery)
         found = self.session.query(trigger.exists()).scalar()
         if not found:
-            module_logger.debug("DBAPI - adding event trigger %s(%s)" %(event_id, sequence))
+            module_logger.debug("DBAPI: adding event trigger %s(%s)" %(event_id, sequence))
             trigger = self.Trigger(run_id=self.run_id, event_id=event_id, sequence=sequence, recovery=recovery)
             self.session.add(trigger)
             self.commit_db()
         else:
             trigger = trigger.first()
-            module_logger.debug("DBAPI - trigger already in db, returning %s; %s" %(found, trigger,))
+            module_logger.debug("DBAPI: trigger already in db, returning %s; %s" %(found, trigger,))
         self.release()
         return trigger_from_db(trigger)
     
@@ -290,7 +290,7 @@ class DbApi(object):
             task = task.first()
         self.release()
         result = task_from_db(task)
-        module_logger.debug('DBAPI - add_task_if_not_exists: %s' % (repr(result), ))
+        module_logger.debug('DBAPI: add_task_if_not_exists: %s' % (repr(result), ))
         return result
         
     def update_task(self, task, session=None):
@@ -306,7 +306,7 @@ class DbApi(object):
         self.session.query(self.Task).filter(self.Task.id_==task.id_).update(updates, synchronize_session=False)
         self.commit_db()
         self.release()
-        module_logger.debug('DBAPI - update_task: %s' % (repr(task), ))
+        module_logger.debug('DBAPI: update_task: %s' % (repr(task), ))
         return task
         
     def update_task_status(self, task, status, session=None,):
@@ -324,7 +324,7 @@ class DbApi(object):
             session=self.session
         task.updated=updated=datetime.utcnow()
         task.status=status
-        module_logger.debug('updating task status: %s(%s)' % (task_id, status))
+        module_logger.debug('DBAPI: updating task status: %s(%s)' % (task_id, status))
         updates={self.Task.status: status, self.Task.updated: updated,}                                               
         self.session.query(self.Task).filter(self.Task.id_==task_id).update(updates, synchronize_session=False)
         self.commit_db()
@@ -344,7 +344,7 @@ class DbApi(object):
         
         for result in rows:
             #result = task_from_db(row)
-            module_logger.debug("task_iter: task: %s" %(repr(result)))
+            module_logger.debug("DBAPI: task_iter: task: %s" %(repr(result)))
             yield  result
     
     def get_task_map(self, recovery=0):
@@ -359,7 +359,7 @@ class DbApi(object):
                 task_map[task.sequence]=sequence_map
             sequence_map[task.step_id]=task_from_db(task)
         self.release()
-        module_logger.debug("get_task_map: task: %s" %(repr(task_map)))
+        module_logger.debug("DBAPI: get_task_map: task: %s" %(repr(task_map)))
         return task_map
     
     def count_tasks(self, recovery, status, sequence=None, host=None):
@@ -378,8 +378,11 @@ class DbApi(object):
     def count_tasks_like(self, sequence, recovery, status):
         self.lock()
         with self.session.no_autoflush:
-            members=self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence.like(sequence), self.Task.status.in_(status), self.Task.recovery==recovery)
-        count=members.count()
+            members = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence.like(sequence), self.Task.status.in_(status), self.Task.recovery==recovery)
+        all = members.all()
+        tasks = ["%s/%s" % (task.step_id, task.sequence) for task in all]
+        module_logger.debug("DBAPI: count_tasks_like: tasks: %s" %(repr(tasks)))
+        count = members.count()
         self.release()
         return count
     
@@ -390,12 +393,12 @@ class DbApi(object):
         for task in tasks:
             result[task.step_id]=task.status        
         self.release()
-        module_logger.debug("get_task_status: task: %s" %(repr(result)))
+        module_logger.debug("DBAPI: get_task_status: task: %s" %(repr(result)))
         return result
  
     def add_delay(self, delay_id, sequence, seconds, active=None, activated=None, recovery=None):
         delay=self.Delay(run_id=self.run_id, delay_id=delay_id, seconds=seconds, sequence=sequence, recovery=recovery,)
-        module_logger.debug('DBAPI - add_delay: %s' % (repr(delay), ))
+        module_logger.debug('DBAPI: add_delay: %s' % (repr(delay), ))
         self.lock()
         try:
             self.session.add(delay)

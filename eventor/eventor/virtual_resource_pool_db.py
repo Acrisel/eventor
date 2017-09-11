@@ -563,7 +563,7 @@ class Requestor(object):
             
     def put_requested(self, request):
         self.__sync_acquire()
-        logger.debug("putting back request: %s" % (repr(request)))
+        logger.debug("Putting back request: %s" % (repr(request)))
         
         # ensure resources returned are in alignment with this container.
         #resource_to_return=list()
@@ -848,7 +848,7 @@ class Requestors(object):
         '''
         
         self.__sync_acquire()
-        logger.debug("putting back request: %s" % (repr(request)))
+        logger.debug("Putting back request: %s" % (repr(request)))
         
         # ensure resources returned are in alignment with this container.
         #resource_to_return=list()

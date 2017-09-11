@@ -110,6 +110,18 @@ Change Overview
 
 3. Allow run() to be in background.
 
+Notes
+=====
 
+Remove dates prefix from logs 
 
+for f in goodrun badrun; do
+    source=${f}.txt
+    target=${f}_strip.txt
+    gsed 's/([[:digit:]]\+) \]/ \]/g' $source | \
+    gsed 's/\[ [[:digit:][:punct:]]* \]//g' | \
+    gsed 's/[[:digit:]]\{4\}\, \([[:digit:]]\{1,\}\, \)\{5\}[[:digit:]]*//g' | \
+    gsed 's/pid=[[:digit:]]*/pid=/g' \
+    > $target
+done
 

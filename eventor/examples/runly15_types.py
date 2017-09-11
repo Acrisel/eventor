@@ -26,6 +26,7 @@ class Container(object):
         self.loop = loop
         self.loop_index = 0
         #self.initiating_sequence=None
+        self.__name__ = Container.__name__
         
     def __call__(self, initial=False, eventor=None): 
         #print('max_concurrent', config['max_concurrent'])

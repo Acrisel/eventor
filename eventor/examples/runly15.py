@@ -74,7 +74,8 @@ def construct_and_run():
     ev.add_assoc(ev3s, s3)
     
     ev.trigger_event(ev0first, '0')
-    ev.run()
+    print(ev.program_repr())
+    #ev.run()
     ev.close()
     
 if __name__ == '__main__':
