@@ -147,11 +147,11 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
     try:
         adminq.put( update )
     except Exception as e:
-        module_logger.critical('[ Step {}/{} ] Failed to update pid; aborting'.format(step.name, task.sequence))
+        module_logger.critical('[ Task {}/{} ] Failed to update pid; aborting'.format(step.name, task.sequence))
         module_logger.exception(e)
         raise
         
-    module_logger.info('[ Step {}/{} ] Attempting to run'.format(step.name, task.sequence))
+    module_logger.info('[ Task {}/{} ] Attempting to run'.format(step.name, task.sequence))
     
     try:
         # todo: need to pass task resources.
@@ -166,7 +166,7 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
         task.status = TaskStatus.success
         
     result = TaskAdminMsg(msg_type=TaskAdminMsgType.result, value=task) 
-    module_logger.info('[ Step {}/{} ] Completed, status: {}'.format(step.name, task.sequence, str(task.status), ))
+    module_logger.info('[ Task {}/{} ] Completed, status: {}'.format(step.name, task.sequence, str(task.status), ))
     adminq.put( result )
     return True
 
@@ -741,7 +741,12 @@ class Eventor(object):
         
         if not db:
             db = self.db
-        added = event.trigger_if_not_exists(db=db, sequence=sequence, recovery=self.__recovery)
+        try:
+            added = event.trigger_if_not_exists(db=db, sequence=sequence, recovery=self.__recovery)
+        except Exception as e:
+            module_logger.critical("Failed to trigger event: %s(%s); run_id: %s." % (event.name, sequence, run_id) )
+            module_logger.exception(e)
+            added = False
         return added
         
     def remote_trigger_event(self, event, sequence=0,):
@@ -888,48 +893,54 @@ class Eventor(object):
 
     def __apply_task_result(self, task):
         #step=self.__steps[task.step_id]
-        module_logger.debug('[ Task %s/%s ] applying task update to db\n    %s' % (task.step_id, task.sequence, repr(task), ))
-        self.db.update_task(task=task)
+        module_logger.debug('[ Task {}/{} ] applying task update to db\n    {}'.format(task.step_id, task.sequence, repr(task), ))
+        try:
+            self.db.update_task(task=task)
+        except Exception as e:
+            module_logger.critical("[ Task {}/{} ] Failed to update task; run_id: {}".format(task.step_id, task.sequence, task.run_id))
+            module_logger.exception(e)
+            self.__state = EventorState.shutdown
+            return []
         if task.status in [TaskStatus.success, TaskStatus.failure]:
             self.__release_task_resources(task)
         triggered = self.__triggers_at_task_change(task)
         return triggered
     
     def __play_result(self, act_result,):
-        module_logger.debug('Result collected: \n    %s' % ( repr(act_result)) )  
+        module_logger.debug('Result collected: \n    {}'.format( repr(act_result)) )  
         stop_on_exception = self.__config['stop_on_exception']
         
         result=True
         istask = isinstance(act_result.value, Task)
-        module_logger.debug('Received %s(%s) to play (istask: %s)' %(type(act_result.value).__name__, repr(act_result.value), istask))
+        module_logger.debug('Received {}({}) to play (istask: {})'.format(type(act_result.value).__name__, repr(act_result.value), istask))
         if istask: 
             task = act_result.value   
             if act_result.msg_type == TaskAdminMsgType.result:
                 delay_task=task.step_id.startswith('_evr_delay_')
                 if not delay_task:
                     proc = self.__task_proc[task.id_]
-                    module_logger.debug('[ Task %s/%s ] applying result, process: %s, is_allive: %s' % \
-                                        (task.step_id, task.sequence, repr(proc), proc.is_alive()))
+                    module_logger.debug('[ Task {}/{} ] applying result, process: {}, is_allive: {}'.format(
+                                        task.step_id, task.sequence, repr(proc), proc.is_alive()))
                     #if proc.is_alive():
                     if not isinstance(proc, Invoke):
                         exitcode = ""
                         if hasattr(proc, exitcode):
                             exitcode = " (exitcode=%s)" % proc.exitcode
-                        module_logger.debug('[ Task %s/%s ] joining%s' % (task.step_id, task.sequence, exitcode))
+                        module_logger.debug('[ Task {}/{} ] joining exit code: {}'.format(task.step_id, task.sequence, exitcode))
                         if proc.is_alive():
                             proc.join()
                         #while proc.is_alive():
                         #    proc.join(0.05)
-                        module_logger.debug('[ Task %s/%s ] joined' % (task.step_id, task.sequence, ))
+                        module_logger.debug('[ Task {}/{} ] joined'.format(task.step_id, task.sequence, ))
                     del self.__task_proc[task.id_]  
-                    module_logger.debug('[ Task %s/%s ] deleted' % (task.step_id, task.sequence, ))
+                    module_logger.debug('[ Task {}/{} ] deleted'.format(task.step_id, task.sequence, ))
                 step = self.__memory.steps[task.step_id]
                 step.concurrent -= 1
-                triggered=self.__apply_task_result(task)
-                module_logger.debug('[ Task %s/%s ] triggered: %s, stop_on_exception: %s, task.status: %s' % \
-                                    (task.step_id, task.sequence, repr(triggered), repr(stop_on_exception), repr(task.status)))
+                triggered = self.__apply_task_result(task)
+                module_logger.debug('[ Task {}/{} ] triggered: {}, stop_on_exception: {}, task.status: {}'.format(
+                                    task.step_id, task.sequence, repr(triggered), repr(stop_on_exception), repr(task.status)))
                 shutdown = (len(triggered) == 0 or stop_on_exception) and task.status == TaskStatus.failure 
-                module_logger.debug('[ Task %s/%s ] shutdown: %s' % (task.step_id, task.sequence, shutdown))
+                module_logger.debug('[ Task {}/{} ] shutdown: {}'.format(task.step_id, task.sequence, shutdown))
                 if task.status == TaskStatus.failure:
                     self.__log_error(task, shutdown)
                     if len(triggered) == 0:
@@ -940,12 +951,17 @@ class Eventor(object):
                     
                     result = False
             elif act_result.msg_type == TaskAdminMsgType.update: 
-                self.db.update_task(task=task)
-                
+                try:
+                    self.db.update_task(task=task)
+                except Exception as e:
+                    module_logger.critical("[ Task {}/{} ] Failed to update task; run_id: {}.".format(task.step_id, task.sequence, task.run_id))
+                    module_logger.exception(e)
+                    self.__state = EventorState.shutdown
+                    result = False
                 # TODO: stop running processes            
         else:
             # TODO: need to deal with action
-            module_logger.debug('skip play result; act_result value type not matched: %s' % ( repr(type(act_result.value))) )  
+            module_logger.debug('Skip play result; act_result value type not matched: {}.'.format( repr(type(act_result.value))) )  
         
         return result
     
@@ -969,7 +985,7 @@ class Eventor(object):
                 iterate_mp = False
                 result_mp = True
             else:    
-                module_logger.debug("Going to play Process result: %s" % (repr(act_result)))
+                module_logger.debug("Going to play Process result: {}".format(repr(act_result)))
                 result_mp = self.__play_result(act_result)
             
             try:
@@ -979,7 +995,7 @@ class Eventor(object):
                 iterate_th = False
                 result_th = True
             else:    
-                module_logger.debug("Going to play Thread result: %s" % (repr(act_result)))
+                module_logger.debug("Going to play Thread result: {}".format(repr(act_result)))
                 result_th = self.__play_result(act_result)
             
             try:
@@ -989,12 +1005,12 @@ class Eventor(object):
                 iterate_in = False
                 result_in = True
             else:    
-                module_logger.debug("Going to play Invoke result: %s" % (repr(act_result)))
+                module_logger.debug("Going to play Invoke result: {}".format(repr(act_result)))
                 result_in = self.__play_result(act_result)
             
             # TODO(Arnon): Validate that Th and Pr needs to be combined without Invoke
             result = result_mp and result_th
-            module_logger.debug('Collected and played result: %s, thread: %s, process: %s, invoke: %s' % (result, result_th, result_mp, result_in))
+            module_logger.debug('Collected and played result: {}, thread: {}, process: {}, invoke: {}'.format(result, result_th, result_mp, result_in))
             #module_logger.debug('Collected result: %s, result_mp: %s' % (result, result_mp))
                          
         return result
@@ -1003,14 +1019,14 @@ class Eventor(object):
         step = self.__memory.steps[task.step_id]
         status = task_to_step_status(task.status)
         triggers = step.triggers.get(status, [])
-        module_logger.debug("Found triggers for task %s/%s status %s: %s" % (repr(task.step_id), task.sequence, status, repr(triggers)))
+        module_logger.debug("Found triggers for task {}/{} status {}: {}".format(repr(task.step_id), task.sequence, status, repr(triggers)))
         triggered = list()
         #if triggers:
         for event in triggers: 
             result = event.trigger_if_not_exists(self.db, task.sequence, self.__recovery)
             if result: 
                 triggered.append( (event.id_, task.sequence) )
-                module_logger.debug("Triggered post task: %s[%s]" % (repr(event.id_), task.sequence))
+                module_logger.debug("Triggered post task: {}[{}]".format(repr(event.id_), task.sequence))
                 
         return triggered
     
@@ -1028,7 +1044,7 @@ class Eventor(object):
         ''' Runs delay function associated with task to register delay in delay table
         '''
         delay = self.__memory.delays[task.step_id]
-        module_logger.debug("Initiating delay: %s (previous=%s)" % (delay.delay_id, repr(previous_task)))
+        module_logger.debug("Initiating delay: {} (previous = {})".format(delay.delay_id, repr(previous_task)))
         active = True
         activated = datetime.utcnow()
         
@@ -1036,7 +1052,7 @@ class Eventor(object):
             prev_delay = self.__previous_delays[task.sequence][task.step_id]
             active = prev_delay.active
             activated = prev_delay.activated
-            module_logger.debug("Fetched delay from previous: active: %s, activated: %s" % (active, activated))
+            module_logger.debug("Fetched delay from previous: active: {}, activated: {}".format(active, activated))
         
         #delay_func = delay.func
         try:
@@ -1046,9 +1062,10 @@ class Eventor(object):
         except Exception as e:
             task.status = TaskStatus.failure
             module_logger.critical('Exception in task execution: \n    {}'.format(task,)) #)
-            trace = inspect.trace()
-            trace = traces(trace)
-            module_logger.critical("%s\n    %s" % (repr(e), '\n    '.join(trace)))
+            module_logger.exception(e)
+            #trace = inspect.trace()
+            #trace = traces(trace)
+            #module_logger.critical("{}\n    {}".format(repr(e), '\n    '.join(trace)))
             module_logger.info("Stopping running processes") 
             self.__state=EventorState.shutdown
         
@@ -1072,7 +1089,7 @@ class Eventor(object):
             previous_task: (Task), will be populated if in recovery and an instance of task exists.
         '''
         step = self.__memory.steps[task.step_id]
-        module_logger.debug("Initiating task: %s(%s)" % (task.id_, task.step_id))
+        module_logger.debug("Initiating task: {}({})".format(task.id_, task.step_id))
         step_recovery = StepReplay.rerun
         if previous_task:
             step_recovery = step.recovery[previous_task.status]
@@ -1093,7 +1110,13 @@ class Eventor(object):
                     'use_process': use_process, 
                     'logger_info': self.__logger_info,}
             if max_concurrent < 0 or step.concurrent < max_concurrent: # no-limit
-                self.__update_task_status(task, TaskStatus.active)
+                try:
+                    self.__update_task_status(task, TaskStatus.active)
+                except Exception as e:
+                    module_logger.critical("[ Task {}/{} ] Failed to update task; run_id: {}".format(task.step_id, task.sequence, task.run_id))
+                    module_logger.exception(e)
+                    self.__state = EventorState.shutdown
+                    return None
                 triggered = self.__triggers_at_task_change(task)
                 
                 #delay_task=not task.step_id.startswith('_evr_delay_')
@@ -1111,6 +1134,28 @@ class Eventor(object):
                     self.db = None
                     logger_ = self.__logger
                     self.__logger = None
+                    
+                    # test pickle of kwargs to process
+                    if __debug__:
+                        for name, value in kwds.items():
+                            try:
+                                pickle.dumps(value)
+                            except Exception as e:
+                                module_logger.critical("Cannot pickle kwarg {} of type {}.".format(name, type(value).__name__))
+                                module_logger.exception(e) 
+                                if hasattr(value, '__dict__'):
+                                    for subname, subvalue in value.__dict__.items():
+                                        try:
+                                            pickle.dumps(subvalue)
+                                        except Exception as sube:
+                                            module_logger.critical("Cannot pickle name {} of type {}.".format(subname, type(subvalue).__name__))
+                                            module_logger.exception(sube)
+                                            break
+                                self.__get_dbapi(create=False)
+                                self.__update_task_status(task, TaskStatus.failure)
+                                # TODO(Arnon): if there are already processes running, finish will fail since it is not joining/killing those processes
+                                return
+                    # end test of kwargs
                 
                 task_constructor = get_proc_constructor(task_construct)
                 if task_constructor is None:
@@ -1122,10 +1167,21 @@ class Eventor(object):
                     self.__update_task_status(task, TaskStatus.failure)
                     return
                 
-                proc = task_constructor(target=task_wrapper, kwargs=kwds)
+                try:
+                    proc = task_constructor(target=task_wrapper, kwargs=kwds)
+                except Exceptions as e:
+                    module_logger.critical("[ Task {}/{} ] Failed to construct process using {}.".format(task.step_id, task.sequence, task_construct,))
+                    module_logger.exception(e)
+                    self.__state = EventorState.shutdown
+                    task.status = TaskStatus.failure
+                    if use_process:
+                        self.__get_dbapi(create=False)
+                    self.__update_task_status(task, TaskStatus.failure)
+                    return
+                    
                 if use_process:
-                    proc_id = "%s-" % self.run_id if self.run_id else ''
-                    proc.name = '%sTask-%s(%s)' % (proc_id, step.name, task.sequence)
+                    proc_id = "{}-".format(self.run_id) if self.run_id else ''
+                    proc.name = '{}Task-{}({})'.format(proc_id, step.name, task.sequence)
                 step.concurrent += 1
                 
                 try:
@@ -1137,9 +1193,10 @@ class Eventor(object):
                     task.status = TaskStatus.failure
                     self.__update_task_status(task, TaskStatus.failure)
                     module_logger.critical('Exception in task execution: \n    {}'.format(task,)) #)
-                    trace = inspect.trace()
-                    trace = traces(trace)
-                    module_logger.critical("%s\n    %s" % (repr(e), '\n    '.join(trace)))
+                    module_logger.exception(e)
+                    #trace = inspect.trace()
+                    #trace = traces(trace)
+                    #module_logger.critical("{}\n    {}".format(repr(e), '\n    '.join(trace)))
                     module_logger.info("Stopping running processes.") 
                     self.__state = EventorState.shutdown
                 else:
@@ -1150,11 +1207,11 @@ class Eventor(object):
                     if use_process:
                         self.__logger = logger_
             else:
-                module_logger.debug('[ Task {}/{} ] Delaying run (max_concurrent: {}, concurrent: {}) and run task:\n    {}'.format(task.step_id, task.sequence, max_concurrent, step.concurrent, repr(task), ))       
+                module_logger.debug('[ Task {}/{} ] Delaying run (max_concurrent: {}, concurrent: {}) and run task:\n    {}.'.format(task.step_id, task.sequence, max_concurrent, step.concurrent, repr(task), ))       
         else:
             # TODO: make sure htis works
             # on skip
-            module_logger.debug('[ Step %s/%s ] Skipping task in recovery mode' % (task.step_id, task.sequence ))
+            module_logger.debug('[ Step {}/{} ] Skipping task in recovery mode'.format(task.step_id, task.sequence ))
             task.status = TaskStatus.success
             #task_result=TaskAdminMsg(msg_type=TaskAdminMsgType.result, value=task)
             triggered = self.__apply_task_result(task,)
@@ -1171,7 +1228,7 @@ class Eventor(object):
             
             memtask=self.__tasks.get(task_id, None)    
             step = self.__memory.steps[memtask.step_id]
-            module_logger.debug("Received resources for task %s" % (step.name, ))
+            module_logger.debug("Received resources for task {}.".format(step.name, ))
 
             memtask.resources=self.__requestors.get(memtask.request_id)
             self.__update_task_status(memtask, TaskStatus.fueled)
@@ -1182,7 +1239,7 @@ class Eventor(object):
         
     def __release_task_resources(self, task):
         step = self.__memory.steps[task.step_id]
-        module_logger.debug("Releasing task resources %s: %s" % (step.name, step.releases))
+        module_logger.debug("Releasing task resources {}: {}.".format(step.name, step.releases))
         if step.releases is not None:
             self.__requestors.put_requested(step.releases)
 
@@ -1195,7 +1252,7 @@ class Eventor(object):
         
         memtask = self.__tasks.get(task.id_, None)
         if memtask is None:
-            module_logger.debug("Initiating new memtask for resource allocation %s: %s" % (step.name, step.acquires, ))
+            module_logger.debug("Initiating new memtask for resource allocation {}: {}.".format(step.name, step.acquires, ))
             memtask=Memtask(task)
             self.__tasks[task.id_]=memtask
         # need to allocate resources from all requested pools.
@@ -1208,7 +1265,7 @@ class Eventor(object):
             # not requested resources yet
             rp_callback = RpCallback(self.__rp_notify, task_id=task.id_)
             #requestors=vrp.Requestors(request=step.acquires, callback=rp_callback, audit=False)
-            module_logger.debug("Going to reserve resources %s: %s" % (step.name, step.acquires, ))
+            module_logger.debug("Going to reserve resources {}: {}.".format(step.name, step.acquires, ))
             memtask.request_id = self.__requestors.reserve(request=step.acquires, callback=rp_callback)
             self.__update_task_status(memtask, TaskStatus.allocate)
             
@@ -1224,7 +1281,7 @@ class Eventor(object):
         # There is no need to check status.  
         # Loops will end if there is nothing to do.
         # if self.__state==EventorState.active:
-        module_logger.debug("Going to fetch tasks: %s: recovery: %s" % (self.name, self.__recovery, ))
+        module_logger.debug("Going to fetch tasks: {}: recovery: {}.".format(self.name, self.__recovery, ))
         tasks = self.db.get_task_iter(host=self.host, recovery=self.__recovery, status=[TaskStatus.ready, TaskStatus.allocate, TaskStatus.fueled, TaskStatus.active ])
         #module_logger.debug("Number tasks fetched: %s" % (len(list(tasks)), ))
         for task in tasks:
@@ -1234,21 +1291,21 @@ class Eventor(object):
             except (KeyError, TypeError):
                 previous_task = None
             
-            module_logger.debug("Evaluating task: %s, step: %s" % (repr(task), repr(step)))
+            module_logger.debug("Evaluating task: {}, step: {}".format(repr(task), repr(step)))
             if task.status == TaskStatus.fueled or (task.status == TaskStatus.ready and not step.acquires):
                 delay_task = task.step_id.startswith('_evr_delay_')
                 if not delay_task:
-                    module_logger.debug("No delay, initiate task: %s" % (task.id_, ))
+                    module_logger.debug("No delay, initiate task: {}.".format(task.id_, ))
                     self.__initiate_task(task, previous_task)
                 else:
-                    module_logger.debug("Delayed task, initiate delay for task: %s" % (task.id_, ))
+                    module_logger.debug("Delayed task, initiate delay for task: {}.".format(task.id_, ))
                     self.__initiate_delay(task, previous_task) 
             elif task.status == TaskStatus.ready : # task.status == TaskStatus.ready and has resources to satisfy
-                module_logger.debug("Ready task need to be fueled: %s" % (task.id_, ))
+                module_logger.debug("Ready task need to be fueled: {}.".fomrat(task.id_, ))
                 self.__allocate_resources_for_task(task, previous_task)
             elif TaskStatus.allocate:
                 # TODO: check if expired - if so, halt
-                module_logger.debug("Task allocated resource: %s" % (task.id_, ))
+                module_logger.debug("Task allocated resource: {}.".format(task.id_, ))
             else: # active
                 # TODO: check run time allowance passed - if so, halt
                 pass
@@ -1263,10 +1320,10 @@ class Eventor(object):
         try:
             delay = self.__memory.delays[db_delay.delay_id]
         except:
-            module_logger.error("Delay %s not found in Delays{%s}" % (db_delay.delay_id, repr(list(self.__memory.delays.keys()))))
+            module_logger.error("Delay {} not found in Delays: {}.".format(db_delay.delay_id, repr(list(self.__memory.delays.keys()))))
             raise
         event = delay.event
-        module_logger.debug("Triggering delayed event: %s(%s)" % (db_delay.delay_id, repr(event)))
+        module_logger.debug("Triggering delayed event: {}({})".format(db_delay.delay_id, repr(event)))
         self.trigger_event(event=event, sequence=db_delay.sequence,)
         
         
@@ -1281,14 +1338,14 @@ class Eventor(object):
         count = 0
         # all items are pulled so active can also be monitored for timely end
         #if self.__state==EventorState.active:
-        module_logger.debug("Going to fetch delays: %s: recovery: %s" % (self.name, self.__recovery, ))
+        module_logger.debug("Going to fetch delays: {}: recovery: {}.".format(self.name, self.__recovery, ))
         delays = self.db.get_delay_iter(recovery=self.__recovery,)
         now = datetime.utcnow()
         
         for delay in delays: 
             if not delay.active: continue
             age = (now-delay.activated).total_seconds()
-            module_logger.debug("Delay age: %s = %s" % (delay.delay_id, age))
+            module_logger.debug("Delay age: {} = {}.".format(delay.delay_id, age))
             if age >= delay.seconds:
                 # delay is done, raise proper event.
                 self.__process_delay(delay)
@@ -1296,7 +1353,7 @@ class Eventor(object):
             else:
                 count += 1 
         
-        module_logger.debug("Count of active delays: %s" % (count,))    
+        module_logger.debug("Count of active delays: {}".format(count,))    
         return count
         
     def loop_once(self, ):
@@ -1329,7 +1386,7 @@ class Eventor(object):
     
     def count_todos(self, sequence=None, with_delayeds=True):
         stop_on_exception = self.__config['stop_on_exception']
-        module_logger.debug('[ Step %s ] Counting TODOs; state: %s, recovery: %s' % (self._name(sequence), self.__state, self.__recovery))
+        module_logger.debug('[ Step {} ] Counting TODOs; state: {}, recovery: {}.'.format(self._name(sequence), self.__state, self.__recovery))
         todo_triggers = 0
         task_to_count = [TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
         
@@ -1339,8 +1396,14 @@ class Eventor(object):
         else:
             task_to_count = [TaskStatus.active,]  
             
-        # count tasks                   
-        active_and_todo_tasks = self.db.count_tasks(status=task_to_count, sequence=sequence, recovery=self.__recovery) 
+        # count tasks  
+        try:                 
+            active_and_todo_tasks = self.db.count_tasks(status=task_to_count, sequence=sequence, recovery=self.__recovery) 
+        except Exception as e:
+            module_logger.critical("Failed to count TODOs in count_todos(); run_id: {}.".format(self.run_id))
+            module_logger.exception(e)
+            self.__state = EventorState.shutdown
+            return 0
         total_todo = todo_triggers + active_and_todo_tasks  
         result = total_todo
         # count delay:
@@ -1471,7 +1534,13 @@ class Eventor(object):
         return result
     
     def get_task_status(self, task_names, sequence,):
-        result=self.db.get_task_status(task_names=task_names, sequence=sequence, recovery=self.__recovery, host=self.host)
+        result = {}
+        try:
+            result = self.db.get_task_status(task_names=task_names, sequence=sequence, recovery=self.__recovery, host=self.host)
+        except Exception as e:
+            module_logger.critical("Failed to get task status in get_task_status(); run_id: {}.".format(self.run_id))
+            module_logger.exception(e)
+            self.__state = EventorState.shutdown
         return result
     
     def __start_agent(self, host, mem_pack, parentq):
@@ -1498,16 +1567,16 @@ class Eventor(object):
         kw = ["%s %s" %(name, value) for name, value in kwargs]
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         cmd = "%s %s" % (agentpy, " ".join(kw),) # ' '.join(args))
-        module_logger.debug('Agent command: %s: %s' % (host, cmd))
+        module_logger.debug('Agent command: {}: {}.'.format(host, cmd))
         sshagent = SshAgent(host, cmd, logger=module_logger)
         sshagent.start(wait=0.2)
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         #agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', pipe_read, pipe_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
         #agent.start()
         
-        module_logger.debug('Agent process started: %s:%s' % (host, sshagent.pid)) 
+        module_logger.debug('Agent process started: {}:{}.'.format(host, sshagent.pid)) 
         if not sshagent.is_alive():
-            module_logger.critical('Agent process terminated unexpectedly: %s' % (host,))
+            module_logger.critical('Agent process terminated unexpectedly: {}'.format(host,))
             sshagent.join()
             return None
         # this is parent 
@@ -1516,14 +1585,14 @@ class Eventor(object):
         try:
             sshagent.send(mem_pack, pack=False,)
         except Exception as e:
-            module_logger.error("Failed to send workload to %s" % host)
+            module_logger.error("Failed to send workload to {}.".format(host))
             module_logger.exception(e)
             #agent = None
-        module_logger.debug('Sent workload to: %s' % (host,))
+        module_logger.debug('Sent workload to: {}.'.format(host,))
         if not sshagent.is_alive():
-            module_logger.critical('Agent process terminated after send: %s' % (host,))
+            module_logger.critical('Agent process terminated after send: {}.'.format(host,))
             return None
-        module_logger.debug('Agent process checked okay: %s' % (host,))    
+        module_logger.debug('Agent process checked okay: {}.'.format(host,))    
         return sshagent #RemoteAgent(proc=agent, stdin=pipe_write, stdout=None)
     
     def __check_remote_hosts(self, hosts):
@@ -1534,7 +1603,7 @@ class Eventor(object):
             if not accessiable:
                 not_accessiable.append(host)
         if len(not_accessiable) > 0:
-            msg = "SSH port is closed: %s" % ", ".join(not_accessiable)
+            msg = "SSH port is closed: {}.".format(", ".join(not_accessiable))
             module_logger.critical(msg)
             raise EventorError(msg)
 
@@ -1547,37 +1616,37 @@ class Eventor(object):
                     response = agent.response()
                     returncode, stdout, stderr = response
                     if stdout == 'DONE':
-                        module_logger.debug('Agent finished %s.' %(repr(response)))
+                        module_logger.debug('Agent finished {}.'.format(repr(response)))
                     elif stdout == 'TERM':
-                        module_logger.critical('Agent terminated. Returncode: %s; Error:' %(repr(returncode,),) + '' if not stderr else '\n'+stderr)
+                        module_logger.critical('Agent terminated. Returncode: {}; Error:'.format(repr(returncode,),) + '' if not stderr else '\n'+stderr)
                         #self.__term = True
                         self.__state = EventorState.shutdown
                     elif returncode > 0:
                         # finished for unknown reason
-                        module_logger.critical('Agent aborted. Returncode: %s; Output: %s; Error:' %(repr(returncode), stdout) + '' if not stderr else '\n'+stderr)
+                        module_logger.critical('Agent aborted. Returncode: {}; Output: {}; Error:'.format(repr(returncode), stdout) + '' if not stderr else '\n'+stderr)
                         self.__state = EventorState.shutdown
                     else:
                         # finished for unknown reason
-                        module_logger.debug('Agent exited. Returncode: %s; Output: %s; Error:' %(repr(returncode), stdout) + '' if not stderr else '\n'+stderr)
+                        module_logger.debug('Agent exited. Returncode: {}; Output: {}; Error:'.format(repr(returncode), stdout) + '' if not stderr else '\n'+stderr)
                     del self.__agents[host]
             agent_count = len(self.__agents)
      
     def __send_msg_to_agents(self, msg):
-        module_logger.debug('Sending %s to agents: %s' % (msg, ", ".join(self.__agents.keys())))
+        module_logger.debug('Sending %s to agents: {}.'.format(msg, ", ".join(self.__agents.keys())))
         for host, agent in list(self.__agents.items()):
-            module_logger.debug('Sending %s to %s' % (msg, host,))
+            module_logger.debug('Sending {} to {}'.format(msg, host,))
             try:
                 #agent.poll()
                 #if agent.returncode is None: # still running
                 response = agent.close(msg)
             except Exception as e:
-                module_logger.error('Failed to sent %s to %s' % (msg, host,))
+                module_logger.error('Failed to sent {} to {}'.format(msg, host,))
                 module_logger.exception(e)
             else:
-                module_logger.debug('SSH agent terminated %s; %s' % (host, response))
+                module_logger.debug('SSH agent terminated {}; {}'.format (host, response))
                    
     def __exit_gracefully(self, signum=None, frame=None):
-        module_logger.debug('Caught termination signal; terminating %s' %(", ".join(self.__agents.keys())))
+        module_logger.debug('Caught termination signal; terminating {}'.format(", ".join(self.__agents.keys())))
         self.__send_msg_to_agents('TERM')
                 
     def __start_remote_agents(self, hosts):        
@@ -1674,7 +1743,7 @@ class Eventor(object):
                 result = self.loop_cycle()
             human_result = "success" if result else 'failure'
             total_todo, _ = self.count_todos(with_delayeds=True) 
-            module_logger.info('Processing finished with: %s (outstanding tasks: %s)' % (human_result, total_todo))
+            module_logger.info('Processing finished with: {} (outstanding tasks: {})'.format(human_result, total_todo))
             #module_logger.info('Processing finished')
           
         # wait for agents, if this is not already one  
@@ -1684,13 +1753,15 @@ class Eventor(object):
                 #agent.poll()
                 if agent.is_alive(): # still alive!
                     #send_to_remote(agent.stdin)
-                    module_logger.debug('Joining with agent process: %s:%d; ' % (host, agent.pid,))  
+                    module_logger.debug('Joining with agent process: {}:{}; '.format(host, agent.pid,))  
                     # TODO(Arnon): need to timeout and check if still alive.
                     self.__send_msg_to_agents('DONE')
                     agent.join()
-                    module_logger.debug('Agent process finished: %s:%d; ' % (host, agent.pid,))  
+                    module_logger.debug('Agent process finished: {}:{}; '.format(host, agent.pid,))  
                 else:
-                    module_logger.debug('Agent process not alive, skipping: %s:%d; ' % (host, agent.pid,))  
+                    module_logger.debug('Agent process not alive, skipping: {}:{}; '.format(host, agent.pid,))  
+        self.__logger.stop()
+        self.__logger = None
         return result
     
     

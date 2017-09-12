@@ -101,15 +101,15 @@ class Step(object):
             #stop_on_exception=self.config['stop_on_exception']
             str_args = ", ".join([repr(arg) for arg in func_args])
             if str_args: str_args += ', ' 
-            str_kwargs = ", ".join(["%s=%s" % (name, repr(value)) for name, value in  func_kwargs.items()])
+            str_kwargs = ", ".join(["{}={}".format (name, repr(value)) for name, value in  func_kwargs.items()])
             if eventor is not None:
                 func_kwargs['eventor'] = eventor
             name = func.__name__ if hasattr(self.func, '__name__') else func.__class__.__name__ 
-            module_logger.debug('[ Step %s ] running %s(%s%s)' % (self._name(seq_path), name,  str_args, str_kwargs))
+            module_logger.debug('[ Step {} ] running {}({}{}).'.format(self._name(seq_path), name,  str_args, str_kwargs))
             result = func(*func_args, **func_kwargs)
         else:
             result = True
         #if 'eventor' in func_kwargs:
         #    del func_kwargs['eventor']
-        module_logger.debug('[ Step %s ] Completed: %s' % (self._name(seq_path), repr(self) ))
+        module_logger.debug('[ Step {} ] Completed: {}'.format(self._name(seq_path), repr(self) ))
         return result

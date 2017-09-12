@@ -221,17 +221,21 @@ class DbApi(object):
     def add_trigger_if_not_exists(self, event_id, sequence, recovery):
         self.lock()
         # TODO(Arnon): since distributed, need to change to either "select for update" or "on duplicate key update"
-        module_logger.debug("DBAPI: checking if event trigger do not exist: %s(%s)" %(event_id, sequence,))
-        trigger = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.event_id==event_id, self.Trigger.sequence==sequence, self.Trigger.recovery==recovery)
-        found = self.session.query(trigger.exists()).scalar()
+        module_logger.debug("DBAPI: checking if event trigger do not exist: {}({}).".format(event_id, sequence,))
+        try:
+            trigger = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.event_id==event_id, self.Trigger.sequence==str(sequence), self.Trigger.recovery==recovery)
+            found = self.session.query(trigger.exists()).scalar()
+        except Exception as e:
+            #module_logger.exception(e)
+            raise
         if not found:
-            module_logger.debug("DBAPI: adding event trigger %s(%s)" %(event_id, sequence))
-            trigger = self.Trigger(run_id=self.run_id, event_id=event_id, sequence=sequence, recovery=recovery)
+            module_logger.debug("DBAPI: adding event trigger {}({}).".format(event_id, sequence))
+            trigger = self.Trigger(run_id=self.run_id, event_id=event_id, sequence=str(sequence), recovery=recovery)
             self.session.add(trigger)
             self.commit_db()
         else:
             trigger = trigger.first()
-            module_logger.debug("DBAPI: trigger already in db, returning %s; %s" %(found, trigger,))
+            module_logger.debug("DBAPI: trigger already in db, returning {}; {}.".format(found, trigger,))
         self.release()
         return trigger_from_db(trigger)
     
@@ -253,7 +257,7 @@ class DbApi(object):
         self.lock()
         members = self.session.query(self.Trigger).filter(self.Trigger.run_id == self.run_id, self.Trigger.acted == None, self.Trigger.recovery == recovery)
         if sequence:
-            members = members.filter(self.Trigger.sequence==sequence)
+            members = members.filter(self.Trigger.sequence==str(sequence))
         count = members.count()
         self.release()
         return count
@@ -261,7 +265,7 @@ class DbApi(object):
     def count_trigger_ready_like(self, sequence, recovery):
         self.lock()
         try:
-            members = self.session.query(self.Trigger).filter(self.Trigger.sequence.like(sequence), self.Trigger.run_id == self.run_id, self.Trigger.acted == None, self.Trigger.recovery==recovery)
+            members = self.session.query(self.Trigger).filter(self.Trigger.sequence.like(str(sequence)), self.Trigger.run_id == self.run_id, self.Trigger.acted == None, self.Trigger.recovery==recovery)
         except:
             self.release()
             raise
@@ -271,7 +275,7 @@ class DbApi(object):
         
     def add_task(self, step_id, sequence, host, status, recovery=None):
         self.lock()
-        task = self.Task(run_id=self.run_id, step_id=step_id, sequence=sequence, host=host, status=status, recovery=recovery)
+        task = self.Task(run_id=self.run_id, step_id=step_id, sequence=str(sequence), host=host, status=status, recovery=recovery)
         self.session.add(task)
         self.commit_db()
         self.release()
@@ -279,7 +283,7 @@ class DbApi(object):
         
     def add_task_if_not_exists(self, step_id, sequence, host, status, recovery=None):
         self.lock()
-        task = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==sequence, self.Task.host==host, self.Task.step_id == step_id, self.Task.recovery==recovery)
+        task = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==str(sequence), self.Task.host==host, self.Task.step_id == step_id, self.Task.recovery==recovery)
         found = self.session.query(task.exists()).scalar()
         if not found:
             # it still may be that remote would inserted 
@@ -296,36 +300,36 @@ class DbApi(object):
     def update_task(self, task, session=None):
         self.lock()
         if not session:
-            session=self.session
-        task.updated=updated=datetime.utcnow()
-        updates={self.Task.status:task.status, self.Task.updated: updated,}
+            session = self.session
+        task.updated = updated=datetime.utcnow()
+        updates = {self.Task.status:task.status, self.Task.updated: updated,}
         if task.pid:
             updates[self.Task.pid]=task.pid                            
         if task.result:
             updates[self.Task.result]=task.result                                                                   
-        self.session.query(self.Task).filter(self.Task.id_==task.id_).update(updates, synchronize_session=False)
+        try:
+            self.session.query(self.Task).filter(self.Task.id_==task.id_).update(updates, synchronize_session=False)
+        except Exception as e:
+            #module_logger.exception(e)
+            raise
+        
         self.commit_db()
+            
         self.release()
         module_logger.debug('DBAPI: update_task: %s' % (repr(task), ))
         return task
         
     def update_task_status(self, task, status, session=None,):
         self.lock()
-        #if isinstance(task, int):
-        #    task_id=task
-        #elif isinstance(task, Task):
-        #    task_id=task.id_
-        #else:
-        #    raise DbApiError("Unknown task type (%s), expected int or Task" % (type(task), ))
         
-        task_id=task.id_
+        task_id = task.id_
         
         if not session:
-            session=self.session
-        task.updated=updated=datetime.utcnow()
-        task.status=status
+            session = self.session
+        task.updated = updated=datetime.utcnow()
+        task.status = status
         module_logger.debug('DBAPI: updating task status: %s(%s)' % (task_id, status))
-        updates={self.Task.status: status, self.Task.updated: updated,}                                               
+        updates = {self.Task.status: status, self.Task.updated: updated,}                                               
         self.session.query(self.Task).filter(self.Task.id_==task_id).update(updates, synchronize_session=False)
         self.commit_db()
         self.release()
@@ -368,7 +372,7 @@ class DbApi(object):
             members=self.session.query(self.Task)
         members=members.filter(self.Task.run_id==self.run_id, self.Task.status.in_(status), self.Task.recovery==recovery)
         if sequence:
-            members=members.filter(self.Task.sequence==sequence)
+            members=members.filter(self.Task.sequence==str(sequence))
         if host:
             members=members.filter(self.Task.host==host)
         count=members.count()
@@ -378,27 +382,31 @@ class DbApi(object):
     def count_tasks_like(self, sequence, recovery, status):
         self.lock()
         with self.session.no_autoflush:
-            members = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence.like(sequence), self.Task.status.in_(status), self.Task.recovery==recovery)
+            members = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence.like(str(sequence)), self.Task.status.in_(status), self.Task.recovery==recovery)
         all = members.all()
-        tasks = ["%s/%s" % (task.step_id, task.sequence) for task in all]
-        module_logger.debug("DBAPI: count_tasks_like: tasks: %s" %(repr(tasks)))
+        tasks = ["{}/{}".format(task.step_id, task.sequence) for task in all]
+        module_logger.debug("DBAPI: count_tasks_like: tasks: {}.".format(repr(tasks)))
         count = members.count()
         self.release()
         return count
     
     def get_task_status(self, task_names, sequence, host, recovery):
         self.lock()
-        tasks=self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.step_id.in_(task_names), self.Task.sequence==sequence, self.Task.host==host, self.Task.recovery==recovery).all()
-        result=dict()
+        try:
+            tasks = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.step_id.in_(task_names), self.Task.sequence==str(sequence), self.Task.host==host, self.Task.recovery==recovery).all()
+        except Exception as e:
+            #module_logger.exception(e)
+            raise
+        result = dict()
         for task in tasks:
-            result[task.step_id]=task.status        
+            result[task.step_id] = task.status        
         self.release()
-        module_logger.debug("DBAPI: get_task_status: task: %s" %(repr(result)))
+        module_logger.debug("DBAPI: get_task_status: task: {}".format(repr(result)))
         return result
  
     def add_delay(self, delay_id, sequence, seconds, active=None, activated=None, recovery=None):
-        delay=self.Delay(run_id=self.run_id, delay_id=delay_id, seconds=seconds, sequence=sequence, recovery=recovery,)
-        module_logger.debug('DBAPI: add_delay: %s' % (repr(delay), ))
+        delay=self.Delay(run_id=self.run_id, delay_id=delay_id, seconds=seconds, sequence=str(sequence), recovery=recovery,)
+        module_logger.debug('DBAPI: add_delay: {}'.format(repr(delay), ))
         self.lock()
         try:
             self.session.add(delay)
@@ -411,10 +419,10 @@ class DbApi(object):
         
     def add_delay_update_if_not_exists(self, delay_id, sequence, seconds, active=None, activated=None, recovery=None):
         self.lock()
-        delay = self.session.query(self.Delay).filter(self.Delay.run_id==self.run_id, self.Delay.sequence==sequence, self.Delay.delay_id == delay_id, self.Delay.recovery==recovery)
+        delay = self.session.query(self.Delay).filter(self.Delay.run_id==self.run_id, self.Delay.sequence==str(sequence), self.Delay.delay_id == delay_id, self.Delay.recovery==recovery)
         found = self. session.query(delay.exists()).scalar()
         if not found:
-            delay=self.Delay(run_id=self.run_id, delay_id=delay_id, seconds=seconds, sequence=sequence, recovery=recovery, active=active, activated=activated)
+            delay=self.Delay(run_id=self.run_id, delay_id=delay_id, seconds=seconds, sequence=str(sequence), recovery=recovery, active=active, activated=activated)
             self.session.add(delay)
             self.commit_db()
         else:

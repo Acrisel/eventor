@@ -57,22 +57,22 @@ import time
 
 
 def construct_and_run():
-    logger=logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
     
     logger.setLevel(logging.DEBUG)
     
     #ev=evr.Eventor(filename=':memory:')
     ev=evr.Eventor(logging_level=logging.INFO)
     
-    ev1s=ev.add_event('run_step1')
-    ev1d=ev.add_event('done_step1')
-    ev2s=ev.add_event('run_step2')
-    ev2d=ev.add_event('done_step2')
-    ev3s=ev.add_event('run_step3', expr=(ev1d,ev2d)) 
+    ev1s = ev.add_event('run_step1')
+    ev1d = ev.add_event('done_step1')
+    ev2s = ev.add_event('run_step2')
+    ev2d = ev.add_event('done_step2')
+    ev3s = ev.add_event('run_step3', expr=(ev1d,ev2d)) 
     
-    s1=ev.add_step('s1', func=prog.step1_create_data, kwargs={'outfile': 'source.txt'}, triggers={evr.StepStatus.complete: (ev1d, ev2s,),}) 
-    s2=ev.add_step('s2', prog.step2_multiple_data, triggers={evr.StepStatus.complete: (ev2d,), })
-    s3=ev.add_step('s3', prog.step3,)
+    s1 = ev.add_step('s1', func=prog.step1_create_data, kwargs={'outfile': 'source.txt'}, triggers={evr.StepStatus.complete: (ev1d, ev2s,),}) 
+    s2 = ev.add_step('s2', prog.step2_multiple_data, triggers={evr.StepStatus.complete: (ev2d,), })
+    s3 = ev.add_step('s3', prog.step3,)
     
     ev.add_assoc(ev1s, s1)
     ev.add_assoc(ev2s, s2)
