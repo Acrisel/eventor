@@ -7,14 +7,14 @@ Created on Aug 27, 2017
 #from concepts.sshcmd_popen import sshcmd
 import pickle
 import os
-from concepts.sshtypes import RemoteWorker
+import concepts.sshtypes as sshtypes
 import struct
 import multiprocessing as mp
-import sys
-from subprocess import PIPE, run
-import threading as th
+import subprocess
 import time
+import logging
 
+logger = logging.getLogger(__name__)
 '''
 Prerequisite:
 
@@ -31,7 +31,7 @@ Prerequisite:
 
 def stdbin_decode(value, encodeing='ascii'):
     try:
-        value = value.decode()
+        value = value.decode(encodeing)
     except:
         pass
     if value.endswith('\n'):
@@ -39,22 +39,12 @@ def stdbin_decode(value, encodeing='ascii'):
     return value
 
 class SshAgent(object):
-    def __init__(self, host, command, user=None, logger=None):
+    def __init__(self, host, command, user=None,):
         self.pipe_read, self.pipe_write = mp.Pipe()
         
         self.__communicateq = mp.Queue()
         self.command = command
-        self.where = "%s%s" % ('' if user is None else "@%s" % user, host)
-        self.logger = logger
-        if logger:
-            self.__debug = self.logger.debug
-            self.__critical = self.logger.critical
-            self.__excetion = self.logger.exception
-        else:
-            self.__debug = print
-            self.__critical = print
-            self.__excetion = print
-            
+        self.where = "%s%s" % ('' if user is None else "@%s" % user, host)            
         self.result = None
             
     def start(self, wait=None):
@@ -63,12 +53,10 @@ class SshAgent(object):
             self.__agent.start()
         except Exception:
             raise
-        self.__debug("agent .start() activated: %s." % self.__agent.pid)
         
         if wait is not None:
             while True:
                 time.sleep(wait)
-                self.__debug("Waiting for start: %s %s" % (self.__agent.is_alive(), self.__agent.exitcode))
                 if self.__agent.is_alive() or self.__agent.exitcode is not None:
                     break
 
@@ -79,12 +67,9 @@ class SshAgent(object):
         pipe_readf = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
         
         cmd = ["ssh", where, 'python', command]
-        self.__debug('Starting subprocess run(%s)' %(cmd))
-        sshrun = run(cmd, shell=False, stdin=pipe_readf, stdout=PIPE, stderr=PIPE, check=False,)
-        self.__debug('subprocess.run() started.')
+        sshrun = subprocess.run(cmd, shell=False, stdin=pipe_readf, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,)
         response = (sshrun.returncode, sshrun.stdout.decode(), sshrun.stderr.decode())
         communicateq.put(response)
-        self.__debug('Response placed in queue: %s' % (repr(response),))
         pipe_readf.close()
         
     def __prepare(self, msg, pack=True):
@@ -111,26 +96,19 @@ class SshAgent(object):
             except:
                 pass
             if result:
-                self.result = result[0], stdbin_decode(result[1]), stdbin_decode(result[2])
-        self.__debug('Received from SSH control queue: %s'  % (repr(self.result)))
+                self.result = result[0], result[1], result[2]
         return self.result
         
     def close(self):
         if self.is_alive():
-            self.__debug('Sending TERM to pipe.')
             self.send('TERM')
-        else:
-            self.__debug('Process is not alive, skipping TERM.')
         response = self.response()
-        self.__debug('Joining with subprocess.')
         self.__agent.join()
-        self.__debug('Subprocess joined.')
         return response
 
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
-    #mp.freeze_support()
     
     agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/concepts"
     agentpy = os.path.join(agent_dir, "sshagent_popene.py")
@@ -144,7 +122,7 @@ if __name__ == '__main__':
         print(sshagent.response())
         exit()
         
-    worker = RemoteWorker()
+    worker = sshtypes.RemoteWorker()
     print('Sending worker')
     sshagent.send(worker)
     

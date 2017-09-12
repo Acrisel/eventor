@@ -4,7 +4,7 @@ Created on Aug 27, 2017
 @author: arnon
 '''
 
-from concepts.sshtypes import RemoteWorker
+import concepts.sshtypes as sshtypes
 import pickle
 import sys
 import struct

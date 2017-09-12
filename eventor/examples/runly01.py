@@ -79,16 +79,6 @@ def construct_and_run():
     ev.add_assoc(ev3s, s3)
     
     ev.trigger_event(ev1s, 3)
-    '''
-    ev.loop_once()
-    ev.loop_once()
-    ev.loop_once()
-    ev.loop_once()
-    ev.loop_once()
-    ev.loop_once()
-    time.sleep(5)
-    ev.loop_once()
-    '''
     ev.run()
     ev.close()
 
