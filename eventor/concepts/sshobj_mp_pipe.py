@@ -44,7 +44,7 @@ class SshAgent(object):
     
         self.__communicateq = mp.Queue()
         self.agent_program = agent_program
-        self.where = "%s%s" % ('' if user is None else "@%s" % user, host)            
+        self.where = "{}{}".format('' if user is None else "@{}".format(user), host)            
         self.result = None
         
     def start(self, wait=None):

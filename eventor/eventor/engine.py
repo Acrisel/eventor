@@ -419,12 +419,12 @@ class Eventor(object):
                 raise EventorError("When shared_db is set in restart, run_id must be provided.")
             # in this case we need to produce unique run_id on this cluster
             self.run_id = get_unique_run_id()
-            module_logger.info("Process PID: %s; new run_id: %s." % (os.getpid(), self.run_id,)) 
+            module_logger.info("Process PID: {}; new run_id: {}.".format(os.getpid(), self.run_id,)) 
             self.__memory.kwargs['run_id'] = self.run_id
         elif self.run_id:
-            module_logger.info("Process PID: %s; assumed run_id: %s." % (os.getpid(), self.run_id,)) 
+            module_logger.info("Process PID: {}; assumed run_id: {}.".format(os.getpid(), self.run_id,)) 
         else:
-            module_logger.info("Process PID: %s; no run_id:." % (os.getpid(), )) 
+            module_logger.info("Process PID: {}; no run_id:.".format(os.getpid(), )) 
         rest_sequences()   
         self.__setup_db_connection(create=not self.__agent)
         
@@ -477,10 +477,10 @@ class Eventor(object):
         return result
         
     def __str__(self):
-        steps='\n    '.join([ str(step) for step in self.__memory.steps.values()])
-        events='\n    '.join([ str(event) for event in self.__memory.events.values()])
-        assocs='\n    '.join([ str(assoc) for assoc in self.__memory.assocs.values()])
-        result="Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )\n    assocs( \n    {}\n   )  )".format(self.name, events, steps, assocs)
+        steps = '\n    '.join([ str(step) for step in self.__memory.steps.values()])
+        events = '\n    '.join([ str(event) for event in self.__memory.events.values()])
+        assocs = '\n    '.join([ str(assoc) for assoc in self.__memory.assocs.values()])
+        result = "Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )\n    assocs( \n    {}\n   )  )".format(self.name, events, steps, assocs)
         return result
     
     def program_repr(self):
@@ -1133,6 +1133,7 @@ class Eventor(object):
                 #delay_task=not task.step_id.startswith('_evr_delay_')
                 module_logger.debug('[ Task {}/{} ] Going to construct ({}) and run task:\n    {}'.format(task.step_id, task.sequence, task_construct, repr(task), )) 
                 
+                # TODO(Arnon): make configuration flag to pass Eventor on invoke.
                 if task_construct == 'invoke':
                     # If Invoke, we also pass eventor to task.
                     # Since Invoke, contects remains in current process,
@@ -1180,7 +1181,7 @@ class Eventor(object):
                 
                 try:
                     proc = task_constructor(target=task_wrapper, kwargs=kwds)
-                except Exceptions as e:
+                except Exception as e:
                     module_logger.critical("[ Task {}/{} ] Failed to construct process using {}.".format(task.step_id, task.sequence, task_construct,))
                     module_logger.exception(e)
                     self.__state = EventorState.shutdown
@@ -1575,11 +1576,11 @@ class Eventor(object):
         kwargs.extend([('--host', host), ('--log',self.__logger_info['name']), ('--logdir',self.__logger_info['logdir']), ('--loglevel', self.__logger_info['logging_level'])])
         
         agentpy = 'eventor_agent.py' 
-        kw = ["%s %s" %(name, value) for name, value in kwargs]
+        kw = ["{} {}".format(name, value) for name, value in kwargs]
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
-        cmd = "%s %s" % (agentpy, " ".join(kw),) # ' '.join(args))
+        cmd = "{} {}".format(agentpy, " ".join(kw),) # ' '.join(args))
         module_logger.debug('Agent command: {}: {}.'.format(host, cmd))
-        sshagent = SshAgent(host, cmd, logger=module_logger)
+        sshagent = SshAgent(host, cmd, logger=None) #=module_logger)
         sshagent.start(wait=0.2)
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         #agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', pipe_read, pipe_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
@@ -1773,8 +1774,9 @@ class Eventor(object):
                     module_logger.debug('Agent process finished: {}:{}; '.format(host, agent.pid,))  
                 else:
                     module_logger.debug('Agent process not alive, skipping: {}:{}; '.format(host, agent.pid,))  
-        self.__logger.stop()
-        self.__logger = None
+        if self.__logger is not None:
+            self.__logger.stop()
+            self.__logger = None
         return result
     
     
