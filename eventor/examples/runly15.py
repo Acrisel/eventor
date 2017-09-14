@@ -36,7 +36,7 @@ def construct_and_run():
     config = os.path.abspath('example00.conf')
     if config.startswith('/private'):
         config = config[8:]   
-    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=True, import_module=["examples.example_00_prog", "examples.runly15_types", ],)
+    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=False, import_module=["examples.example_00_prog", "examples.runly15_types", ],)
     
     ev0first = ev.add_event('s0_start')
     ev0next = ev.add_event('s0_next')
@@ -74,8 +74,8 @@ def construct_and_run():
     ev.add_assoc(ev3s, s3)
     
     ev.trigger_event(ev0first, '0')
-    print(ev.program_repr())
-    #ev.run()
+    #print(ev.program_repr())
+    ev.run()
     ev.close()
     
 if __name__ == '__main__':

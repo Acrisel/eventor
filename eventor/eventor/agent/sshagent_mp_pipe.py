@@ -133,7 +133,7 @@ class SshAgent(object):
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
-    #mp.freeze_support()
+    mp.freeze_support()
     
     agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/concepts"
     agentpy = os.path.join(agent_dir, "sshagent_popen.py")

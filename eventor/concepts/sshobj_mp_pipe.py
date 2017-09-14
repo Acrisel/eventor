@@ -10,7 +10,7 @@ import os
 import concepts.sshtypes as sshtypes
 import struct
 import multiprocessing as mp
-import subprocess
+from subprocess import run, PIPE
 import time
 import logging
 
@@ -24,8 +24,8 @@ Prerequisite:
         
     add to authorized_keys proper key:
     
-        command=". ~/.profile; if [ -n \"$SSH_ORIGINAL_COMMAND\" ]; 
-        then eval \"$SSH_ORIGINAL_COMMAND\"; else exec \"$SHELL\"; fi" ssh-rsa ... 
+        agent_program=". ~/.profile; if [ -n \"$SSH_ORIGINAL_agent_program\" ]; 
+        then eval \"$SSH_ORIGINAL_agent_program\"; else exec \"$SHELL\"; fi" ssh-rsa ... 
 '''
 
 
@@ -39,21 +39,23 @@ def stdbin_decode(value, encodeing='ascii'):
     return value
 
 class SshAgent(object):
-    def __init__(self, host, command, user=None,):
+    def __init__(self, host, agent_program, user=None,):
         self.pipe_read, self.pipe_write = mp.Pipe()
-        
+    
         self.__communicateq = mp.Queue()
-        self.command = command
+        self.agent_program = agent_program
         self.where = "%s%s" % ('' if user is None else "@%s" % user, host)            
         self.result = None
-            
+        
     def start(self, wait=None):
-        self.__agent =  mp.Process(target=self.start_agent, args=(self.where, self.command, self.pipe_read, self.pipe_write, self.__communicateq), daemon=True) 
+        self.__agent =  mp.Process(target=self.run_agent, 
+            args=(self.where, self.agent_program, self.pipe_read, self.pipe_write, self.__communicateq), 
+            daemon=True) 
         try:
             self.__agent.start()
         except Exception:
             raise
-        
+    
         if wait is not None:
             while True:
                 time.sleep(wait)
@@ -61,17 +63,17 @@ class SshAgent(object):
                     break
 
         self.pipe_read.close()
-        
-    def start_agent(self, where, command, pipe_read, pipe_write, communicateq):
+    
+    def run_agent(self, where, agent_program, pipe_read, pipe_write, communicateq):
         pipe_write.close()
         pipe_readf = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
-        
-        cmd = ["ssh", where, 'python', command]
-        sshrun = subprocess.run(cmd, shell=False, stdin=pipe_readf, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,)
+    
+        cmd = ["ssh", where, 'python', agent_program]
+        sshrun = run(cmd, shell=False, stdin=pipe_readf, stdout=PIPE, stderr=PIPE, check=False,)
         response = (sshrun.returncode, sshrun.stdout.decode(), sshrun.stderr.decode())
         communicateq.put(response)
         pipe_readf.close()
-        
+    
     def __prepare(self, msg, pack=True):
         workload = msg
         if pack:
@@ -79,16 +81,16 @@ class SshAgent(object):
         msgsize = len(workload)
         magsize_packed = struct.pack(">L", msgsize)
         return magsize_packed + workload
-    
+
     def is_alive(self):
         return self.__agent.is_alive()
-    
+
     def send(self, msg, pack=True):
         pipe_writef = os.fdopen(os.dup(self.pipe_write.fileno()), 'wb')
         request = self.__prepare(msg, pack=pack)
         pipe_writef.write(request)
         pipe_writef.close()
-        
+    
     def response(self, timeout=None):
         if self.result is None:
             try:
@@ -98,7 +100,7 @@ class SshAgent(object):
             if result:
                 self.result = result[0], result[1], result[2]
         return self.result
-        
+    
     def close(self):
         if self.is_alive():
             self.send('TERM')

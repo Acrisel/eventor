@@ -188,7 +188,6 @@ def run():
     
     try:
         mem_pack = sys.stdin.buffer.read(msgsize[0])
-        #mem_pack = sys.stdin.read(msgsize[0])
         memory = pickle.loads(mem_pack)
     except Exception as e:
         module_logger.critical("Failed to pickle loads workload.")
@@ -207,7 +206,7 @@ def run():
         kwargs['host'] = args.host
         kwargs['memory'] = memory
     except Exception as e:
-        module_logger.critical("Failed get kwargs from received  memory.")
+        module_logger.critical("Failed get kwargs from received memory.")
         module_logger.exception(e)
         # signal to parant via stdout
         print('TERM')

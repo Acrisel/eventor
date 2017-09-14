@@ -264,7 +264,7 @@ class Eventor(object):
                        StepStatus.failure: StepReplay.rerun, 
                        StepStatus.success: StepReplay.skip,}  
         
-    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None):
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None):
         """initializes steps object
         
         Args:
@@ -278,6 +278,7 @@ class Eventor(object):
                 previous run.  recovery_run, if provided, will tell Eventor which run to recover.
                 If not provided, latest run is assumed.
             host: hostname or ip address for steps with not specified host; if none, current runnign host will be used.
+            remotes: hint to Eventor for remote host associated with hidden steps (steps that will be deposit on-the-fly).
             shared_db: (boolean) if set, indicates that the database used is by multiple 
                 programs or instances thereof. 
             dedicated_logging: disabled   
@@ -333,6 +334,7 @@ class Eventor(object):
         del eventor_kwargs['self']
         
         self.name = name
+        self.remotes = remotes
         
         if import_file is not None and import_module is None:
             raise EventorError("Import_file is provided but not import_module.")
@@ -436,6 +438,15 @@ class Eventor(object):
     def get_logger(self):
         global module_logger
         return module_logger
+    
+    def add_remote(self, remotes):
+        module_logger.debug('Adding remote: {}.'.format(remotes)) 
+        if isinstance(remotes, str):
+            self.remotes.append(remotes)
+        elif isinstance(remotes, list):
+           self.remotes.extend(remotes)
+        else:
+            raise EventorError('Expecting remotes of type str or list, but got: {}'.format(type(remotes).__name__))
            
     def __setup_db_connection(self, create=True):
         global module_logger
@@ -809,17 +820,17 @@ class Eventor(object):
             assoc_obj=assoc.assoc_obj
             if isinstance(assoc_obj, Event):
                 # trigger event
-                module_logger.debug('Processing event association event [%s]: %s' % (sequence, repr(assoc_obj)))
+                module_logger.debug('Processing event association event [{}]: {}'.format(sequence, repr(assoc_obj)))
                 self.trigger_event( assoc_obj, sequence )
                 assoc_events.append(sequence)
             elif isinstance(assoc_obj, Step):
                 # Check if there is previous task for this step
-                module_logger.debug('Processing event association step [%s]: %s' % (sequence, repr(assoc_obj)))
+                module_logger.debug('Processing event association step [{}]: {}'.format(sequence, repr(assoc_obj)))
                 self.trigger_step(assoc_obj, sequence)
                 assoc_steps.append(sequence)
                 
             else:
-                raise EventorError("Unknown assoc object in association: %s" % repr(assoc))
+                raise EventorError("Unknown assoc object in association: {}".formatrepr(assoc))
         
         return list(set(assoc_events)), list(set(assoc_steps))
 
@@ -1019,14 +1030,14 @@ class Eventor(object):
         step = self.__memory.steps[task.step_id]
         status = task_to_step_status(task.status)
         triggers = step.triggers.get(status, [])
-        module_logger.debug("Found triggers for task {}/{} status {}: {}".format(repr(task.step_id), task.sequence, status, repr(triggers)))
+        module_logger.debug("[ Task {}/{} ] Found triggers for task status {}: {}".format(task.step_id, task.sequence, status, repr(triggers)))
         triggered = list()
         #if triggers:
         for event in triggers: 
             result = event.trigger_if_not_exists(self.db, task.sequence, self.__recovery)
             if result: 
                 triggered.append( (event.id_, task.sequence) )
-                module_logger.debug("Triggered post task: {}[{}]".format(repr(event.id_), task.sequence))
+                module_logger.debug("[ Task {}/{} ] Triggered post task: {}/{}".format(task.step_id, task.sequence, repr(event.id_), task.sequence))
                 
         return triggered
     
@@ -1714,9 +1725,11 @@ class Eventor(object):
             setproctitle("eventor: %s" % (run_id,))
             
         # start agents, if this is not already one
-        hosts = set([step.host for step in self.__memory.steps.values()])
+        self.remotes = list(set(self.remotes) - set([self.host,]))
+        hosts = set([step.host for step in self.__memory.steps.values()] + self.remotes)
         hosts.remove(self.host)
-
+        
+        module_logger.debug('Remote hosts in program: {}; hidden remotes: {}.'.format(hosts, self.remotes))  
         self.__agents = dict()
         if not self.__agent and len(hosts) > 0:
             # start_remote_agents will fill __agents dict.
