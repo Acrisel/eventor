@@ -21,6 +21,7 @@ from threading import Thread
 from acrilog import MpLogger
 import logging
 import pprint
+from queue import Empty
 
 module_logger = None
 
@@ -124,7 +125,7 @@ def pipe_listener(queue,):
         queue.put(('TERM', e))
         return
         
-    module_logger.debug('Received message from remote parent: %s; passing to main process.' % msg)
+    module_logger.debug('Received message from remote parent: {}; passing to main process.'.format(msg))
         
     queue.put((msg, ''))
 
@@ -259,12 +260,12 @@ def run():
         
     module_logger.debug("Starting Eventor subprocess on remote host.") #:\n%s" % pprint.pformat(kwargs, indent=4))
     
-    queue = mp.Queue()
+    child_queue = mp.Queue()
     
     module_logger.debug("Starting control pipe listener.")
     # we set thread to Daemon so it would be killed when agent is gone
     try:
-        listener = Thread(target=pipe_listener, args=(queue,), daemon=True)
+        listener = Thread(target=pipe_listener, args=(child_queue,), daemon=True)
         listener.start()
     except Exception as e:
         module_logger.critical("Failed to queue listener thread.")
@@ -275,7 +276,7 @@ def run():
         return
     
     try:
-        agent = mp.Process(target=start_eventor, args=(queue, logger_info), kwargs=kwargs, daemon=False)
+        agent = mp.Process(target=start_eventor, args=(child_queue, logger_info), kwargs=kwargs, daemon=False)
         agent.start()
     except Exception as e:
         #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
@@ -295,9 +296,9 @@ def run():
     
     while True:
         try:
-            msg = queue.get(timeout=0.5)
-        except  queue.Empty:
-            msg=None
+            msg = child_queue.get(timeout=0.5)
+        except Empty:
+            msg = None
             if not check_agent_process(agent):
                 return
         if not msg: continue

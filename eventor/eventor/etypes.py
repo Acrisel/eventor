@@ -27,6 +27,9 @@ class MemEventor(object):
         self.delays = dict()
         self.kwargs = dict()
         self.logger_info = None
+        
+    def __repr__(self):
+        
 
 
 if '__main__' == __name__:
