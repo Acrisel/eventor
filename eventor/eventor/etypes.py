@@ -31,7 +31,7 @@ class MemEventor(object):
     def __repr__(self):
         result = ['Steps:']
         result.append('    {}'.format(', '.join([name for name in self.steps.keys()])))
-        result = ['Events:']
+        result.append('Events:')
         result.append('    {}'.format(', '.join([name for name in self.events.keys()])))
         return '\n'.join(result)
 
