@@ -207,7 +207,8 @@ def run():
         # store memory into file
         if args.file:
             try:
-                pickle.dump(memory, args.file)
+                with open(args.file, 'wb') as file:
+                    pickle.dump(memory, file)
             except Exception as e:
                 module_logger.critical("Failed to pickle dump workload to {}.".format(args.file))
                 module_logger.exception(e)
@@ -218,7 +219,8 @@ def run():
     else:
         module_logger.debug("Fetching workload. from file")  
         try:
-            memory = pickle.load(args.file)
+            with open(args.file, 'rb') as file:
+                memory = pickle.load(file)
         except Exception as e:
             module_logger.critical("Failed to pickle load workload from {}.".format(args.file))
             module_logger.exception(e)
