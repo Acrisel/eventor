@@ -140,7 +140,7 @@ def imports_from_cmd(imports_str):
     imports = [(import_file, set(modules)) for import_file, modules in imports.items() if modules]
     return imports   
 
-def check_agent_process(agent, exception):
+def check_agent_process(agent,):
     if not agent.is_alive():
         agent.join()
         module_logger.debug("Agent is not alive! terminating.")
@@ -290,7 +290,7 @@ def run():
     module_logger.debug("Eventor subprocess pid: %s" % agent.pid)
     
     # wait for remote parent or from child Eventor 
-    if not check_agent_process():
+    if not check_agent_process(agent):
         return
     
     while True:
@@ -298,7 +298,7 @@ def run():
             msg = queue.get(timeout=0.5)
         except  queue.Empty:
             msg=None
-            if not check_agent_process():
+            if not check_agent_process(agent):
                 return
         if not msg: continue
         msg, error = msg
