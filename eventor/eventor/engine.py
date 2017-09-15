@@ -367,8 +367,8 @@ class Eventor(object):
         self.ssh_port = 22
         
         self.__memory = MemEventor() if memory is None else memory
-        self.__agent = memory is not None
-        if not self.__agent:
+        self.__is_agent = memory is not None
+        if not self.__is_agent:
             self.__memory.kwargs.update(eventor_kwargs)
             #self.__memory.kwargs['agent'] = True
             #self.__memory.kargs['memory'] = self.__memory
@@ -391,7 +391,7 @@ class Eventor(object):
         #if dedicated_logging:
         #    logger_name = name
         
-        if not self.__agent:
+        if not self.__is_agent:
             self.__logger = MpLogger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
             module_logger = self.__logger.start()
             self.__logger_info = self.__logger.logger_info()
@@ -426,8 +426,9 @@ class Eventor(object):
             module_logger.info("Process PID: {}; assumed run_id: {}.".format(os.getpid(), self.run_id,)) 
         else:
             module_logger.info("Process PID: {}; no run_id:.".format(os.getpid(), )) 
+        module_logger.debug("Process is agent: {}.".format(self.__is_agent)) 
         rest_sequences()   
-        self.__setup_db_connection(create=not self.__agent)
+        self.__setup_db_connection(create=not self.__is_agent)
         
         self.__program_artifacts = ProgramArtifacts(dict(), dict(), list())
         
@@ -464,7 +465,7 @@ class Eventor(object):
         #    else:
         #        self.__db_daly_adj=(datetime.now() - datetime.fromtimestamp(db_mtime)).total_seconds()
         self.__get_dbapi(create=create)
-        if self.__run_mode == RunMode.restart and not self.__agent:
+        if self.__run_mode == RunMode.restart and not self.__is_agent:
             self.__write_info()
         else:
             self.__read_info(run_mode=self.__run_mode, recovery_run=self.__recovery_run)
@@ -1769,19 +1770,20 @@ class Eventor(object):
             run_id = "%s." % self.run_id if self.run_id else ''
             setproctitle("eventor: %s" % (run_id,))
             
-        # start agents, if this is not already one
-        self.remotes = list(set(self.remotes) - set([self.host,]))
-        hosts = set([step.host for step in self.__memory.steps.values()] + self.remotes)
-        hosts.remove(self.host)
-        
-        module_logger.debug('Remote hosts in program: {}; hidden remotes: {}.'.format(hosts, self.remotes))  
         self.__agents = dict()
-        if not self.__agent and len(hosts) > 0:
-            # start_remote_agents will fill __agents dict.
-            started = self.__start_remote_agents(hosts)  
-            if not  started:
-                module_logger.critical('Processing terminated due to failure to start agents.')    
-                return False
+        if not self.__is_agent:
+            # start agents, if this is not already one
+            self.remotes = list(set(self.remotes) - set([self.host,]))
+            hosts = set([step.host for step in self.__memory.steps.values()] + self.remotes)
+            hosts.remove(self.host)
+            
+            module_logger.debug('Remote hosts in program: {}; hidden remotes: {}.'.format(hosts, self.remotes))
+            if len(hosts) > 0:  
+                # start_remote_agents will fill __agents dict.
+                started = self.__start_remote_agents(hosts)  
+                if not  started:
+                    module_logger.critical('Processing terminated due to failure to start agents.')    
+                    return False
         
         self.__controlq = mp.Queue()
         self.__adminq_mp_manager = mp_manager = mp.Manager()
@@ -1805,7 +1807,7 @@ class Eventor(object):
             #module_logger.info('Processing finished')
           
         # wait for agents, if this is not already one  
-        if not self.__agent:
+        if not self.__is_agent:
             for host, agent in list(self.__agents.items()):
                 #pid, status = os.waitpid(pid, os.WNOHANG)
                 #agent.poll()
