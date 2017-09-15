@@ -386,6 +386,7 @@ class Eventor(object):
         # TODO(Arnon): get to logging configuration (as in Database)
         # TODO(Arnon): drive encoding from parameter
         # TODO(Arnon): log name needs to be driven by calling 
+        # TODO(Arnon): add run_id to log name
         logger_name = name
         #if dedicated_logging:
         #    logger_name = name
