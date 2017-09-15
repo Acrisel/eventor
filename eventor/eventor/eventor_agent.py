@@ -58,8 +58,7 @@ def cmdargs():
     parser.add_argument('--loglevel', type=int, 
                         help="""Logger level.""")
     parser.add_argument('--file', type=str, resuired=False,
-                        help="""File to store or recover memory. With --pipe, it would store memory into file. """
-                             """Without --pipe, it would recover memory from store""")
+                        help="""File to store or recover memory. With --pipe, it would store memory into file. Without --pipe, it would recover memory from store""")
     parser.add_argument('--pip', action='store_true', 
                         help="""Indicates that memory should be read from STDIN. If --pipe not provided, --file must be.""")
     args = parser.parse_args()  
