@@ -220,6 +220,7 @@ class DbApi(object):
         
     def add_trigger_if_not_exists(self, event_id, sequence, recovery):
         self.lock()
+        self.session.begin()
         # TODO(Arnon): since distributed, need to change to either "select for update" or "on duplicate key update"
         module_logger.debug("DBAPI: checking if event trigger do not exist: {}({}).".format(event_id, sequence,))
         try:
@@ -236,6 +237,7 @@ class DbApi(object):
         else:
             trigger = trigger.first()
             module_logger.debug("DBAPI: trigger already in db, returning {}; {}.".format(found, trigger,))
+        self.commit_db()
         self.release()
         return trigger_from_db(trigger)
     
@@ -283,6 +285,7 @@ class DbApi(object):
         
     def add_task_if_not_exists(self, step_id, sequence, host, status, recovery=None):
         self.lock()
+        self.session.begin()
         task = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==str(sequence), self.Task.host==host, self.Task.step_id == step_id, self.Task.recovery==recovery)
         found = self.session.query(task.exists()).scalar()
         if not found:
@@ -292,6 +295,7 @@ class DbApi(object):
             self.commit_db()
         else:
             task = task.first()
+        self.commit_db()
         self.release()
         result = task_from_db(task)
         module_logger.debug('DBAPI: add_task_if_not_exists: %s' % (repr(result), ))
