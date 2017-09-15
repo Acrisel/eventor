@@ -33,7 +33,7 @@ class MemEventor(object):
         result.append('    {}'.format(', '.join([name for name in self.steps.keys()])))
         result = ['Events:']
         result.append('    {}'.format(', '.join([name for name in self.events.keys()])))
-        return result
+        return '\n'.join(result)
 
 
 if '__main__' == __name__:
