@@ -206,6 +206,7 @@ def run():
         
         # store memory into file
         if args.file:
+            module_logger.debug("Storing workload to {}.".format(args.file))
             try:
                 with open(args.file, 'wb') as file:
                     pickle.dump(memory, file)
