@@ -141,9 +141,9 @@ class SQLAlchemyConf(object):
         self.metadata=metadata=MetaData(bind=engine, schema=schema)
         return metadata
     
-    def get_session(self, force=False):
+    def get_session(self, force=False, autocommit=True):
         if self.session and not force: return self.session
-        session_factory = sessionmaker(bind=self.get_metadata(force=force).bind.engine)
+        session_factory = sessionmaker(bind=self.get_metadata(force=force).bind.engine, autocommit=autocommit)
         Session = scoped_session(session_factory)
         self.session = session = Session()
         #session=Session()

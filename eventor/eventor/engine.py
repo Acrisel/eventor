@@ -425,7 +425,7 @@ class Eventor(object):
         elif self.run_id:
             module_logger.info("Process PID: {}; assumed run_id: {}.".format(os.getpid(), self.run_id,)) 
         else:
-            module_logger.info("Process PID: {}; no run_id:.".format(os.getpid(), )) 
+            module_logger.info("Process PID: {}; no run_id.".format(os.getpid(), )) 
         module_logger.debug("Process is agent: {}.".format(self.__is_agent)) 
         rest_sequences()   
         self.__setup_db_connection(create=not self.__is_agent)
@@ -1689,7 +1689,7 @@ class Eventor(object):
             agent_count = len(self.__agents)
      
     def __send_msg_to_agents(self, msg):
-        module_logger.debug('Sending %s to agents: {}.'.format(msg, ", ".join(self.__agents.keys())))
+        module_logger.debug('Sending {} to agents: {}.'.format(msg, ", ".join(self.__agents.keys())))
         for host, agent in list(self.__agents.items()):
             module_logger.debug('Sending {} to {}'.format(msg, host,))
             try:

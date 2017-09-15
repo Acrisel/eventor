@@ -109,7 +109,7 @@ class DbApi(object):
         if session:
             self.session = session()   
         else: 
-            self.session=self.__sqlalchemy.get_session(force=True)
+            self.session=self.__sqlalchemy.get_session(force=True, autocommit=False)
         self.open(mode=mode, create=create) 
     
     def set_thread_synchronization(self, value=True):
@@ -159,6 +159,7 @@ class DbApi(object):
         #self.__create_engine(runfile)
         self.create_schema()
         self.metadata.create_all()
+        self.session.commit()
         
     def commit_db(self):
         self.session.flush()
@@ -169,12 +170,13 @@ class DbApi(object):
         for name, value in info.items():
             db_info=self.Info(run_id=self.run_id, name=name, value=value)
             self.session.add(db_info)
-            self.commit_db()
+        self.commit_db()
         self.release()
         
     def read_info(self, ):
         self.lock()
         rows = self.session.query(self.Info).filter(self.Info.run_id==self.run_id).all()
+        self.session.commit()
         self.release()
         info=dict()
         for row in rows:
@@ -185,12 +187,14 @@ class DbApi(object):
         self.lock()
         for name, value in info.items():
             self.session.query(self.Info).filter(self.Info.run_id==self.run_id, self.Info.name==name).update({self.Info.name:name, self.Info.value:value}, synchronize_session=False)
+        self.commit_db()
         self.release()
                 
     def get_trigger_iter(self, recovery):
         self.lock()
         rows = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.recovery==recovery).all()
         #rows = query.statement.execute().fetchall()
+        self.session.commit()
         self.release()
         for row in rows:
             yield trigger_from_db(row)
@@ -199,6 +203,7 @@ class DbApi(object):
     def get_trigger_map(self, recovery=0):
         self.lock()
         triggers = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.recovery==recovery).all()
+        self.session.commit()
         self.release()
         trigger_map=dict()
         for trigger in triggers:
@@ -220,14 +225,16 @@ class DbApi(object):
         
     def add_trigger_if_not_exists(self, event_id, sequence, recovery):
         self.lock()
-        self.session.begin()
         # TODO(Arnon): since distributed, need to change to either "select for update" or "on duplicate key update"
+        #self.session.begin()
         module_logger.debug("DBAPI: checking if event trigger do not exist: {}({}).".format(event_id, sequence,))
         try:
             trigger = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.event_id==event_id, self.Trigger.sequence==str(sequence), self.Trigger.recovery==recovery)
             found = self.session.query(trigger.exists()).scalar()
         except Exception as e:
             #module_logger.exception(e)
+            #self.commit_db()
+            self.release()
             raise
         if not found:
             module_logger.debug("DBAPI: adding event trigger {}({}).".format(event_id, sequence))
@@ -243,6 +250,7 @@ class DbApi(object):
     
     def _get_trigger(self, trigger):
         rows = self.session.query(self.Trigger).filter(self.Trigger.id_==trigger.id_).all()
+        self.session.commit()
         try: return rows[0]
         except: return None
     
@@ -261,6 +269,7 @@ class DbApi(object):
         if sequence:
             members = members.filter(self.Trigger.sequence==str(sequence))
         count = members.count()
+        self.session.commit()
         self.release()
         return count
         
@@ -269,9 +278,11 @@ class DbApi(object):
         try:
             members = self.session.query(self.Trigger).filter(self.Trigger.sequence.like(str(sequence)), self.Trigger.run_id == self.run_id, self.Trigger.acted == None, self.Trigger.recovery==recovery)
         except:
+            self.session.commit()
             self.release()
             raise
         count = members.count()
+        self.session.commit()
         self.release()
         return count
         
@@ -285,7 +296,8 @@ class DbApi(object):
         
     def add_task_if_not_exists(self, step_id, sequence, host, status, recovery=None):
         self.lock()
-        self.session.begin()
+        # TODO(Arnon): since distributed, need to change to either "select for update" or "on duplicate key update"
+        #self.session.begin()
         task = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==str(sequence), self.Task.host==host, self.Task.step_id == step_id, self.Task.recovery==recovery)
         found = self.session.query(task.exists()).scalar()
         if not found:
@@ -318,7 +330,6 @@ class DbApi(object):
             raise
         
         self.commit_db()
-            
         self.release()
         module_logger.debug('DBAPI: update_task: %s' % (repr(task), ))
         return task
@@ -348,6 +359,7 @@ class DbApi(object):
         else:
             dbrows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.host==host).all()
         rows = [task_from_db(row) for row in dbrows]
+        self.session.commit()
         self.release()
         
         for result in rows:
@@ -366,6 +378,7 @@ class DbApi(object):
                 sequence_map=dict()
                 task_map[task.sequence]=sequence_map
             sequence_map[task.step_id]=task_from_db(task)
+        self.session.commit()
         self.release()
         module_logger.debug("DBAPI: get_task_map: task: %s" %(repr(task_map)))
         return task_map
@@ -380,6 +393,7 @@ class DbApi(object):
         if host:
             members=members.filter(self.Task.host==host)
         count=members.count()
+        self.session.commit()
         self.release()
         return count
     
@@ -391,6 +405,7 @@ class DbApi(object):
         tasks = ["{}/{}".format(task.step_id, task.sequence) for task in all]
         module_logger.debug("DBAPI: count_tasks_like: tasks: {}.".format(repr(tasks)))
         count = members.count()
+        self.session.commit()
         self.release()
         return count
     
@@ -403,7 +418,8 @@ class DbApi(object):
             raise
         result = dict()
         for task in tasks:
-            result[task.step_id] = task.status        
+            result[task.step_id] = task.status 
+        self.session.commit()       
         self.release()
         module_logger.debug("DBAPI: get_task_status: task: {}".format(repr(result)))
         return result
@@ -442,6 +458,7 @@ class DbApi(object):
     def get_delay_map(self, recovery=0):
         self.lock()
         items = self.session.query(self.Delay).filter(self.Delay.run_id==self.run_id, self.Delay.recovery==recovery).all()
+        self.session.commit()
         self.release()
         item_map=dict()
         for item in items:
@@ -457,6 +474,7 @@ class DbApi(object):
         self.lock()
         rows = self.session.query(self.Delay).filter(self.Delay.run_id==self.run_id, self.Delay.recovery==recovery).all()
         #rows = query.statement.execute().fetchall()
+        self.session.commit()
         self.release()
         for row in rows:
             yield delay_from_db(row)
@@ -466,6 +484,7 @@ class DbApi(object):
         rows = self.session.query(self.Delay).filter(self.Delay.id_==delay.id_)
         #rows = query.statement.execute().fetchall()
         #self.release()
+        self.session.commit()
         try: return rows[0]
         except: return None
   
@@ -496,6 +515,7 @@ class DbApi(object):
         time_to_mature=[m.seconds-(now-m.activated).total_seconds() for m in members]
         min_time_to_mature = min(time_to_mature) if len(time_to_mature) > 0 else None
         count=members.count()
+        self.session.commit()
         self.release()
         return count, min_time_to_mature
     
