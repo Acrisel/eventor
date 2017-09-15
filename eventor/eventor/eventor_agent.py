@@ -140,6 +140,16 @@ def imports_from_cmd(imports_str):
     imports = [(import_file, set(modules)) for import_file, modules in imports.items() if modules]
     return imports   
 
+def check_agent_process(agent, exception):
+    if not agent.is_alive():
+        agent.join()
+        module_logger.debug("Agent is not alive! terminating.")
+        print('TERM')
+        print("Agent aborted unexpectedly.", file=sys.stderr)
+        return False
+    return True
+
+
 def run():
     global module_logger
     args = cmdargs()
@@ -280,15 +290,16 @@ def run():
     module_logger.debug("Eventor subprocess pid: %s" % agent.pid)
     
     # wait for remote parent or from child Eventor 
-    if not agent.is_alive():
-        agent.join()
-        module_logger.debug("Agent is not alive! terminating.")
-        print('TERM')
-        print(e, file=sys.stderr)
+    if not check_agent_process():
         return
     
     while True:
-        msg = queue.get()
+        try:
+            msg = queue.get(timeout=0.5)
+        except  queue.Empty:
+            msg=None
+            if not check_agent_process():
+                return
         if not msg: continue
         msg, error = msg
         module_logger.debug("Pulled message from control queue: %s; %s" % (msg,error,))
