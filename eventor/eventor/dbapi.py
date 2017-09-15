@@ -164,6 +164,9 @@ class DbApi(object):
     def commit_db(self):
         self.session.flush()
         self.session.commit()
+        
+    def rollback_db(self):
+        self.session.rollback()
            
     def write_info(self, **info):
         self.lock()
@@ -240,11 +243,14 @@ class DbApi(object):
             module_logger.debug("DBAPI: adding event trigger {}({}).".format(event_id, sequence))
             trigger = self.Trigger(run_id=self.run_id, event_id=event_id, sequence=str(sequence), recovery=recovery)
             self.session.add(trigger)
-            self.commit_db()
+            try:
+                self.commit_db()
+            except IntegrityError:
+                self.rollback_db()
         else:
             trigger = trigger.first()
             module_logger.debug("DBAPI: trigger already in db, returning {}; {}.".format(found, trigger,))
-        self.commit_db()
+            self.commit_db()
         self.release()
         return trigger_from_db(trigger)
     
@@ -304,7 +310,10 @@ class DbApi(object):
             # it still may be that remote would inserted 
             task=self.Task(run_id=self.run_id, step_id=step_id, sequence=sequence, host=host, status=status, recovery=recovery)
             self.session.add(task)
-            self.commit_db()
+            try:
+                self.commit_db()
+            except IntegrityError:
+                self.rollback_db()
         else:
             task = task.first()
         self.commit_db()
