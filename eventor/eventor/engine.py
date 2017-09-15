@@ -37,7 +37,7 @@ from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
 #from eventor.agent.sshmain_pipe import send_to_agent, local_agent
 #from eventor.agent.sshmain_popen import SshAgent
-from eventor.agent.sshagent_mp_pipe import SshAgent
+from eventor.agent.sshagent_mp_pipe import SshAgent, read_ssh_config
 from eventor.expandvars import expandvars
 
 '''
@@ -444,7 +444,7 @@ class Eventor(object):
         if isinstance(remotes, str):
             self.remotes.append(remotes)
         elif isinstance(remotes, list):
-           self.remotes.extend(remotes)
+            self.remotes.extend(remotes)
         else:
             raise EventorError('Expecting remotes of type str or list, but got: {}'.format(type(remotes).__name__))
            
@@ -755,7 +755,7 @@ class Eventor(object):
         try:
             added = event.trigger_if_not_exists(db=db, sequence=sequence, recovery=self.__recovery)
         except Exception as e:
-            module_logger.critical("Failed to trigger event: %s(%s); run_id: %s." % (event.name, sequence, run_id) )
+            module_logger.critical("Failed to trigger event: %s(%s); run_id: %s." % (event.name, sequence, self.run_id) )
             module_logger.exception(e)
             added = False
         return added
@@ -1565,7 +1565,12 @@ class Eventor(object):
         '''
         #remote_read, remote_write = get_pipe() 
         #pipe_read, pipe_write = mp.Pipe()
-      
+        
+        if __debug__:
+            work = self.__config['workdir']
+            file = "{}_{}.dat".format(self.__logger_info['name'], self.run_id)
+            work_file = os.path.join(work, file)
+            
         kwargs = list()
         for imports in self.imports:
             #for module in self.import_module:
@@ -1574,11 +1579,17 @@ class Eventor(object):
             #if self.import_file:
             #    kwargs.append(("--import-file", self.import_file))
         kwargs.extend([('--host', host), ('--log',self.__logger_info['name']), ('--logdir',self.__logger_info['logdir']), ('--loglevel', self.__logger_info['logging_level'])])
-        
+        if __debug__:
+            work = self.__config['workdir']
+            file = "{}_{}.dat".format(self.__logger_info['name'], self.run_id)
+            work_file = os.path.join(work, file)
+            kwargs.append(('--file', work_file))
+            
+        args = ('--pipe')
         agentpy = 'eventor_agent.py' 
         kw = ["{} {}".format(name, value) for name, value in kwargs]
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
-        cmd = "{} {}".format(agentpy, " ".join(kw),) # ' '.join(args))
+        cmd = "{} {} {}".format(agentpy, ' '.join(args), " ".join(kw))
         module_logger.debug('Agent command: {}: {}.'.format(host, cmd))
         sshagent = SshAgent(host, cmd, logger=None) #=module_logger)
         sshagent.start(wait=0.2)
@@ -1607,11 +1618,43 @@ class Eventor(object):
         module_logger.debug('Agent process checked okay: {}.'.format(host,))    
         return sshagent #RemoteAgent(proc=agent, stdin=pipe_write, stdout=None)
     
+    def __get_ssh_hostname(self, host, ssh_config):
+        ssh_host = ssh_config.get(host, None)
+        if ssh_host is None: 
+            return ssh_host
+        ssh_hostname = ssh_host.get('Hostname', None)
+        if ssh_hostname is not None:
+            return ssh_hostname
+        ssh_host = ssh_config.get('default', {})
+        ssh_hostname = ssh_host.get('Hostname', host)
+        return ssh_hostname
+    
+    def __get_ssh_config_file(self):
+        ssh_config_file = self.__config.get('ssh_config', None)
+        if ssh_config_file is not None:
+            if os.path.isfile(ssh_config_file):
+                return ssh_config_file
+            else:
+                raise EventorError("SSH configuration file {} not found.".format(ssh_config_file))
+        else:
+            default_ssh_config = os.path.expanduser("~/.ssh/config")
+            if os.path.isfile(default_ssh_config): 
+                return default_ssh_config
+        return None
+        
     def __check_remote_hosts(self, hosts):
+        ssh_config_file = self.__get_ssh_config_file()
+        ssh_config = {}
+        if ssh_config_file is not None:
+            ssh_config = read_ssh_config(config=ssh_config_file)
+            module_logger.debug("Using SSH config file {}: {}.".format(ssh_config_file, ssh_config))
+        
         not_accessiable = list()
         # check ssh port is accessible
         for host in hosts:
-            accessiable = port_is_open(host, self.ssh_port)
+            hostname = self.__get_ssh_hostname(host, ssh_config)
+            module_logger.debug("Checking access to host: {}, hostname: {}.".format(host, hostname))
+            accessiable = port_is_open(hostname, self.ssh_port)
             if not accessiable:
                 not_accessiable.append(host)
         if len(not_accessiable) > 0:

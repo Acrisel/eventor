@@ -57,7 +57,14 @@ def cmdargs():
                         help="""Logger output directory.""")
     parser.add_argument('--loglevel', type=int, 
                         help="""Logger level.""")
+    parser.add_argument('--file', type=str, resuired=False,
+                        help="""File to store or recover memory. With --pipe, it would store memory into file.
+                                Without --pipe, it would recover memory from store""")
+    parser.add_argument('--pip', action='store_true', 
+                        help="""Indicates that memory should be read from STDIN. If --pipe not provided, --file must be.""")
     args = parser.parse_args()  
+    
+    assert args.file is not None or args.pipe, "--pipe or --file must be provided."
     #argsd=vars(args)
     return args
 
@@ -174,28 +181,53 @@ def run():
                         print(e, file=sys.stderr)
                         return
     
-    module_logger.debug("Fetching workload.")
-    try:
-        msgsize_raw = sys.stdin.buffer.read(4)
-        #msgsize_raw = sys.stdin.read(4)
-        msgsize = struct.unpack(">L", msgsize_raw)
-    except Exception as e:
-        module_logger.critical("Failed to read size of workload.")
-        module_logger.exception(e)
-        print('TERM')
-        print(e, file=sys.stderr)
-        return
-    
-    try:
-        mem_pack = sys.stdin.buffer.read(msgsize[0])
-        memory = pickle.loads(mem_pack)
-    except Exception as e:
-        module_logger.critical("Failed to pickle loads workload.")
-        module_logger.exception(e)
-        # signal to parant via stdout
-        print('TERM')
-        print(e, file=sys.stderr)
-        return
+    if args.pipe:
+        module_logger.debug("Fetching workload. from pipe")
+        try:
+            msgsize_raw = sys.stdin.buffer.read(4)
+            #msgsize_raw = sys.stdin.read(4)
+            msgsize = struct.unpack(">L", msgsize_raw)
+        except Exception as e:
+            module_logger.critical("Failed to read size of workload.")
+            module_logger.exception(e)
+            print('TERM')
+            print(e, file=sys.stderr)
+            return
+        
+        try:
+            mem_pack = sys.stdin.buffer.read(msgsize[0])
+            memory = pickle.loads(mem_pack)
+        except Exception as e:
+            module_logger.critical("Failed to pickle loads workload.")
+            module_logger.exception(e)
+            # signal to parant via stdout
+            print('TERM')
+            print(e, file=sys.stderr)
+            return
+        
+        # store memory into file
+        if args.file:
+            try:
+                pickle.dump(memory, args.file)
+            except Exception as e:
+                module_logger.critical("Failed to pickle dump workload to {}.".format(args.file))
+                module_logger.exception(e)
+                # signal to parant via stdout
+                print('TERM')
+                print(e, file=sys.stderr)
+                return
+    else:
+        module_logger.debug("Fetching workload. from file")  
+        try:
+            memory = pickle.load(args.file)
+        except Exception as e:
+            module_logger.critical("Failed to pickle load workload from {}.".format(args.file))
+            module_logger.exception(e)
+            # signal to parant via stdout
+            print('TERM')
+            print(e, file=sys.stderr)
+            return
+                
     
     module_logger.debug("Memory received:\n%s" % pprint.pformat(memory, indent=4, ))
     logger_info = mplogger.logger_info()

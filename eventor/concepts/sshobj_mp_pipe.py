@@ -69,6 +69,7 @@ class SshAgent(object):
         pipe_readf = os.fdopen(os.dup(pipe_read.fileno()), 'rb')
     
         cmd = ["ssh", where, 'python', agent_program]
+        print('running ssh {}'.format(cmd))
         sshrun = run(cmd, shell=False, stdin=pipe_readf, stdout=PIPE, stderr=PIPE, check=False,)
         response = (sshrun.returncode, sshrun.stdout.decode(), sshrun.stderr.decode())
         communicateq.put(response)
@@ -114,7 +115,7 @@ if __name__ == '__main__':
     
     agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/concepts"
     agentpy = os.path.join(agent_dir, "sshagent_popen.py")
-    host='192.168.56.10'
+    host='ubuntud01_eventor'
     
     sshagent = SshAgent(host, agentpy)
     sshagent.start(wait=0.2)

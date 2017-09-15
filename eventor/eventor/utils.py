@@ -157,8 +157,9 @@ def print_method(print_func):
         return wrapper
     return print_method_name
 
+import yaml
 
-def port_is_open(host, port):
+def port_is_open(host, port,):
     result = False
     try:
         s = socket.create_connection((host, port), 0.5)

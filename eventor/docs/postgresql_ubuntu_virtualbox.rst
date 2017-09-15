@@ -94,6 +94,32 @@ sudo iptables -A INPUT -p tcp --dport 5432 -j ACCEPT
 test conncetion from remote: 
     psql -h 172.31.99.104 -d pyground -U arnon
     psql -h 192.168.1.100 -d pyground -U arnon 
+    
+multiple keys to the same host with different virtualenv
+--------------------------------------------------------
+
+ssh-keygen -t rsa -C "sequent" -f "id_rsa_sequent"
+
+server's ~/.ssh/config
+
+Host remote.com-sequent
+     HostName remote.com
+     User me
+     IdentityFile ~/.ssh/id_rsa_sequent
+     IdentitiesOnly yes
+     
+copy id_rsa_sequent.pub  tp remote.com and add to authorized_keys.
+
+prefix key in authorized_keys:
+
+command="if [[ \"x${SSH_ORIGINAL_COMMAND}x\" != \"xx\" ]]; then source ~/.profile_sequent; eval \"${SSH_ORIGINAL_COMMAND}\"; else /bin/bash --login; fi;" ssh-rsa ...
+
+in ~/.profile_sequent:
+
+source ~/.profile
+source /var/venv/sequent/bin/activate
+
+
 
 Python
 ======
