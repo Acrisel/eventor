@@ -281,6 +281,7 @@ def run():
     
     # wait for remote parent or from child Eventor 
     if not agent.is_alive():
+        agent.join()
         module_logger.debug("Agent is not alive! terminating.")
         print('TERM')
         print(e, file=sys.stderr)
