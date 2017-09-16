@@ -247,11 +247,12 @@ class DbApi(object):
                 self.commit_db()
             except IntegrityError:
                 self.rollback_db()
-                trigger = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.event_id==event_id, self.Trigger.sequence==str(sequence), self.Trigger.recovery==recovery)
-                trigger = trigger.first()
+                found = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.event_id==event_id, self.Trigger.sequence==str(sequence), self.Trigger.recovery==recovery)
+                trigger = found.first() 
+                module_logger.debug("DBAPI: trigger already in db, returning {}; {}.".format(found, trigger,)) 
         else:
             trigger = trigger.first()
-            module_logger.debug("DBAPI: trigger already in db, returning {}; {}.".format(found, trigger,))
+            module_logger.debug("DBAPI: skip insert, trigger already in db, returning {}; {}.".format(found, trigger,))
             self.commit_db()
         self.release()
         return trigger_from_db(trigger)
@@ -316,10 +317,12 @@ class DbApi(object):
                 self.commit_db()
             except IntegrityError:
                 self.rollback_db()
-                task = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==str(sequence), self.Task.host==host, self.Task.step_id == step_id, self.Task.recovery==recovery)
-                task = task.first()
+                found = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==str(sequence), self.Task.host==host, self.Task.step_id == step_id, self.Task.recovery==recovery)
+                task = found.first()
+                module_logger.debug("DBAPI: task already in db, returning {}; {}.".format(found, task,))
         else:
             task = task.first()
+            module_logger.debug("DBAPI: skip insert, task already in db, returning {}; {}.".format(found, task,))
         self.commit_db()
         self.release()
         result = task_from_db(task)
