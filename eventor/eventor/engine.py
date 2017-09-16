@@ -377,6 +377,22 @@ class Eventor(object):
         
         self.__tasks = dict() 
         
+        
+        self.shared_db = shared_db
+        self.run_id = run_id if run_id is not None else ''
+        if shared_db and not self.run_id:
+            if run_mode != RunMode.restart:
+                raise EventorError("When shared_db is set in restart, run_id must be provided.")
+            # in this case we need to produce unique run_id on this cluster
+            self.run_id = get_unique_run_id()
+            #module_logger.info("Process PID: {}; new run_id: {}.".format(os.getpid(), self.run_id,)) 
+            self.__memory.kwargs['run_id'] = self.run_id
+        #elif self.run_id:
+        #    module_logger.info("Process PID: {}; assumed run_id: {}.".format(os.getpid(), self.run_id,)) 
+        #else:
+        #    module_logger.info("Process PID: {}; no run_id.".format(os.getpid(), )) 
+
+        
         #if dedicated_logging:
         #    logging_root = '.'.join(__name__.split('.')[:-1])
         #else:
@@ -389,7 +405,7 @@ class Eventor(object):
         # TODO(Arnon): drive encoding from parameter
         # TODO(Arnon): log name needs to be driven by calling 
         # TODO(Arnon): add run_id to log name
-        logger_name = name
+        logger_name = "{}{}".format(name,".{}".format(self.run_id) if self.run_id else '')
         #if dedicated_logging:
         #    logger_name = name
         
@@ -402,6 +418,8 @@ class Eventor(object):
             self.__logger_info = memory.logger_info
             self.__logger_info['name'] = logger_name
             self.__logger = None
+            
+        module_logger.info("Process PID: {}; run_id: {}.".format(os.getpid(), repr(self.run_id),)) 
         
         # TODO(Arnon): in case of Sequent, depth is 3 and not 2 as default.  Need to find way to drive calling module.
         self.__calling_module = calling_module()
