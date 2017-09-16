@@ -50,17 +50,17 @@ def construct_and_run():
     
     # on invoke, Eventor will pass itself as kwargs.
     metaprog = runtyles.Container(progname='S0', loop=[1,2,], iter_triggers=(ev00first,))
-    s0first = ev.add_step('s0_start', func=metaprog, kwargs={'initial': True, }, config={'max_concurrent': -1, 'task_construct': 'invoke'})
-    s0next = ev.add_step('s0_next', func=metaprog, config={'task_construct': 'invoke'})
+    s0first = ev.add_step('s0_start', func=metaprog, kwargs={'initial': True, }, config={'max_concurrent': -1, 'task_construct': 'invoke', 'pass_logger_to_task': True})
+    s0next = ev.add_step('s0_next', func=metaprog, config={'task_construct': 'invoke', 'pass_logger_to_task': True})
     
     metaprog = runtyles.Container(progname='S00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
     
     #s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
     #s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': threading.Thread})
-    s00first = ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': 'invoke',})
-    s00next = ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': 'invoke',})
+    s00first = ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': 'invoke', 'pass_logger_to_task': True})
+    s00next = ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': 'invoke', 'pass_logger_to_task': True})
     
-    s1 = ev.add_step('s0.s00.s1', func=eprog.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}, host='ubuntud01') 
+    s1 = ev.add_step('s0.s00.s1', func=eprog.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}, host='ubuntud01_eventor') 
     s2 = ev.add_step('s0.s00.s2', func=eprog.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
     
     s3 = ev.add_step('s0.s00.s3', func=eprog.prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
