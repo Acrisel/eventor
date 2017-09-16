@@ -1395,7 +1395,7 @@ class Eventor(object):
         #result=todo_tasks+active_delays
         
         #module_logger.debug("Count of outstanding items: %s (to-do: %s, delays: %s)" % (result, repr(todo_tasks), repr(active_delays)))
-        module_logger.debug("Loop once result tasks: {}, triggers {}".format((result_loop_task, result_loop_trigger,)))
+        module_logger.debug("Loop once result tasks: {}, triggers {}".format(result_loop_task, result_loop_trigger,))
         return result_loop_task + result_loop_trigger
     
     def __check_control(self):
