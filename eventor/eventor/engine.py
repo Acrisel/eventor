@@ -792,15 +792,21 @@ class Eventor(object):
         return task is not None
     
     def __loop_trigger_request(self):
+        ''' Loop trigger table for triggers not acted upon.
+        '''
+        
+        # loop continuously until queue is empty.
+        result = False 
         while True:   
             try:
-                request=self.__requestq.get_nowait() 
+                request = self.__requestq.get_nowait() 
             except queue.Empty:
-                return 
-            if request.type=='event':
+                return result
+            if request.type == 'event':
                 event, sequence = request.value
                 self.trigger_event(event, sequence)
-                module_logger.debug('[ Event %s/%s ] Triggering event' % (event.id_, sequence))
+                module_logger.debug('[ Event {}/{} ] Triggering event'.format(event.id_, sequence))
+                result = True
         
           
     def __assoc_loop(self, event, sequence):
@@ -856,9 +862,9 @@ class Eventor(object):
         # need to rearrange per iteration
         for trigger in triggers:
             try:
-                trigger_map=trigger_db[trigger.sequence]
+                trigger_map = trigger_db[trigger.sequence]
             except KeyError:
-                trigger_map=dict()
+                trigger_map = dict()
                 trigger_db[trigger.sequence] = trigger_map
             
             #print('trigger %s[%s]' % (trigger.event_id, trigger.iteration) )  
@@ -1382,15 +1388,15 @@ class Eventor(object):
         
         self.__loop_delay()
         self.__loop_event()
-        result = self.__loop_task()
-        self.__loop_trigger_request()
+        result_loop_task = self.__loop_task()
+        result_loop_trigger = self.__loop_trigger_request()
         self.__loop_awating_resource_allocation()
         
         #result=todo_tasks+active_delays
         
         #module_logger.debug("Count of outstanding items: %s (to-do: %s, delays: %s)" % (result, repr(todo_tasks), repr(active_delays)))
-        module_logger.debug("Loop once result: %s " % (result,))
-        return result
+        module_logger.debug("Loop once result tasks: {}, triggers {}".format((result_loop_task, result_loop_trigger,)))
+        return result_loop_task + result_loop_trigger
     
     def __check_control(self):
         loop=True
