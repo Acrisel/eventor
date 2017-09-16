@@ -310,7 +310,7 @@ def run():
         module_logger.debug("Pulled message from control queue: %s; %s" % (msg,error,))
         if msg == 'DONE':
             # msg from child - eventor agent is done
-            module_logger.debug("Joining with eventor process.")
+            module_logger.debug("Joining with Eventor process.")
             agent.join()
             listener.join()
             module_logger.debug("Eventor process joint.")
@@ -323,6 +323,17 @@ def run():
             print('TERM')
             print(error, file=sys.stderr)
             # TODO(Arnon): how to terminate listener that is listening 
+            break
+        elif msg == 'STOP':
+            # TODO: need to change message from parent to STOP - not TERM
+            # got message to quit, need to kill primo process and be done
+            # Well since process is daemon, it will be killed when parent is done
+            eventor_listener_q.put('STOP')
+            module_logger.debug("Joining with Eventor process.")
+            agent.join()
+            listener.join()
+            module_logger.debug("Eventor process joint.")
+            print('DONE')
             break
     
     module_logger.debug("Closing stdin.")

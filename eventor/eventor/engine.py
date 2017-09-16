@@ -1839,7 +1839,7 @@ class Eventor(object):
                     #send_to_remote(agent.stdin)
                     module_logger.debug('Joining with agent process: {}:{}; '.format(host, agent.pid,))  
                     # TODO(Arnon): need to timeout and check if still alive.
-                    self.__send_msg_to_agents('DONE')
+                    self.__send_msg_to_agents('STOP')
                     agent.join()
                     module_logger.debug('Agent process finished: {}:{}; '.format(host, agent.pid,))  
                 else:
