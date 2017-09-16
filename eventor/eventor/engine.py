@@ -264,7 +264,7 @@ class Eventor(object):
                        StepStatus.failure: StepReplay.rerun, 
                        StepStatus.success: StepReplay.skip,}  
         
-    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None):
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None,listener_q = None):
         """initializes steps object
         
         Args:
@@ -286,6 +286,7 @@ class Eventor(object):
                     sharing.  If not provided and shared_db is set, unique run_id will be generated.
                     When in recovery, and shared_db is set, run_id must be provided to identify the
                     program and its run to be recovered.
+            listener_q: (mp.queue) Termination messages from initiator can be sent through this queue.
 
             config: configuration parameters to be used in operating eventor.
             can be file with YAML style configuration or a dictionary
@@ -431,6 +432,8 @@ class Eventor(object):
         self.__setup_db_connection(create=not self.__is_agent)
         
         self.__program_artifacts = ProgramArtifacts(dict(), dict(), list())
+        
+        self.__listener_q = listener_q
         
     def __get_dbapi(self, create=True):
         filename = store_from_module(self.__calling_module)
@@ -1481,7 +1484,7 @@ class Eventor(object):
             # count ready triggers only if state is active
             # count ready tasks only if active
             total_todo = self.count_todos(with_delayeds=False)                       
-            loop = total_todo>0 and not self.__term
+            loop = (total_todo>0 or self.__agent) and not self.__term and self.__agent_loop
             if loop:
                 loop = self.__check_control()
                 if loop:
@@ -1509,19 +1512,20 @@ class Eventor(object):
         loop = True
         self.db.set_thread_synchronization(True)
         self._session_cycle_loop = True
+        
         while loop:
-            result = self.loop_cycle()
+            self.loop_cycle()
             #result=self.loop_once()
             # count ready triggers only if state is active
             # count ready tasks only if active
             total_todo, min_delay = self.count_todos()                       
-            loop = total_todo > 0 and not self.__term
+            loop = (total_todo > 0 or self.__agent) and not self.__term and self.__agent_loop
             if loop:
                 loop = self.__check_control()
                 if loop:
                     sleep_time = sleep_loop if min_delay is None else min_delay
                     if sleep_loop != sleep_time:
-                        module_logger.debug('Making a time delay sleep: %s' % sleep_time)
+                        module_logger.debug('Making a time delay sleep: {}'.format(sleep_time))
                     time.sleep(sleep_time) # time.sleep(sleep_loop)
                     loop = self.__check_control()
                 #if not loop:
@@ -1530,7 +1534,7 @@ class Eventor(object):
         result = self.__state != EventorState.shutdown 
         finished = 'finished' if not self.__term else 'terminated'
         human_result = "incomplete" if total_todo > 0 else "success" if result else 'failure'
-        module_logger.info('Processing %s with: %s' % (finished, human_result))
+        module_logger.info('Processing {} with: {}'.format(finished, human_result))
                 
         #self.__logger.stop()  
           
@@ -1749,7 +1753,14 @@ class Eventor(object):
         self.__get_dbapi(create=False)
         
         return started
-                
+          
+    def __listener_to_parent(self, listener_q):
+        while True:
+            msg = listener_q.get() 
+            if not msg: continue
+            if msg == 'STOP':
+                self.__agent_loop = False
+                break
         
     def run(self,  max_loops=-1):
         ''' loops events structures to execute raise events and execute tasks.
@@ -1765,7 +1776,8 @@ class Eventor(object):
         
         '''
         # TODO(Arnon): remote the use of __term; use self.__state = EventorState.shutdown instead
-        self.__term = False       
+        self.__term = False 
+        self.__agent_loop = True      
         if setproctitle is not None:
             run_id = "{}.".format(self.run_id) if self.run_id else ''
             setproctitle("eventor: {}".format(run_id,))
@@ -1787,6 +1799,13 @@ class Eventor(object):
                 if not  started:
                     module_logger.critical('Processing terminated due to failure to start agents.')    
                     return False
+        
+        if self.__listener_q is not None:
+            # need to start listener for termination
+            listener_th = Thread(target=self.__listener_to_parent, args=(self.__listener_q,), daemon=True)
+            listener_th.start()
+        else:
+            listener_th = None
         
         self.__controlq = mp.Queue()
         self.__adminq_mp_manager = mp_manager = mp.Manager()

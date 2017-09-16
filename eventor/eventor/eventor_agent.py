@@ -260,12 +260,12 @@ def run():
         
     module_logger.debug("Starting Eventor subprocess on remote host.") #:\n%s" % pprint.pformat(kwargs, indent=4))
     
-    child_queue = mp.Queue()
+    child_q = mp.Queue()
     
     module_logger.debug("Starting control pipe listener.")
     # we set thread to Daemon so it would be killed when agent is gone
     try:
-        listener = Thread(target=pipe_listener, args=(child_queue,), daemon=True)
+        listener = Thread(target=pipe_listener, args=(child_q,), daemon=True)
         listener.start()
     except Exception as e:
         module_logger.critical("Failed to queue listener thread.")
@@ -275,8 +275,12 @@ def run():
         print(e, file=sys.stderr)
         return
     
+    eventor_listener_q = mp.Queue()
+    
+    kwargs['listener_q'] = eventor_listener_q
+    
     try:
-        agent = mp.Process(target=start_eventor, args=(child_queue, logger_info), kwargs=kwargs, daemon=False)
+        agent = mp.Process(target=start_eventor, args=(child_q, logger_info,), kwargs=kwargs, daemon=False)
         agent.start()
     except Exception as e:
         #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
@@ -296,7 +300,7 @@ def run():
     
     while True:
         try:
-            msg = child_queue.get(timeout=0.5)
+            msg = child_q.get(timeout=0.5)
         except Empty:
             msg = None
             if not check_agent_process(agent):
@@ -312,8 +316,10 @@ def run():
             module_logger.debug("Eventor process joint.")
             break
         elif msg == 'TERM':
+            # TODO: need to change message from parent to STOP - not TERM
             # got message to quit, need to kill primo process and be done
             # Well since process is daemon, it will be killed when parent is done
+            eventor_listener_q.put('STOP')
             print('TERM')
             print(error, file=sys.stderr)
             # TODO(Arnon): how to terminate listener that is listening 
