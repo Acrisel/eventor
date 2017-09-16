@@ -517,7 +517,7 @@ class Eventor(object):
     def _name(self, seq_path):
         result='/'
         if self.name:
-            result = "%s/%s" %(self.name, seq_path)
+            result = "{}{}".format(self.name, "/{}".format(seq_path) if seq_path else '')
         return result
         
     def __write_info(self, run_file=None):
@@ -1484,7 +1484,8 @@ class Eventor(object):
             # count ready triggers only if state is active
             # count ready tasks only if active
             total_todo = self.count_todos(with_delayeds=False)                       
-            loop = (total_todo>0 or self.__agent) and not self.__term and self.__agent_loop
+            #loop = (total_todo > 0 or self.__is_agent) and not self.__term and self.__agent_loop
+            loop = total_todo > 0 and not self.__term
             if loop:
                 loop = self.__check_control()
                 if loop:
@@ -1519,7 +1520,8 @@ class Eventor(object):
             # count ready triggers only if state is active
             # count ready tasks only if active
             total_todo, min_delay = self.count_todos()                       
-            loop = (total_todo > 0 or self.__agent) and not self.__term and self.__agent_loop
+            #loop = (total_todo > 0 or self.__is_agent) and not self.__term and self.__agent_loop
+            loop = total_todo > 0 and not self.__term 
             if loop:
                 loop = self.__check_control()
                 if loop:
