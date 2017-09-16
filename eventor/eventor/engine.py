@@ -1767,8 +1767,8 @@ class Eventor(object):
         # TODO(Arnon): remote the use of __term; use self.__state = EventorState.shutdown instead
         self.__term = False       
         if setproctitle is not None:
-            run_id = "%s." % self.run_id if self.run_id else ''
-            setproctitle("eventor: %s" % (run_id,))
+            run_id = "{}.".format(self.run_id) if self.run_id else ''
+            setproctitle("eventor: {}".format(run_id,))
             
         self.__agents = dict()
         if not self.__is_agent:
@@ -1776,6 +1776,9 @@ class Eventor(object):
             self.remotes = list(set(self.remotes) - set([self.host,]))
             hosts = set([step.host for step in self.__memory.steps.values()] + self.remotes)
             hosts.remove(self.host)
+            
+            # we dont need to pass remotes to agents
+            self.__memory.kwargs['remotes'] = None
             
             module_logger.debug('Remote hosts in program: {}; hidden remotes: {}.'.format(hosts, self.remotes))
             if len(hosts) > 0:  

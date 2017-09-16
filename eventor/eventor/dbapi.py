@@ -247,6 +247,8 @@ class DbApi(object):
                 self.commit_db()
             except IntegrityError:
                 self.rollback_db()
+                trigger = self.session.query(self.Trigger).filter(self.Trigger.run_id==self.run_id, self.Trigger.event_id==event_id, self.Trigger.sequence==str(sequence), self.Trigger.recovery==recovery)
+                trigger = trigger.first()
         else:
             trigger = trigger.first()
             module_logger.debug("DBAPI: trigger already in db, returning {}; {}.".format(found, trigger,))
@@ -308,12 +310,14 @@ class DbApi(object):
         found = self.session.query(task.exists()).scalar()
         if not found:
             # it still may be that remote would inserted 
-            task=self.Task(run_id=self.run_id, step_id=step_id, sequence=sequence, host=host, status=status, recovery=recovery)
+            task = self.Task(run_id=self.run_id, step_id=step_id, sequence=sequence, host=host, status=status, recovery=recovery)
             self.session.add(task)
             try:
                 self.commit_db()
             except IntegrityError:
                 self.rollback_db()
+                task = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.sequence==str(sequence), self.Task.host==host, self.Task.step_id == step_id, self.Task.recovery==recovery)
+                task = task.first()
         else:
             task = task.first()
         self.commit_db()
