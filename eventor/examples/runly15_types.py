@@ -28,23 +28,27 @@ class Container(object):
         #self.initiating_sequence=None
         self.__name__ = Container.__name__
         
-    def __call__(self, initial=False, eventor=None): 
+    def __call__(self, initial=False, eventor=None, logger=None): 
         #print('max_concurrent', config['max_concurrent'])
         #self.ev = eventor
         if initial:
+            logger.debug('Container: initiating container at first call.')
             self.iter = acris.Mediator(self.loop())
-            todos=1
+            todos = 1
             #self.initiating_sequence=__eventor.get_task_sequence()
         else:
-            todos = eventor.count_todos() 
+            todos, _ = eventor.count_todos() 
+            logger.debug('Container: Counted todos: {}'.format(todos))
         
         if todos == 1 or initial:
             try:
                 item = next(self.iter)
             except StopIteration:
                 item = None
+            logger.debug('Container: item: {}'.format(item))
             if item:
                 self.loop_index += 1
+                logger.debug('Container: new index: {}'.format(self.loop_index))
                 for trigger in self.iter_triggers:
                     eventor.trigger_event(trigger, str(self.loop_index))
                     #eventor.remote_trigger_event(trigger, self.loop_index,)

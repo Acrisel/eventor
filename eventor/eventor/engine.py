@@ -253,6 +253,7 @@ class Eventor(object):
                      #'pass_resources': False,
                      'day_to_keep_db': 5,
                      'remote_method' : 'ssh',
+                     'pass_logger_to_task': False,
                      }  
     
     # TODO(Arnon): build db cleanup subprocess using day_to_keep_db
@@ -640,9 +641,8 @@ class Eventor(object):
         except:
             pass
         else:
-            module_logger.debug('add_step: already found in memory: skipping %s' %( repr(step), ))
+            module_logger.debug('add_step: already found in memory: skipping {}'.format( repr(step), ))
             return step
-        
         
         triggers = self.__convert_trigger_at_complete(triggers)
         recovery = self.__convert_recovery_at_complete(recovery)
@@ -651,13 +651,15 @@ class Eventor(object):
         
         config = MergedChainedDict(config, self.__config, os.environ,)
         # try to see if provided host is mapped in configuration
+        #pass_logger_to_task = config['pass_logger_to_task']
+        #module_logger.debug('add_step: pass_logger_to_task: {}'.format(pass_logger_to_task))
         host = host if self.hosts.get(host, host) is not None else self.host
         step = Step(name=name, func=func, func_args=args, func_kwargs=kwargs, host=host, acquires=acquires, releases=releases, config=config, triggers=triggers, recovery=recovery, ) #logger=module_logger)
         found = self.__memory.steps.get(step.id_)
         if found is not None:
-            raise EventorError("Step with similar name already defined: %s" % step.id_)
+            raise EventorError("Step with similar name already defined: {}".format(step.id_))
         self.__memory.steps[step.id_] = step
-        module_logger.debug('add_step: %s' %( repr(step), ))
+        module_logger.debug('add_step: {}'.format( repr(step), ))
         return step
 
     def __delay_func(self, sequence, recovery, activated=None, active=True, delay_id=None, seconds=None):
@@ -995,8 +997,9 @@ class Eventor(object):
         threading.Thread and Invoke: adminq_th
         '''
         
-        result = True
+        #result = False
         iterate_mp = iterate_th = iterate_in = True
+        result_mp = result_th = result_in = False
         while iterate_mp or iterate_th or iterate_in: 
             module_logger.debug('Trying to read result queue')   
             
@@ -1005,7 +1008,7 @@ class Eventor(object):
             except queue.Empty:
                 act_result = None
                 iterate_mp = False
-                result_mp = True
+                result_mp = False
             else:    
                 module_logger.debug("Going to play Process result: {}".format(repr(act_result)))
                 result_mp = self.__play_result(act_result)
@@ -1015,7 +1018,7 @@ class Eventor(object):
             except queue.Empty:
                 act_result = None
                 iterate_th = False
-                result_th = True
+                result_th = False
             else:    
                 module_logger.debug("Going to play Thread result: {}".format(repr(act_result)))
                 result_th = self.__play_result(act_result)
@@ -1025,15 +1028,15 @@ class Eventor(object):
             except queue.Empty:
                 act_result = None
                 iterate_in = False
-                result_in = True
+                result_in = False
             else:    
                 module_logger.debug("Going to play Invoke result: {}".format(repr(act_result)))
                 result_in = self.__play_result(act_result)
             
-            # TODO(Arnon): Validate that Th and Pr needs to be combined without Invoke
-            result = result_mp and result_th
-            module_logger.debug('Collected and played result: {}, thread: {}, process: {}, invoke: {}'.format(result, result_th, result_mp, result_in))
-            #module_logger.debug('Collected result: %s, result_mp: %s' % (result, result_mp))
+        # TODO(Arnon): Validate that Th and Pr needs to be combined without Invoke
+        result = result_mp or result_th
+        module_logger.debug('Collected and played result: {}, thread: {}, process: {}, invoke: {}'.format(result, result_th, result_mp, result_in))
+        #module_logger.debug('Collected result: %s, result_mp: %s' % (result, result_mp))
                          
         return result
     
@@ -1489,8 +1492,10 @@ class Eventor(object):
             result = self.loop_once()
             # count ready triggers only if state is active
             # count ready tasks only if active
-            total_todo = self.count_todos(with_delayeds=False)                       
-            loop = (total_todo > 0 or self.__is_agent) and not self.__term and self.__agent_loop
+            total_todo = self.count_todos(with_delayeds=False) 
+            work = total_todo > 0 or result                   
+            loop = (work or self.__is_agent) and not self.__term and self.__agent_loop
+            #loop = (total_todo > 0 or self.__is_agent) and not self.__term and self.__agent_loop
             #loop = total_todo > 0 and not self.__term
             if loop:
                 loop = self.__check_control()
@@ -1521,12 +1526,14 @@ class Eventor(object):
         self._session_cycle_loop = True
         
         while loop:
-            self.loop_cycle()
+            result = self.loop_cycle()
             #result=self.loop_once()
             # count ready triggers only if state is active
             # count ready tasks only if active
-            total_todo, min_delay = self.count_todos()                       
-            loop = (total_todo > 0 or self.__is_agent) and not self.__term and self.__agent_loop
+            total_todo, min_delay = self.count_todos()   
+            work = total_todo > 0 or result                    
+            loop = (work or self.__is_agent) and not self.__term and self.__agent_loop
+            #loop = (total_todo > 0 or self.__is_agent) and not self.__term and self.__agent_loop
             #loop = total_todo > 0 and not self.__term 
             if loop:
                 loop = self.__check_control()

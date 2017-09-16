@@ -25,7 +25,7 @@ class Step(object):
         also registered and could be referenced.   
     """
 
-    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, host=[], triggers={}, acquires=None, releases=None, recovery={}, config={}, logger=None):
+    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, host=[], triggers={}, acquires=None, releases=None, recovery={}, config={},):
         '''
         Constructor
         '''
@@ -50,8 +50,8 @@ class Step(object):
         
         self.path = None
         self.iter_path = None
-        if logger is not None:
-            module_logger = logger
+        #if logger is not None:
+        #    module_logger = logger
         
     def __repr__(self):
         if hasattr(self.func, '__name__'):
@@ -96,6 +96,9 @@ class Step(object):
             sequence_arg_name = self.config['sequence_arg_name']
             if sequence_arg_name:
                 self.func_kwargs.update({sequence_arg_name: seq_path})
+            pass_logger_to_task = self.config.get('pass_logger_to_task', False)
+            if pass_logger_to_task:
+                self.func_kwargs.update({'logger': module_logger})
             #if self.config['pass_resources']:
             #    self.func_kwargs.update({'eventor_task_resoures': resources})
             #stop_on_exception=self.config['stop_on_exception']
