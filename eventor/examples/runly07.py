@@ -26,6 +26,7 @@ import collections
 import queue
 from enum import Enum
 from acris import virtual_resource_pool as rp
+import examples.runly15_types as runtyles
 
 logger=logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ def prog(progname):
     return progname
 
 
+'''
 class Container(object):
     def __init__(self, ev, progname, loop=[1,], max_concurrent=1, iter_triggers=(), end_triggers=()):
         self.ev=ev
@@ -82,41 +84,41 @@ class Container(object):
                     self.ev.trigger_event(trigger, self.loop_index)
             
         return True
-           
+'''           
 
-ev=evr.Eventor( logging_level=logging.INFO, ) #config={'sleep_between_loops': 1}) # store=':memory:',
+ev = evr.Eventor( logging_level=logging.INFO, ) #config={'sleep_between_loops': 1}) # store=':memory:',
 
-ev0first=ev.add_event('s0_start')
-ev0next=ev.add_event('s0_next')
-ev0end=ev.add_event('s0_end')
-ev00first=ev.add_event('s0_00_start')
-ev00next=ev.add_event('s0_s00_next')
-ev00end=ev.add_event('s0_s00_end')
-ev1s=ev.add_event('s0_s00_s1_start')
-ev1success=ev.add_event('s0_s00_s1_success')
-ev2s=ev.add_event('s0_s00_s2_start', expr=(ev1success,))
-ev2success=ev.add_event('s0_s00_s2_success')
-ev3s=ev.add_event('s0_s00_s3_start', expr=(ev2success,))
+ev0first = ev.add_event('s0_start')
+ev0next = ev.add_event('s0_next')
+ev0end = ev.add_event('s0_end')
+ev00first = ev.add_event('s0_00_start')
+ev00next = ev.add_event('s0_s00_next')
+ev00end = ev.add_event('s0_s00_end')
+ev1s = ev.add_event('s0_s00_s1_start')
+ev1success = ev.add_event('s0_s00_s1_success')
+ev2s = ev.add_event('s0_s00_s2_start', expr=(ev1success,))
+ev2success = ev.add_event('s0_s00_s2_success')
+ev3s = ev.add_event('s0_s00_s3_start', expr=(ev2success,))
 
 class StepResource(rp.Resource): pass
-rp1=rp.ResourcePool('RP1', resource_cls=StepResource, policy={'resource_limit': 2, }).load()                   
-rp2=rp.ResourcePool('RP2', resource_cls=StepResource, policy={'resource_limit': 2, }).load()                   
+rp1 = rp.ResourcePool('RP1', resource_cls=StepResource, policy={'resource_limit': 2, }).load()                   
+rp2 = rp.ResourcePool('RP2', resource_cls=StepResource, policy={'resource_limit': 2, }).load()                   
 
-metaprog1=Container(ev=ev, progname='s0', loop=[1,2,], max_concurrent=2, iter_triggers=(ev00first,), end_triggers=(ev0end,))
-s0first=ev.add_step('s0_start', func=metaprog1, kwargs={'do': 'init', }, acquires=[(rp1, 1), ], releases=[], 
-                    config={'max_concurrent': -1, 'task_construct': evr.Invoke})
-s0next=ev.add_step('s0_next', func=metaprog1, config={'task_construct': evr.Invoke})
-s0end=ev.add_step('s0_end', releases=[(rp1, 1), ], config={'task_construct': evr.Invoke})
+metaprog1 = runtyles.Container(progname='s0', loop=[1,2,], max_concurrent=2, iter_triggers=(ev00first,), end_triggers=(ev0end,))
+s0first = ev.add_step('s0_start', func=metaprog1, kwargs={'initial': True, }, acquires=[(rp1, 1), ], releases=[], 
+                    config={'max_concurrent': -1, 'task_construct': 'invoke', 'pass_logger_to_task': True})
+s0next = ev.add_step('s0_next', func=metaprog1, config={'task_construct': 'invoke', 'pass_logger_to_task': True})
+s0end = ev.add_step('s0_end', releases=[(rp1, 1), ], config={'task_construct': 'invoke', 'pass_logger_to_task': True})
   
-metaprog2=Container(ev=ev, progname='00', loop=[1,2,], max_concurrent=2, iter_triggers=(ev1s,), end_triggers=(ev00end,))
-s00first=ev.add_step('s0_s00_start', func=metaprog2, kwargs={'do': 'init', }, acquires=[(rp2, 1), ], releases=[], 
-                     config={'max_concurrent': -1, 'task_construct': evr.Invoke,})
-s00next=ev.add_step('s0_s00_next', func=metaprog2, config={'task_construct': evr.Invoke,})
-s00end=ev.add_step('s0_s00_end', releases=[(rp2, 1),], config={'task_construct': evr.Invoke,}, triggers={evr.StepStatus.success: (ev0next,), })
+metaprog2 = runtyles.Container(progname='00', loop=[1,2,], max_concurrent=2, iter_triggers=(ev1s,), end_triggers=(ev00end,))
+s00first = ev.add_step('s0_s00_start', func=metaprog2, kwargs={'initial': True, }, acquires=[(rp2, 1), ], releases=[], 
+                     config={'max_concurrent': -1, 'task_construct': 'invoke', 'pass_logger_to_task': True})
+s00next = ev.add_step('s0_s00_next', func=metaprog2, config={'task_construct': 'invoke', 'pass_logger_to_task': True})
+s00end = ev.add_step('s0_s00_end', releases=[(rp2, 1),], config={'task_construct': 'invoke', 'pass_logger_to_task': True}, triggers={evr.StepStatus.success: (ev0next,), })
 
-s1=ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
-s2=ev.add_step('s0.s00.s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
-s3=ev.add_step('s0.s00.s3', func=prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
+s1 = ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
+s2 = ev.add_step('s0.s00.s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
+s3 = ev.add_step('s0.s00.s3', func=prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
 
 ev.add_assoc(ev0first, s0first)
 ev.add_assoc(ev0next, s0next)

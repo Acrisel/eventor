@@ -21,7 +21,7 @@
 ##############################################################################
 
 import time
-from eventor.virtual_resource_pool_db import virtual_resource_pool_db as rp
+import eventor.vrpdb as rp
 from acris import threaded
 from acrilog import create_stream_handler
 from datetime import datetime

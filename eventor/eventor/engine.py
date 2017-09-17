@@ -1277,15 +1277,15 @@ class Eventor(object):
         while True:
             module_logger.debug("Trying to receive resources" )
             try:
-                task_id=self.__rp_notify.get_nowait()
+                task_id = self.__rp_notify.get_nowait()
             except queue.Empty:
                 break
             
-            memtask=self.__tasks.get(task_id, None)    
+            memtask = self.__tasks.get(task_id, None)    
             step = self.__memory.steps[memtask.step_id]
             module_logger.debug("Received resources for task {}.".format(step.name, ))
 
-            memtask.resources=self.__requestors.get(memtask.request_id)
+            memtask.resources = self.__requestors.get(memtask.request_id)
             self.__update_task_status(memtask, TaskStatus.fueled)
     
     def __update_task_status(self, task, status):
@@ -1308,7 +1308,7 @@ class Eventor(object):
         memtask = self.__tasks.get(task.id_, None)
         if memtask is None:
             module_logger.debug("Initiating new memtask for resource allocation {}: {}.".format(step.name, step.acquires, ))
-            memtask=Memtask(task)
+            memtask = Memtask(task)
             self.__tasks[task.id_]=memtask
         # need to allocate resources from all requested pools.
         # requests uses callback as a method to request all resources 
@@ -1316,7 +1316,7 @@ class Eventor(object):
         
         #ResourceAllocationCallback(self.__resource_notification_queue)
         
-        if not memtask.fueled :
+        if not memtask.fueled:
             # not requested resources yet
             rp_callback = RpCallback(self.__rp_notify, task_id=task.id_)
             #requestors=vrp.Requestors(request=step.acquires, callback=rp_callback, audit=False)
@@ -1336,8 +1336,12 @@ class Eventor(object):
         # There is no need to check status.  
         # Loops will end if there is nothing to do.
         # if self.__state==EventorState.active:
+        
+        # there are two routes.  One for server. The other is agent
+        # agent takes only tasks for their hosts. 
         module_logger.debug("Going to fetch tasks: {}: recovery: {}.".format(self.name, self.__recovery, ))
-        tasks = self.db.get_task_iter(host=self.host, recovery=self.__recovery, status=[TaskStatus.ready, TaskStatus.allocate, TaskStatus.fueled, TaskStatus.active ])
+        query_host = self.host if self.__is_agent else None
+        tasks = self.db.get_task_iter(host=query_host, recovery=self.__recovery, status=[TaskStatus.ready, TaskStatus.allocate, TaskStatus.fueled, TaskStatus.active ])
         #module_logger.debug("Number tasks fetched: %s" % (len(list(tasks)), ))
         for task in tasks:
             step = self.__memory.steps[task.step_id]
@@ -1347,23 +1351,32 @@ class Eventor(object):
                 previous_task = None
             
             module_logger.debug("Evaluating task: {}, step: {}".format(repr(task), repr(step)))
-            if task.status == TaskStatus.fueled or (task.status == TaskStatus.ready and not step.acquires):
-                delay_task = task.step_id.startswith('_evr_delay_')
-                if not delay_task:
+            ready_to_launch = task.status == TaskStatus.fueled or (task.status == TaskStatus.ready and not step.acquires)
+            launch_here = self.host == task.host
+            task_is_a_delay = task.step_id.startswith('_evr_delay_')
+            if not self.__is_agent:
+                if ready_to_launch:
+                    if not task_is_a_delay:
+                        if launch_here:
+                            module_logger.debug("No delay, initiate task: {}.".format(task.id_, ))
+                            self.__initiate_task(task, previous_task)
+                    else:
+                        module_logger.debug("Delayed task, initiate delay for task: {}.".format(task.id_, ))
+                        self.__initiate_delay(task, previous_task) 
+                elif task.status == TaskStatus.ready : # task.status == TaskStatus.ready and has resources to satisfy
+                    module_logger.debug("Ready task need to be fueled: {}.".format(task.id_, ))
+                    self.__allocate_resources_for_task(task, previous_task)
+                elif TaskStatus.allocate:
+                    # TODO: check if expired - if so, halt
+                    module_logger.debug("Task allocated resource: {}.".format(task.id_, ))
+                else: # active
+                    # TODO: check run time allowance passed - if so, halt
+                    pass
+            else: # task is agent
+                if not task_is_a_delay:
                     module_logger.debug("No delay, initiate task: {}.".format(task.id_, ))
                     self.__initiate_task(task, previous_task)
-                else:
-                    module_logger.debug("Delayed task, initiate delay for task: {}.".format(task.id_, ))
-                    self.__initiate_delay(task, previous_task) 
-            elif task.status == TaskStatus.ready : # task.status == TaskStatus.ready and has resources to satisfy
-                module_logger.debug("Ready task need to be fueled: {}.".fomrat(task.id_, ))
-                self.__allocate_resources_for_task(task, previous_task)
-            elif TaskStatus.allocate:
-                # TODO: check if expired - if so, halt
-                module_logger.debug("Task allocated resource: {}.".format(task.id_, ))
-            else: # active
-                # TODO: check run time allowance passed - if so, halt
-                pass
+                
                     
         result = self.__collect_results()
         

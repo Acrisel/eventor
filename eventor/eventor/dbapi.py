@@ -366,14 +366,17 @@ class DbApi(object):
         self.release()
         return task
         
-    def get_task_iter(self, host, recovery, status=None):
+    def get_task_iter(self, recovery, host=None, status=None):
         # TODO: do we really need recovery here
         self.lock()
         #rows = self.session.query(self.Task)
+        dbrows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id)
         if status:
-            dbrows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.host==host, self.Task.status.in_(status)).all()
-        else:
-            dbrows = self.session.query(self.Task).filter(self.Task.run_id==self.run_id, self.Task.host==host).all()
+            dbrows = dbrows.filter(self.Task.status.in_(status))
+        if host:
+            dbrows = dbrows.filter(self.Task.host==host)
+            
+        dbrows = dbrows.all()
         rows = [task_from_db(row) for row in dbrows]
         self.session.commit()
         self.release()

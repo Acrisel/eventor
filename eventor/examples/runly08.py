@@ -85,7 +85,7 @@ def build_flow(run_mode):
     return ev
 
 
-def construct_and_run():
+def construct_and_run_in_steps():
     ev = build_flow(run_mode=evr.RunMode.restart)
     ev.run(max_loops=1)
     ev.close()
@@ -94,9 +94,14 @@ def construct_and_run():
         delay = 5 if loop in [1,2] else 15
         time.sleep(delay)
         ev = build_flow(run_mode=evr.RunMode.continue_)
-        result=ev.run(max_loops=1)
+        result = ev.run(max_loops=1)
         ev.close()
         print('Result: %s' % result)
+
+def construct_and_run():
+    ev = build_flow(run_mode=evr.RunMode.restart)
+    result = ev.run()
+    print('Result: %s' % result)
 
 if __name__ == '__main__':
     import multiprocessing as mp
