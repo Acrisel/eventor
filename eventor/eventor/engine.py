@@ -935,6 +935,11 @@ class Eventor(object):
 
     def __apply_task_result(self, task):
         #step=self.__steps[task.step_id]
+        # Before task state is updated in DB, triggers are evaluated.
+        # This is so in distributed operation, when task is handled by agent, 
+        # master will continue to find work TODO.
+        # Otherwise, there may be a gap between task set to success and trigger added as a result.
+        # if musted catchs this gap, it will see no work todo and abort its loops.
         if task.status in [TaskStatus.success, TaskStatus.failure]:
             self.__release_task_resources(task)
         triggered = self.__triggers_at_task_change(task)
