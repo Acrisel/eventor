@@ -43,7 +43,7 @@ VirtualBox -> Preferences -> Network -> Host-only Networks
 
 Make sure you have vboxnet0 or add new one.
 
-Edit vboxnet0 (or the one you use), disable DHCP Server.  Note IpV4 Address 192.168.56.1 (change if need be)
+Edit vboxnet0 (or the one you use), disable DHCP Server.  Note IpV4 Address, e.g.,  192.168.56.1.
 
 In Virtualbox settings -> Networks
 
@@ -61,7 +61,7 @@ iface enp0s8 inet static
 address 192.168.56.10
 netmask 255.255.255.0
 
-Note address is 192.168.56.10 is different from Host-only preference address.  You can chose a different one on the same subnet but must be different than the one on vboxnet0 (or what ever you chose).
+Note address is 192.168.56.10 is different from Host-only preference address.  You can choose a different one on the same subnet but must be different than the one on vboxnet0 (or what ever you chose).
 
 
 Open SSH
