@@ -935,6 +935,9 @@ class Eventor(object):
 
     def __apply_task_result(self, task):
         #step=self.__steps[task.step_id]
+        if task.status in [TaskStatus.success, TaskStatus.failure]:
+            self.__release_task_resources(task)
+        triggered = self.__triggers_at_task_change(task)
         module_logger.debug('[ Task {}/{} ] applying task update to db\n    {}'.format(task.step_id, task.sequence, repr(task), ))
         try:
             self.db.update_task(task=task)
@@ -943,9 +946,11 @@ class Eventor(object):
             module_logger.exception(e)
             self.__state = EventorState.shutdown
             return []
+        '''
         if task.status in [TaskStatus.success, TaskStatus.failure]:
             self.__release_task_resources(task)
         triggered = self.__triggers_at_task_change(task)
+        '''
         return triggered
     
     def __play_result(self, act_result,):
