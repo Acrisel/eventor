@@ -405,7 +405,7 @@ class Eventor(object):
         # TODO(Arnon): drive encoding from parameter
         # TODO(Arnon): log name needs to be driven by calling 
         # TODO(Arnon): add run_id to log name
-        logger_name = "{}{}".format(name,".{}".format(self.run_id) if self.run_id else '')
+        logger_name = "{}{}".format(name,".{}".format(self.run_id.replace("@","-")) if self.run_id else '')
         #if dedicated_logging:
         #    logger_name = name
         
