@@ -1406,11 +1406,14 @@ class Eventor(object):
         loop event: to see if new triggers matured
         loop task: to see if there is anything to run 
         '''
+        result_loop_trigger = False
         
-        self.__loop_delay()
-        self.__loop_event()
+        if not self.__is_agent:
+            self.__loop_delay()
+            self.__loop_event()
         result_loop_task = self.__loop_task()
-        result_loop_trigger = self.__loop_trigger_request()
+        if not self.__is_agent:
+            result_loop_trigger = self.__loop_trigger_request()
         self.__loop_awating_resource_allocation()
         
         #result=todo_tasks+active_delays
