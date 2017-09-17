@@ -96,7 +96,7 @@ def get_unique_run_id():
     ips = ''.join(ip.split('.'))
     now = datetime.now().strftime("%Y%m%d%H%M%S")
     parts = [os.getpid(), ips, now]
-    result = RUN_ID_SEPARATOR.join(parts)
+    result = RUN_ID_SEPARATOR.join(map(str, parts))
     return result
 
 
