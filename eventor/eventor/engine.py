@@ -1633,7 +1633,7 @@ class Eventor(object):
         kwargs.extend([('--host', host), ('--log',self.__logger_info['name']), ('--logdir',self.__logger_info['logdir']), ('--loglevel', self.__logger_info['logging_level'])])
         if __debug__:
             work = self.__config['workdir']
-            file = "{}{}.dat".format(self.__logger_info['name'], "_{}".foramt(self.run_id) if self.run_id else '')
+            file = "{}{}.dat".format(self.__logger_info['name'], "_{}".format(self.run_id) if self.run_id else '')
             work_file = os.path.join(work, file)
             kwargs.append(('--file', work_file))
             
