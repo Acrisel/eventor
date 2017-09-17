@@ -90,12 +90,13 @@ def hostname_resolves(hostname):
     except socket.error:
         return 0
     
-    
+RUN_ID_SEPARATOR='-'
 def get_unique_run_id():
     ip = get_ip_address()
     ips = ''.join(ip.split('.'))
     now = datetime.now().strftime("%Y%m%d%H%M%S")
-    result = "%s@%s@%s" % (os.getpid(), ips, now)
+    parts = [os.getpid(), ips, now]
+    result = RUN_ID_SEPARATOR.join(parts)
     return result
 
 
