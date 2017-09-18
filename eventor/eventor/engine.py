@@ -1831,10 +1831,7 @@ class Eventor(object):
             msg = listener_q.get() 
             if not msg: continue
             module_logger.debug('Received msg on listener_q: {}'.format(msg))
-            if msg == 'STOP':
-                self.__agent_loop = False
-                break
-            elif msg == 'FINISH':
+            if msg in ['STOP', 'FINISH']:
                 self.__agent_loop = False
                 break
         
