@@ -80,15 +80,17 @@ class Step(object):
         db.add_step(step_id=self.id_, name=self.name)
     
     def trigger_(self, db, sequence, host):
+        module_logger.debug('[ Step {}/{} ] Adding as task to DB'.format(self.name, sequence,))
         db.add_task(event_id=self.id_, sequence=sequence, host=host, status=TaskStatus.ready)
     
     def trigger_if_not_exists(self, db, sequence, status, recovery=None):
+        module_logger.debug('[ Step {}/{} ] Adding, if not already exists, as task to DB'.format(self.name, sequence,))
         added = db.add_task_if_not_exists(step_id=self.id_, sequence=sequence, host=self.host, status=status, recovery=recovery)
         return added
     
     def __call__(self, seq_path=None, loop_value=None, logger=None, eventor=None):
         if logger is not None: module_logger = logger
-        module_logger.debug('[ Step %s ] Starting: %s' % (self._name(seq_path), repr(self) ))
+        module_logger.debug('[ Step {} ] Starting: {}'.format(self._name(seq_path), repr(self) ))
         if self.func is not None:
             func = self.func
             func_args = self.func_args

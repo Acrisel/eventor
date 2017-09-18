@@ -224,6 +224,7 @@ class DbApi(object):
         self.session.add(trigger)
         self.commit_db()
         self.release()
+        module_logger.debug("DBAPI: add_trigger: {}.".format(trigger,))
         return trigger_from_db(trigger)
         
     def add_trigger_if_not_exists(self, event_id, sequence, recovery):
@@ -270,6 +271,7 @@ class DbApi(object):
         #self.session.add(trigger)
         self.commit_db()
         self.release()
+        module_logger.debug("DBAPI: acted_trigger: {}.".format(trigger,))
         return trigger
     
     def count_trigger_ready(self, sequence=None, recovery=None ):
@@ -326,7 +328,7 @@ class DbApi(object):
         self.commit_db()
         self.release()
         result = task_from_db(task)
-        module_logger.debug('DBAPI: add_task_if_not_exists: %s' % (repr(result), ))
+        module_logger.debug('DBAPI: add_task_if_not_exists: {}'.format(repr(result), ))
         return result
         
     def update_task(self, task, session=None):
@@ -464,6 +466,7 @@ class DbApi(object):
             delay=self.Delay(run_id=self.run_id, delay_id=delay_id, seconds=seconds, sequence=str(sequence), recovery=recovery, active=active, activated=activated)
             self.session.add(delay)
             self.commit_db()
+            module_logger.debug("DBAPI: add new delay {}; {}.".format(found, delay,))
         else:
             delay = delay.first()
             if delay.active != active:
@@ -471,8 +474,11 @@ class DbApi(object):
                     delay.activated=datetime.utcnow()
                 delay.active = active
                 self.commit_db()
+            module_logger.debug("DBAPI: delayed found, updating: {}; {}.".format(found, delay,))
         self.release()
-        return delay_from_db(delay)
+        result = delay_from_db(delay)
+        module_logger.debug("DBAPI: add_delay_update_if_not_exists result: {}.".format(delay,))
+        return result
         
     def get_delay_map(self, recovery=0):
         self.lock()
@@ -514,6 +520,7 @@ class DbApi(object):
         delay.active=True
         self.commit_db()
         self.release()
+        module_logger.debug("DBAPI: activate_delay: {}.".format(delay,))
         return delay
         
     def deactivate_delay(self, delay):
@@ -522,6 +529,7 @@ class DbApi(object):
         delay.active=db_delay.active=False
         self.commit_db()
         self.release()
+        module_logger.debug("DBAPI: deactivate_delay: {}.".format(delay,))
         return delay
 
     def count_active_delays(self, sequence, recovery,):

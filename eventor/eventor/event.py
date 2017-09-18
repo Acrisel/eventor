@@ -70,9 +70,11 @@ class Event(object):
     #    db.add_event(event_id=self.id_, name=self.name,)
     
     def trigger_(self, db, sequence):
+        module_logger.debug('[ Event {}/{} ] Adding as trigger to DB'.format(self.name, sequence,))
         db.add_trigger(event_id=self.id_, sequence=sequence,)
     
     def trigger_if_not_exists(self, db, sequence, recovery):
+        module_logger.debug('[ Event {}/{} ] Adding, if not already exists, as trigger to DB'.format(self.name, sequence,))
         try:
             added = db.add_trigger_if_not_exists(event_id=self.id_, sequence=sequence, recovery=recovery)
         except Exception as e:

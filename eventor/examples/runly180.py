@@ -65,14 +65,14 @@ def build_flow(run_mode):
     # because OSX adds /var -> /private/var
     if config.startswith('/private'):
         config = config[8:]
-    ev = evr.Eventor(name=os.path.basename(__file__), run_mode=run_mode, logging_level=logging.DEBUG, config=config, store=db, shared_db=True, import_module=["examples.example_00_prog",])
+    ev = evr.Eventor(name=os.path.basename(__file__), run_mode=run_mode, logging_level=logging.DEBUG, config=config, store=db, shared_db=False, import_module=["examples.example_00_prog",])
     
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')
     ev3s = ev.add_event('run_step3')
     
     s1 = ev.add_step('s1', func=eprog.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
-    s2 = ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), }, host='ubuntud01')
+    s2 = ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), }, host='ubuntud01_eventor')
     s3 = ev.add_step('s3', func=eprog.prog, kwargs={'progname': 'prog3'},)
     
     ev.add_assoc(ev1s, s1, delay=0)

@@ -729,14 +729,14 @@ class Eventor(object):
             # since we have to delay, we need to create a Delay hidden task in 
             # between event and assocs.
             #delay_seq=Sequence('__delay_assoc')  
-            delay_id = "_evr_delay_%s_%s" % (event.name, get_delay_id())
+            delay_id = "_evr_delay_{}_{}".format(event.name, get_delay_id())
             delay_event = self.add_event(delay_id)
             #delay_func = self.__get_start_delay_task(delay_id, seconds=delay,)
             #delay_step = self.add_step(delay_id, func=delay_func,) 
             delay_step = self.add_step(delay_id, func=None,) 
             self.add_assoc(event, delay_step)
             self.add_assoc(delay_event, *assocs)
-            module_logger.debug("Adding delayed assoc: %s(%s) and %s(%s)" % (event, delay_step, delay_event, repr(assocs)))
+            module_logger.debug("Adding delayed assoc:\n    {}: {}.\n    {}: {}.".format(event, delay_step, delay_event, repr(assocs)))
             #self.__memory.delays[delay_id] = Delay(delay_id=delay_id, func=delay_func, seconds=delay, event=delay_event)
             self.__memory.delays[delay_id] = Delay(delay_id=delay_id, func=None, seconds=delay, event=delay_event)
             
@@ -750,7 +750,7 @@ class Eventor(object):
             for obj in assocs:
                 assoc = Assoc(event, obj)
                 objs.append(assoc)
-                module_logger.debug('add_assoc: %s' %( repr(assoc), ))
+                module_logger.debug('add_assoc: {}'.format( repr(assoc), ))
     
     def trigger_event(self, event, sequence=0, db=None):
         """Activates event 
@@ -852,24 +852,26 @@ class Eventor(object):
             assoc_obj=assoc.assoc_obj
             if isinstance(assoc_obj, Event):
                 # trigger event
-                module_logger.debug('Processing event association event [{}]: {}'.format(sequence, repr(assoc_obj)))
+                module_logger.debug('[ Event {}/{} ] Processing event association to event: {}.'.format(event.id_, sequence, repr(assoc_obj)))
                 self.trigger_event( assoc_obj, sequence )
                 assoc_events.append(sequence)
             elif isinstance(assoc_obj, Step):
                 # Check if there is previous task for this step
-                module_logger.debug('Processing event association step [{}]: {}'.format(sequence, repr(assoc_obj)))
+                module_logger.debug('[ Event {}/{} ] Processing event association to step: {}.'.format(event.id_, sequence, repr(assoc_obj)))
                 self.trigger_step(assoc_obj, sequence)
                 assoc_steps.append(sequence)
                 
             else:
-                raise EventorError("Unknown assoc object in association: {}".formatrepr(assoc))
+                msg = "[ Event {}/{} ] Unknown assoc object in association: {}.".format(event.id_, sequence, repr(assoc))
+                module_logger.debug(msg)
+                raise EventorError(msg)
         
         return list(set(assoc_events)), list(set(assoc_steps))
 
     def __loop_event(self):
         loop_seq=Sequence('EventLoop')
         self.loop_id=loop_seq() 
-        module_logger.debug("Going to fetch events: %s: recovery: %s" % (self.name, self.__recovery, ))    
+        module_logger.debug("Going to fetch events: {}: recovery: {}".format(self.name, self.__recovery, ))    
         # first pick up requests and move to act
         # this step is needed so automated requests will not impact 
         # the process as it is processing.
@@ -909,7 +911,7 @@ class Eventor(object):
                 except:
                     result=False
                     
-                module_logger.debug("[ Event %s/%s ] Eval expr: %s = %s\n    %s" % (event.id_, sequence,event.expr, result, trigger_map))
+                module_logger.debug("[ Event {}/{} ] Eval expr: {} = {}\n    {}".format(event.id_, sequence,event.expr, result, trigger_map))
                 
                 # update trigger map with result
                 #trigger_map[event.event_id]=result
@@ -1471,19 +1473,20 @@ class Eventor(object):
         try:                 
             active_and_todo_tasks = self.db.count_tasks(status=task_to_count, sequence=sequence, recovery=self.__recovery) 
         except Exception as e:
-            module_logger.critical("Failed to count TODOs in count_todos(); run_id: {}.".format(self.run_id))
+            module_logger.critical("[ Step {} ] Failed to count TODOs in count_todos(); run_id: {}.".format(self._name(sequence), self.run_id))
             module_logger.exception(e)
             self.__state = EventorState.shutdown
             return 0
         total_todo = todo_triggers + active_and_todo_tasks  
         result = total_todo
+        active_delays = 0
         # count delay:
         if with_delayeds:
             active_delays, min_delay = self.db.count_active_delays(sequence=sequence, recovery=self.__recovery) 
             total_todo += active_delays
-            result=(total_todo, min_delay)
+            result = (total_todo, min_delay)
                              
-        module_logger.debug('[ Step %s ] Total TODOs: %s (triggers: %s, tasks: %s)' % (self._name(sequence), total_todo, todo_triggers, active_and_todo_tasks))
+        module_logger.debug('[ Step {} ] Total TODOs: {} (triggers: {}, tasks: {}, delays: {})'.format(self._name(sequence), total_todo, todo_triggers, active_and_todo_tasks, active_delays))
         
         
         return result
@@ -1499,7 +1502,7 @@ class Eventor(object):
         '''
         stop_on_exception = self.__config['stop_on_exception']
         
-        module_logger.debug('[ Step %s ] Counting TODOs like: %s; state: %s, recovery: %s' % (self._name(sequence), sequence, self.__state, self.__recovery))
+        module_logger.debug('[ Step {} ] Counting TODOs like: {}; state: {}, recovery: {}'.format(self._name(sequence), sequence, self.__state, self.__recovery))
         todo_triggers = 0
         task_to_count = [TaskStatus.active, TaskStatus.fueled, TaskStatus.allocate, TaskStatus.ready,]
         # If step (mega-step) is active, needs to add triggers ready.
