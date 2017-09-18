@@ -6,6 +6,9 @@ Created on Sep 8, 2017
 
 import collections
 import acris  
+from acris import virtual_resource_pool as rp
+
+class StepResource(rp.Resource): pass
 
 class Container(object):
     
