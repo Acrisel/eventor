@@ -249,7 +249,7 @@ class Eventor(object):
                      #'synchrous_run': False, 
                      'max_concurrent': -1, 
                      'stop_on_exception': True,
-                     'sleep_between_loops': 0.1,
+                     'sleep_between_loops': 0.25,
                      'sequence_arg_name': None, # 'eventor_task_sequence'
                      #'pass_resources': False,
                      'day_to_keep_db': 5,
@@ -1733,6 +1733,7 @@ class Eventor(object):
 
     def __listent_to_remote(self, parentq):
         agent_count = len(self.__agents)
+        module_logger.debug('Listening to agents: {}.'.format(repr(self.__agents)))
         while agent_count > 0:
             for host, agent in list(self.__agents.items()):
                 #agent.poll()
@@ -1754,6 +1755,8 @@ class Eventor(object):
                         module_logger.debug('Agent exited. Returncode: {}; Output: {}; Error:'.format(repr(returncode), stdout) + '' if not stderr else '\n'+stderr)
                     del self.__agents[host]
             agent_count = len(self.__agents)
+            if agent_count > 0:
+                time.sleep(0.25)
      
     def __send_msg_to_agents(self, msg):
         module_logger.debug('Sending {} to agents: {}.'.format(msg, ", ".join(self.__agents.keys())))

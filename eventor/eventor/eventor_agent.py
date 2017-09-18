@@ -320,6 +320,8 @@ def run():
             # got message to quit, need to kill primo process and be done
             # Well since process is daemon, it will be killed when parent is done
             eventor_listener_q.put('STOP')
+            agent.join()
+            listener.join()
             print('TERM')
             print(error, file=sys.stderr)
             # TODO(Arnon): how to terminate listener that is listening 
