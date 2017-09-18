@@ -971,7 +971,7 @@ class Eventor(object):
         if istask: 
             task = act_result.value   
             if act_result.msg_type == TaskAdminMsgType.result:
-                delay_task=task.step_id.startswith('_evr_delay_')
+                delay_task = task.step_id.startswith('_evr_delay_')
                 if not delay_task:
                     proc = self.__task_proc[task.id_]
                     module_logger.debug('[ Task {}/{} ] applying result, process: {}, is_allive: {}'.format(
@@ -1249,7 +1249,7 @@ class Eventor(object):
                         self.__get_dbapi(create=False)
                     task.status = TaskStatus.failure
                     self.__update_task_status(task, TaskStatus.failure)
-                    module_logger.critical('Exception in task execution: \n    {}'.format(task,)) #)
+                    module_logger.critical('[ Task {}/{} ] Exception in task execution: \n    {}'.format(task.step_id, task.sequence, task,)) #)
                     module_logger.exception(e)
                     #trace = inspect.trace()
                     #trace = traces(trace)
@@ -1257,6 +1257,7 @@ class Eventor(object):
                     module_logger.info("Stopping running processes.") 
                     self.__state = EventorState.shutdown
                 else:
+                    module_logger.debug('[ Task {}/{} ] Started: \n    {}'.format(task.step_id, task.sequence, task,)) 
                     self.__task_proc[task.id_]=proc
                     if use_process:
                         self.__get_dbapi(create=False)
