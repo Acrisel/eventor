@@ -991,8 +991,9 @@ class Eventor(object):
                         #while proc.is_alive():
                         #    proc.join(0.05)
                         module_logger.debug('[ Task {}/{} ] Joined.'.format(task.step_id, task.sequence, ))
-                    del self.__task_proc[task.id_]  
-                    module_logger.debug('[ Task {}/{} ] Deleted.'.format(task.step_id, task.sequence, ))
+                    # TODO(Arnon): find why delete causing issue with Example 180
+                    #del self.__task_proc[task.id_]  
+                    #module_logger.debug('[ Task {}/{} ] Deleted.'.format(task.step_id, task.sequence, ))
                 step = self.__memory.steps[task.step_id]
                 step.concurrent -= 1
                 triggered = self.__apply_task_result(task)
@@ -1127,12 +1128,12 @@ class Eventor(object):
             #trace = traces(trace)
             #module_logger.critical("{}\n    {}".format(repr(e), '\n    '.join(trace)))
             module_logger.info("Stopping running processes") 
-            self.__state=EventorState.shutdown
+            self.__state = EventorState.shutdown
         
         if result:
-            task.status=TaskStatus.success
+            task.status = TaskStatus.success
             
-        result=TaskAdminMsg(msg_type=TaskAdminMsgType.result, value=task) 
+        result = TaskAdminMsg(msg_type=TaskAdminMsgType.result, value=task) 
         adminq = self.__adminq_th
         adminq.put( result )
 
