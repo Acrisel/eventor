@@ -326,7 +326,7 @@ def run():
             print(error, file=sys.stderr)
             # TODO(Arnon): how to terminate listener that is listening 
             break
-        elif msg == 'STOP':
+        elif msg == 'STOP' or msg == 'FINISH':
             # TODO: need to change message from parent to STOP - not TERM
             # got message to quit, need to kill primo process and be done
             # Well since process is daemon, it will be killed when parent is done

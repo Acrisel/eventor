@@ -1830,9 +1830,11 @@ class Eventor(object):
         while True:
             msg = listener_q.get() 
             if not msg: continue
-            module_logger.debug('Received msg from parent: {}'.format(msg))
+            module_logger.debug('Received msg on listener_q: {}'.format(msg))
             if msg == 'STOP':
                 self.__agent_loop = False
+                break
+            elif msg == 'FINISH':
                 break
         
     def run(self,  max_loops=-1):
@@ -1910,13 +1912,18 @@ class Eventor(object):
                     #send_to_remote(agent.stdin)
                     module_logger.debug('Joining with agent process: {}:{}; '.format(host, agent.pid,))  
                     # TODO(Arnon): need to timeout and check if still alive.
-                    msg = 'STOP'
+                    msg = 'FINISH'
                     module_logger.debug('Sending msg to child: {}'.format(msg))
                     self.__send_msg_to_agents(msg)
                     agent.join()
                     module_logger.debug('Agent process finished: {}:{}; '.format(host, agent.pid,))  
                 else:
+                    agent.join()
                     module_logger.debug('Agent process not alive, skipping: {}:{}; '.format(host, agent.pid,))  
+        elif self.__listener_q is not None:
+            self.__listener_q.put('FINISH')
+            listener_th.join()
+            
         if self.__logger is not None:
             self.__logger.stop()
             self.__logger = None
