@@ -1835,6 +1835,7 @@ class Eventor(object):
                 self.__agent_loop = False
                 break
             elif msg == 'FINISH':
+                self.__agent_loop = False
                 break
         
     def run(self,  max_loops=-1):
