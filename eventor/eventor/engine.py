@@ -973,22 +973,26 @@ class Eventor(object):
             if act_result.msg_type == TaskAdminMsgType.result:
                 delay_task = task.step_id.startswith('_evr_delay_')
                 if not delay_task:
-                    proc = self.__task_proc[task.id_]
-                    module_logger.debug('[ Task {}/{} ] applying result, process: {}, is_allive: {}'.format(
+                    try:
+                        proc = self.__task_proc[task.id_]
+                    except KeyError:
+                        module_logger.debug('[ Task {}/{} ] Failed to get task id {} from task_proc table (keys: {})'.format(task.step_id, task.sequence, task.id_, list(self.__task_proc.keys())))
+                        raise
+                    module_logger.debug('[ Task {}/{} ] applying result, process: {}, is_allive: {}.'.format(
                                         task.step_id, task.sequence, repr(proc), proc.is_alive()))
                     #if proc.is_alive():
                     if not isinstance(proc, Invoke):
                         exitcode = ""
                         if hasattr(proc, exitcode):
                             exitcode = " (exitcode=%s)" % proc.exitcode
-                        module_logger.debug('[ Task {}/{} ] joining exit code: {}'.format(task.step_id, task.sequence, exitcode))
+                        module_logger.debug('[ Task {}/{} ] Joining exit code: {}.'.format(task.step_id, task.sequence, exitcode))
                         if proc.is_alive():
                             proc.join()
                         #while proc.is_alive():
                         #    proc.join(0.05)
-                        module_logger.debug('[ Task {}/{} ] joined'.format(task.step_id, task.sequence, ))
+                        module_logger.debug('[ Task {}/{} ] Joined.'.format(task.step_id, task.sequence, ))
                     del self.__task_proc[task.id_]  
-                    module_logger.debug('[ Task {}/{} ] deleted'.format(task.step_id, task.sequence, ))
+                    module_logger.debug('[ Task {}/{} ] Deleted.'.format(task.step_id, task.sequence, ))
                 step = self.__memory.steps[task.step_id]
                 step.concurrent -= 1
                 triggered = self.__apply_task_result(task)
@@ -1258,7 +1262,7 @@ class Eventor(object):
                     self.__state = EventorState.shutdown
                 else:
                     module_logger.debug('[ Task {}/{} ] Started: \n    {}'.format(task.step_id, task.sequence, task,)) 
-                    self.__task_proc[task.id_]=proc
+                    self.__task_proc[task.id_] = proc
                     if use_process:
                         self.__get_dbapi(create=False)
                 finally:
