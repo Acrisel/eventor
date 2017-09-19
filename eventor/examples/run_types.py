@@ -68,12 +68,15 @@ class Container(object):
         return True
     
 import os
+import logging
+logger = logging.getLogger(__name__)
 
-def prog(progname, logger=None):
+def prog(progname, logger=logger):
     func = print
     if logger:
         func=logger.info
-    func("doing what %s is doing" % progname)
-    func("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
+    func("doing what {} is doing".format(progname))
+    args = map(os.getenv, ["EVENTOR_STEP_NAME", "EVENTOR_STEP_SEQUENCE", "EVENTOR_STEP_RECOVERY"])
+    func("NAME: {}, SEQUENCE: {}, RECOVERY: {}.".format(*args))
     return progname
 

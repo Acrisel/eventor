@@ -26,14 +26,14 @@ import os
 from acris import virtual_resource_pool as rp
 import examples.run_types as rtypes
 
-logger=logging.getLogger(__name__)
+#logger=logging.getLogger(__name__)
 
 db = 'pgdb2'
 config=os.path.abspath('runly.conf')
 # because OSX adds /var -> /private/var
 if config.startswith('/private'):
     config = config[8:]
-ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.INFO, config=config, store=db, shared_db=False, ) #config={'sleep_between_loops': 1}) # store=':memory:',
+ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.INFO, config=config, store=db, ) #config={'sleep_between_loops': 1}) # store=':memory:',
 
 ev0first = ev.add_event('s0_start')
 ev0next = ev.add_event('s0_next')

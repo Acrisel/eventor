@@ -47,7 +47,7 @@ setproctitle=None
 #from eventor.loop_event import LoopEvent
 
 #module_logger=logging.getLogger(__name__)
-module_logger=logging.getLogger(__file__)
+module_logger=None #logging.getLogger(__file__)
 
 from acris import traced_method
 from eventor.utils import decorate_all, print_method
@@ -116,7 +116,7 @@ class ResourceAllocationCallback(object):
         self.q.put(resources)
 
 
-def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=True, logger_info=None, eventor=None):
+def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=True, logger_info=None, eventor=None, config=None):
     ''' 
     Args:
         func: object with action method with the following signature:
@@ -127,18 +127,19 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
     
     # only if in separate process, need to initiate logger
     if use_process:
-        module_logger = MpLogger.get_logger(logger_info=logger_info, name="%s.%s_%s" %(logger_info['name'], step.name, task.sequence))
+        module_logger = MpLogger.get_logger(logger_info=logger_info, name="{}.{}_{}".format(logger_info['name'], step.name, task.sequence))
     #else:
     #    module_logger = MpLogger.get_logger(logger_info=logger_info, name="%s" %(logger_info['name'],))
     
     task.pid = os.getpid()
-    os.environ['EVENTOR_STEP_SEQUENCE'] = str(task.sequence)
-    os.environ['EVENTOR_STEP_RECOVERY'] = str(task.recovery)
-    os.environ['EVENTOR_STEP_NAME'] = str(step.name)
+    envvar_prefix = config.get('envvar_prefix', 'EVENTOR_')
+    os.environ['{}STEP_NAME'.format(envvar_prefix)] = str(step.name)
+    os.environ['{}STEP_SEQUENCE'.format(envvar_prefix)] = str(task.sequence)
+    os.environ['{}STEP_RECOVERY'.format(envvar_prefix)] = str(task.recovery)
 
     if setproctitle is not None and use_process:
         run_id_s = "%s." % run_id if run_id else ''
-        setproctitle("eventor: %s%s.%s(%s)" % (run_id_s, step.name, task.id_, task.sequence))
+        setproctitle("eventor: {}{}.{}({})".format(run_id_s, step.name, task.id_, task.sequence))
 
     # Update task with PID
     update = TaskAdminMsg(msg_type=TaskAdminMsgType.update, value=task) 
@@ -240,19 +241,23 @@ class Eventor(object):
     
     """
     
-    config_defaults={'workdir':'/tmp', 
-                     'logdir': '/var/log/eventor', 
-                     'task_construct': 'process',  # or 'thread'
-                     #'synchrous_run': False, 
-                     'max_concurrent': -1, 
-                     'stop_on_exception': True,
-                     'sleep_between_loops': 0.25,
-                     'sequence_arg_name': None, # 'eventor_task_sequence'
-                     #'pass_resources': False,
-                     'day_to_keep_db': 5,
-                     'remote_method' : 'ssh',
-                     'pass_logger_to_task': False,
-                     }  
+    config_defaults = {'workdir':'/tmp', 
+                       'logdir': '/var/log/eventor', 
+                       'task_construct': 'process',  # or 'thread'
+                       'envvar_prefix': 'EVENTOR_',
+                       #'synchrous_run': False, 
+                       'max_concurrent': -1, 
+                       'stop_on_exception': True,
+                       'sleep_between_loops': 0.25,
+                       'sequence_arg_name': None, # 'eventor_task_sequence'
+                       #'pass_resources': False,
+                       'day_to_keep_db': 5,
+                       'remote_method' : 'ssh',
+                       'pass_logger_to_task': False,
+                       'shared_db': False,
+                       'ssh_port': 22,
+                       'DATABASES' : {'dialect': 'sqlite', 'query': {'cache': 'shared'}},
+                       }  
     
     # TODO(Arnon): build db cleanup subprocess using day_to_keep_db
     
@@ -263,7 +268,7 @@ class Eventor(object):
                        StepStatus.failure: StepReplay.rerun, 
                        StepStatus.success: StepReplay.skip,}  
         
-    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], dedicated_logging=False, logging_level=logging.INFO, run_id='', shared_db=False, config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None,listener_q = None):
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], dedicated_logging=False, logging_level=logging.INFO, run_id='', config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None,listener_q = None):
         """initializes steps object
         
         Args:
@@ -363,8 +368,7 @@ class Eventor(object):
         else:
             # try to see if provided host is mapped in configuration
             self.host = self.hosts.get(host, host)
-        # TODO(Arnon): drive ssh_port from configuration
-        self.ssh_port = 22
+        self.ssh_port = self.__config.get('ssh_port', 22)
         
         self.__memory = MemEventor() if memory is None else memory
         self.__is_agent = memory is not None
@@ -375,8 +379,7 @@ class Eventor(object):
         
         self.__tasks = dict() 
         
-        
-        self.shared_db = shared_db
+        self.shared_db = shared_db = self.__config.get('shared_db', False)
         self.run_id = run_id if run_id is not None else ''
         if shared_db and not self.run_id:
             if run_mode != RunMode.restart:
@@ -391,6 +394,7 @@ class Eventor(object):
         #    module_logger.info("Process PID: {}; no run_id.".format(os.getpid(), )) 
 
         
+        logging_root = '.'.join(__name__.split('.')[:-1])
         #if dedicated_logging:
         #    logging_root = '.'.join(__name__.split('.')[:-1])
         #else:
@@ -417,8 +421,6 @@ class Eventor(object):
             self.__logger_info['name'] = logger_name
             self.__logger = None
             
-        module_logger.info("Process PID: {}; run_id: {}.".format(os.getpid(), repr(self.run_id),)) 
-        
         # TODO(Arnon): in case of Sequent, depth is 3 and not 2 as default.  Need to find way to drive calling module.
         self.__calling_module = calling_module()
         self.store = store
@@ -431,7 +433,7 @@ class Eventor(object):
         self.__recovery_run = recovery_run
         self._session_cycle_loop = False
         
-        self.shared_db = shared_db
+        '''
         self.run_id = run_id if run_id is not None else ''
         if shared_db and not self.run_id:
             if run_mode != RunMode.restart:
@@ -444,6 +446,9 @@ class Eventor(object):
             module_logger.info("Process PID: {}; assumed run_id: {}.".format(os.getpid(), self.run_id,)) 
         else:
             module_logger.info("Process PID: {}; no run_id.".format(os.getpid(), )) 
+        '''
+        
+        module_logger.info("Process PID: {}; run_id: {}.".format(os.getpid(), repr(self.run_id),)) 
         module_logger.debug("Process is agent: {}.".format(self.__is_agent)) 
         rest_sequences()   
         self.__setup_db_connection(create=not self.__is_agent)
@@ -1166,7 +1171,8 @@ class Eventor(object):
                     'step': self.__memory.steps[task.step_id], 
                     'adminq': adminq, 
                     'use_process': use_process, 
-                    'logger_info': self.__logger_info,}
+                    'logger_info': self.__logger_info,
+                    'config': self.__config,}
             if max_concurrent < 0 or step.concurrent < max_concurrent: # no-limit
                 try:
                     self.__update_task_status(task, TaskStatus.active)

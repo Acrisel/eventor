@@ -292,7 +292,7 @@ def run():
         return
     
     #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
-    module_logger.debug("Eventor subprocess pid: %s" % agent.pid)
+    module_logger.debug("Eventor subprocess pid: {}".format(agent.pid))
     
     # wait for remote parent or from child Eventor 
     if not check_agent_process(agent):
@@ -307,7 +307,7 @@ def run():
                 return
         if not msg: continue
         msg, error = msg
-        module_logger.debug("Pulled message from control queue: %s; %s" % (msg,error,))
+        module_logger.debug("Pulled message from control queue: {}; {}.".format(msg,error,))
         if msg == 'DONE':
             # msg from child - eventor agent is done
             module_logger.debug("Joining with Eventor process.")

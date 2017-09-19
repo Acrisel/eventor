@@ -61,7 +61,7 @@ class MyEnventor(evr.Eventor):
     def __init__(self, ):
         db = 'pgdb2'
         config = os.path.abspath('runly.conf')
-        super().__init__(name=__class__.__name__, logging_level=logging.DEBUG, config=config, store=db, shared_db=True)
+        super().__init__(name=__class__.__name__, logging_level=logging.DEBUG, config=config, store=db,)
 
     def prog(self, progname):
         logger.info("doing what %s is doing" % progname)

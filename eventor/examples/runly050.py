@@ -36,7 +36,7 @@ def construct_and_run():
     db = 'sqfile00'
     #db = 'pgdb2'
     config=os.path.abspath('runly.conf')
-    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=False,) # import_module=__file__)
+    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, ) # import_module=__file__)
     #ev = evr.Eventor( logging_level=logging.INFO) # store=':memory:',
     
     ev0first = ev.add_event('s0_start')

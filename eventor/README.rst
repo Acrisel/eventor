@@ -120,8 +120,6 @@ Args
     
     *recovery_run*: if *RunMode.recover* is used, *recovery_run* will indicate specific instance of previously recovery run that would be executed.If not provided, latest run would be used.
     
-    *shared_db*: if set, db must not be in memory.  In this case, a run_id must be provided or it will be generated. It signals Eventor that multiple programs will use the same database tables.
-    
     *run_id*: unique ID for the program run (excluding recovery_run).  It is mandatory in *shared_db* mode, and if not provided, will be generated.
     
     config: keyword dictionary of default configurations.  Available keywords and their default values:
@@ -146,6 +144,14 @@ Args
         +---------------------+------------+--------------------------------------------------+
         | sleep_between_loops | 1          | seconds to sleep between iteration of checking   |
         |                     |            | triggers and tasks                               |
+        +---------------------+------------+--------------------------------------------------+
+        | shared_db           | False      | if set, db must not be in memory. signals that   |
+        |                     |            | multiple programs will use the same database     |
+        |                     |            | tables.                                          |
+        +---------------------+------------+--------------------------------------------------+
+        | envvar_prefix       | EVENTOR_   | set prefix for environment variable defined for  |
+        |                     |            | each step:                                       |
+        |                     |            |    STEP_NAME, STEP_SEQUENCE, and STEP_RECOVERY   |
         +---------------------+------------+--------------------------------------------------+
           
 Eventor *add_event* method
