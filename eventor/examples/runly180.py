@@ -57,11 +57,11 @@ import time
 
 logger=logging.getLogger(__name__)
 
-import examples.example_00_prog as eprog
+import examples.run_types as rtypes
 
 def build_flow(run_mode):
     db = 'pgdb2'
-    config=os.path.abspath('example00.conf')
+    config=os.path.abspath('runly.conf')
     # because OSX adds /var -> /private/var
     if config.startswith('/private'):
         config = config[8:]
@@ -71,9 +71,9 @@ def build_flow(run_mode):
     ev2s = ev.add_event('run_step2')
     ev3s = ev.add_event('run_step3')
     
-    s1 = ev.add_step('s1', func=eprog.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
-    s2 = ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), }, host='ubuntud01_eventor')
-    s3 = ev.add_step('s3', func=eprog.prog, kwargs={'progname': 'prog3'},)
+    s1 = ev.add_step('s1', func=rtypes.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
+    s2 = ev.add_step('s2', func=rtypes.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), }, host='ubuntud01_eventor')
+    s3 = ev.add_step('s3', func=rtypes.prog, kwargs={'progname': 'prog3'},)
     
     ev.add_assoc(ev1s, s1, delay=0)
     ev.add_assoc(ev2s, s2, delay=10)

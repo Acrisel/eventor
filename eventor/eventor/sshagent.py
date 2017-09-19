@@ -6,13 +6,9 @@ Created on Aug 27, 2017
 
 #from concepts.sshcmd_popen import sshcmd
 import pickle
-import os
-from concepts.sshtypes import RemoteWorker
 import struct
 import multiprocessing as mp
-import sys
 from subprocess import PIPE, run
-import threading as th
 import time
 
 import logging
@@ -176,22 +172,4 @@ class SshAgent(object):
         self.__agent.join()
 
 
-if __name__ == '__main__':
-    mp.set_start_method('spawn')
-    mp.freeze_support()
-    
-    agent_dir = "/var/acrisel/sand/eventor/eventor/eventor/concepts"
-    agentpy = os.path.join(agent_dir, "sshagent_popen.py")
-    host='192.168.1.100'
-    #host='172.31.99.104'
-    
-    sshagent = SshAgent(host, agentpy)
-    
-    worker = RemoteWorker()
-    print('Sending worker')
-    sshagent.send(worker)
-
-    print('Closing SSH pipe')
-    response = sshagent.close()
-    print('response: ', response)
 

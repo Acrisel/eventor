@@ -27,8 +27,7 @@ import logging
 #from acris import Mediator
 import os
 #from eventor import Invoke
-import examples.example_00_prog as eprog
-import examples.runly15_types as runtyles
+import examples.run_types as rtypes
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ logger = logging.getLogger(__name__)
 def construct_and_run():        
     db = 'sqfile00'
     #db = 'pgdb2'
-    config=os.path.abspath('example00.conf')
+    config=os.path.abspath('runly.conf')
     ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=False,) # import_module=__file__)
     #ev = evr.Eventor( logging_level=logging.INFO) # store=':memory:',
     
@@ -50,20 +49,20 @@ def construct_and_run():
     ev2success = ev.add_event('s0_s00_s2_success')
     ev3s = ev.add_event('s0_s00_s3_start', expr=(ev2success,))
     
-    metaprog = runtyles.Container(progname='S0', loop=[1,2,], iter_triggers=(ev00first,))
+    metaprog = rtypes.Container(progname='S0', loop=[1,2,], iter_triggers=(ev00first,))
     
     s0first = ev.add_step('s0_start', func=metaprog, kwargs={'initial': True,}, config={'max_concurrent': -1, 'task_construct': 'invoke', 'pass_logger_to_task': True})
     s0next = ev.add_step('s0_next', func=metaprog, config={'task_construct': 'invoke', 'pass_logger_to_task': True})
     
-    metaprog = runtyles.Container(progname='S00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
+    metaprog = rtypes.Container(progname='S00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
     
     s00first = ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True,}, config={'max_concurrent': -1, 'task_construct': 'invoke', 'pass_logger_to_task': True})
     s00next = ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': 'invoke', 'pass_logger_to_task': True})
     
-    s1 = ev.add_step('s0.s00.s1', func=eprog.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
-    s2 = ev.add_step('s0.s00.s2', func=eprog.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
+    s1 = ev.add_step('s0.s00.s1', func=rtypes.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
+    s2 = ev.add_step('s0.s00.s2', func=rtypes.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
     
-    s3 = ev.add_step('s0.s00.s3', func=eprog.prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
+    s3 = ev.add_step('s0.s00.s3', func=rtypes.prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
     
     ev.add_assoc(ev0first, s0first)
     ev.add_assoc(ev0next, s0next)

@@ -21,7 +21,6 @@ import time
 from collections import Mapping
 from datetime import datetime
 import signal
-import sys
 
 
 from eventor.step import Step
@@ -35,9 +34,7 @@ from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
-#from eventor.agent.sshmain_pipe import send_to_agent, local_agent
-#from eventor.agent.sshmain_popen import SshAgent
-from eventor.agent.sshagent_mp_pipe import SshAgent, read_ssh_config
+from eventor.sshagent import SshAgent, read_ssh_config
 from eventor.expandvars import expandvars
 
 '''
@@ -1764,7 +1761,7 @@ class Eventor(object):
             if agent_count > 0:
                 time.sleep(0.25)
      
-    def __send_msg_to_agents(self, msg):
+    def __term_agents(self, msg, join=True):
         module_logger.debug('Sending {} to agents: {}.'.format(msg, ", ".join(self.__agents.keys())))
         for host, agent in list(self.__agents.items()):
             module_logger.debug('Sending {} to {}'.format(msg, host,))
@@ -1780,7 +1777,7 @@ class Eventor(object):
                    
     def __exit_gracefully(self, signum=None, frame=None):
         module_logger.debug('Caught termination signal; terminating {}'.format(", ".join(self.__agents.keys())))
-        self.__send_msg_to_agents('TERM')
+        self.__term_agents('TERM')
                 
     def __start_remote_agents(self, hosts):        
         # prepare to pickle
@@ -1906,18 +1903,9 @@ class Eventor(object):
             for host, agent in list(self.__agents.items()):
                 #pid, status = os.waitpid(pid, os.WNOHANG)
                 #agent.poll()
-                if agent.is_alive(): # still alive!
-                    #send_to_remote(agent.stdin)
-                    module_logger.debug('Joining with agent process: {}:{}; '.format(host, agent.pid,))  
-                    # TODO(Arnon): need to timeout and check if still alive.
-                    msg = 'FINISH'
-                    module_logger.debug('Sending msg to child: {}'.format(msg))
-                    self.__send_msg_to_agents(msg)
-                    agent.join()
-                    module_logger.debug('Agent process finished: {}:{}; '.format(host, agent.pid,))  
-                else:
-                    agent.join()
-                    module_logger.debug('Agent process not alive, skipping: {}:{}; '.format(host, agent.pid,))  
+                module_logger.debug('Sending FINISH to child: {}'.format(host))
+                agent.close(msg='FINISH')
+                module_logger.debug('Agent process finished: {}:{}; '.format(host, agent.pid,)) 
         elif self.__listener_q is not None:
             self.__listener_q.put('FINISH')
             listener_th.join()

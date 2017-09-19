@@ -57,17 +57,17 @@ import os
 
 logger=logging.getLogger(__name__)
 
-import examples.example_00_prog as eprog
+import examples.run_types as rtypes
 
 def construct_and_run(): 
     #db = 'sqfile00'
     db = 'pgdb2'
-    config=os.path.abspath('example00.conf')
+    config=os.path.abspath('runly.conf')
     # because OSX adds /var -> /private/var
     if config.startswith('/private'):
         config = config[8:]
     # TODO: assume import_module is __file__ if not provided
-    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=False) #, import_module=["examples.example_00_prog",])
+    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=False) 
     
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')
@@ -75,9 +75,9 @@ def construct_and_run():
     
     host = 'ubuntud01_eventor'
     #host = 'ubuntud01'
-    s1 = ev.add_step('s1', func=eprog.prog, kwargs={'progname': 'prog1',}, triggers={evr.StepStatus.success: (ev2s,),}) 
-    s2 = ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2',}, host=host, triggers={evr.StepStatus.success: (ev3s,), })
-    s3 = ev.add_step('s3', func=eprog.prog, kwargs={'progname': 'prog3',},)
+    s1 = ev.add_step('s1', func=rtypes.prog, kwargs={'progname': 'prog1',}, triggers={evr.StepStatus.success: (ev2s,),}) 
+    s2 = ev.add_step('s2', func=rtypes.prog, kwargs={'progname': 'prog2',}, host=host, triggers={evr.StepStatus.success: (ev3s,), })
+    s3 = ev.add_step('s3', func=rtypes.prog, kwargs={'progname': 'prog3',},)
     
     ev.add_assoc(ev1s, s1)
     ev.add_assoc(ev2s, s2)

@@ -65,7 +65,7 @@ def prog(progname):
 def construct_and_run(): 
     #db = 'sqfile00'
     db = 'pgdb2'
-    config=os.path.abspath('example00.conf')
+    config=os.path.abspath('runly.conf')
     ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=False, import_module=__file__)
     
     ev1s=ev.add_event('run_step1')

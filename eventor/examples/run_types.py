@@ -66,3 +66,14 @@ class Container(object):
                     #eventor.remote_trigger_event(trigger, self.loop_index,)
             
         return True
+    
+import os
+
+def prog(progname, logger=None):
+    func = print
+    if logger:
+        func=logger.info
+    func("doing what %s is doing" % progname)
+    func("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
+    return progname
+

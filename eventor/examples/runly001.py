@@ -60,7 +60,7 @@ logger=logging.getLogger(__name__)
 class MyEnventor(evr.Eventor):
     def __init__(self, ):
         db = 'pgdb2'
-        config = os.path.abspath('example00.conf')
+        config = os.path.abspath('runly.conf')
         super().__init__(name=__class__.__name__, logging_level=logging.DEBUG, config=config, store=db, shared_db=True)
 
     def prog(self, progname):
@@ -68,12 +68,7 @@ class MyEnventor(evr.Eventor):
         logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
         return progname
     
-    def construct_and_run(self): 
-        #db = 'sqfile00'
-        #db = 'pgdb2'
-        #config=os.path.abspath('example00.conf')
-        #ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=True)
-        
+    def construct_and_run(self):         
         ev1s = self.add_event('run_step1')
         ev2s = self.add_event('run_step2')
         ev3s = self.add_event('run_step3')

@@ -13,7 +13,7 @@ logger=logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-import examples.example_00_prog as eprog
+import examples.run_types as eprog
     
 
 def build_flow(run_mode):

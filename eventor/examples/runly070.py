@@ -26,7 +26,7 @@ import collections
 import queue
 from enum import Enum
 from acris import virtual_resource_pool as rp
-import examples.runly15_types as runtyles
+import examples.run_types as runtyles
 
 logger=logging.getLogger(__name__)
 
