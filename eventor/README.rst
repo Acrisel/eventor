@@ -149,8 +149,8 @@ Args
         |                     |            | multiple programs will use the same database     |
         |                     |            | tables.                                          |
         +---------------------+------------+--------------------------------------------------+
-        | envvar_prefix       | EVENTOR_   | set prefix for environment variable defined for  |
-        |                     |            | each step:                                       |
+        | envvar_prefix       | EVENTOR_   | set prefix for naming environment variable       |
+        |                     |            | defined for each step:                           |
         |                     |            |    STEP_NAME, STEP_SEQUENCE, and STEP_RECOVERY   |
         +---------------------+------------+--------------------------------------------------+
           

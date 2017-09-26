@@ -6,7 +6,7 @@ Created on Nov 23, 2016
 
 import logging
 from acris import Sequence, MergedChainedDict
-from acrilog import MpLogger
+from acrilog import NwLogger as Logger
 from acris import virtual_resource_pool as vrp
 import multiprocessing as mp
 from threading import Thread
@@ -127,9 +127,9 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
     
     # only if in separate process, need to initiate logger
     if use_process:
-        module_logger = MpLogger.get_logger(logger_info=logger_info, name="{}.{}_{}".format(logger_info['name'], step.name, task.sequence))
+        module_logger = Logger.get_logger(logger_info=logger_info, name="{}.{}_{}".format(logger_info['name'], step.name, task.sequence))
     #else:
-    #    module_logger = MpLogger.get_logger(logger_info=logger_info, name="%s" %(logger_info['name'],))
+    #    module_logger = Logger.get_logger(logger_info=logger_info, name="%s" %(logger_info['name'],))
     
     task.pid = os.getpid()
     envvar_prefix = config.get('envvar_prefix', 'EVENTOR_')
@@ -386,12 +386,7 @@ class Eventor(object):
                 raise EventorError("When shared_db is set in restart, run_id must be provided.")
             # in this case we need to produce unique run_id on this cluster
             self.run_id = get_unique_run_id()
-            #module_logger.info("Process PID: {}; new run_id: {}.".format(os.getpid(), self.run_id,)) 
             self.__memory.kwargs['run_id'] = self.run_id
-        #elif self.run_id:
-        #    module_logger.info("Process PID: {}; assumed run_id: {}.".format(os.getpid(), self.run_id,)) 
-        #else:
-        #    module_logger.info("Process PID: {}; no run_id.".format(os.getpid(), )) 
 
         
         logging_root = '.'.join(__name__.split('.')[:-1])
@@ -412,11 +407,12 @@ class Eventor(object):
         #    logger_name = name
         
         if not self.__is_agent:
-            self.__logger = MpLogger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
-            module_logger = self.__logger.start()
+            self.__logger = Logger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
+            self.__logger.start()
             self.__logger_info = self.__logger.logger_info()
+            module_logger = Logger.get_logger(logger_info=self.__logger_info, name=logger_name)
         else:
-            module_logger = MpLogger.get_logger(memory.logger_info, logger_name)
+            module_logger = Logger.get_logger(logger_info=memory.logger_info, name=logger_name)
             self.__logger_info = memory.logger_info
             self.__logger_info['name'] = logger_name
             self.__logger = None
@@ -433,20 +429,6 @@ class Eventor(object):
         self.__recovery_run = recovery_run
         self._session_cycle_loop = False
         
-        '''
-        self.run_id = run_id if run_id is not None else ''
-        if shared_db and not self.run_id:
-            if run_mode != RunMode.restart:
-                raise EventorError("When shared_db is set in restart, run_id must be provided.")
-            # in this case we need to produce unique run_id on this cluster
-            self.run_id = get_unique_run_id()
-            module_logger.info("Process PID: {}; new run_id: {}.".format(os.getpid(), self.run_id,)) 
-            self.__memory.kwargs['run_id'] = self.run_id
-        elif self.run_id:
-            module_logger.info("Process PID: {}; assumed run_id: {}.".format(os.getpid(), self.run_id,)) 
-        else:
-            module_logger.info("Process PID: {}; no run_id.".format(os.getpid(), )) 
-        '''
         
         module_logger.info("Process PID: {}; run_id: {}.".format(os.getpid(), repr(self.run_id),)) 
         module_logger.debug("Process is agent: {}.".format(self.__is_agent)) 

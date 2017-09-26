@@ -24,7 +24,7 @@
 
 About
 =========
-:synopsis:     example use of grapior
+:synopsis:     example use of Eventor
 :moduleauthor: Arnon Sela
 :date:         Oct 18, 2016
 :description:  use gradior dependencies and recovery
@@ -53,16 +53,16 @@ API DOC:
 import eventor as evr
 import logging
 import examples.program as prog
-import time
+import os
 
 
 def construct_and_run():
-    logger = logging.getLogger(__name__)
+    #logger = logging.getLogger(__name__)
     
-    logger.setLevel(logging.DEBUG)
+    #logger.setLevel(logging.DEBUG)
     
     #ev=evr.Eventor(filename=':memory:')
-    ev=evr.Eventor(logging_level=logging.INFO)
+    ev=evr.Eventor(name=os.path.basename(__file__), logging_level=logging.INFO)
     
     ev1s = ev.add_event('run_step1')
     ev1d = ev.add_event('done_step1')
