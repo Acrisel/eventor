@@ -18,7 +18,7 @@ import struct
 import importlib.util
 import multiprocessing as mp
 from threading import Thread
-from acrilog import MpLogger
+from acrilog import NwLogger
 import logging
 import pprint
 from queue import Empty
@@ -71,7 +71,7 @@ def cmdargs():
 
 def start_eventor(queue, logger_info, **kwargs):
     global module_logger
-    module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
+    module_logger = NwLogger.get_logger(logger_info, logger_info['name'])
     module_logger.debug('Starting EventorAgent:\n%s' % pprint.pformat(kwargs, indent=4))
     try:
         eventor = Eventor(**kwargs)

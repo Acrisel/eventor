@@ -34,7 +34,8 @@ from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
-from eventor.sshagent import SshAgent, read_ssh_config
+from eventor.sshpipe import SSHPipe #, read_ssh_config
+import sshutil
 from eventor.expandvars import expandvars
 
 '''
@@ -432,6 +433,7 @@ class Eventor(object):
         
         module_logger.info("Process PID: {}; run_id: {}.".format(os.getpid(), repr(self.run_id),)) 
         module_logger.debug("Process is agent: {}.".format(self.__is_agent)) 
+        module_logger.debug("Logger info: {}.".format(self.__logger_info)) 
         rest_sequences()   
         self.__setup_db_connection(create=not self.__is_agent)
         
@@ -1651,7 +1653,7 @@ class Eventor(object):
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         cmd = "{} {} {}".format(agentpy, ' '.join(args), " ".join(kw))
         module_logger.debug('Agent command: {}: {}.'.format(host, cmd))
-        sshagent = SshAgent(host, cmd, logger=None) #=module_logger)
+        sshagent = SSHPipe(host, cmd, logger=None) #=module_logger)
         sshagent.start(wait=0.2)
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         #agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', pipe_read, pipe_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
@@ -1679,10 +1681,12 @@ class Eventor(object):
         return sshagent #RemoteAgent(proc=agent, stdin=pipe_write, stdout=None)
     
     def __get_ssh_hostname(self, host, ssh_config):
-        ssh_host = ssh_config.get(host, None)
-        if ssh_host is None: 
-            return ssh_host
-        ssh_hostname = ssh_host.get('Hostname', None)
+        try:
+            ssh_hostname = ssh_config.get(host, 'Hostname',)
+        except Exception as e:
+            return None
+            
+        #ssh_hostname = ssh_host.get('Hostname', None)
         if ssh_hostname is not None:
             return ssh_hostname
         ssh_host = ssh_config.get('default', {})
@@ -1706,8 +1710,9 @@ class Eventor(object):
         ssh_config_file = self.__get_ssh_config_file()
         ssh_config = {}
         if ssh_config_file is not None:
-            ssh_config = read_ssh_config(config=ssh_config_file)
-            module_logger.debug("Using SSH config file {}: {}.".format(ssh_config_file, ssh_config))
+            #ssh_config = read_ssh_config(config=ssh_config_file)
+            ssh_config = sshutil.load()
+            module_logger.debug("Using SSH configuration file {}.".format(ssh_config_file,))
         
         not_accessiable = list()
         # check ssh port is accessible
