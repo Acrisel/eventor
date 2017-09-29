@@ -18,10 +18,12 @@ import struct
 import importlib.util
 import multiprocessing as mp
 from threading import Thread
-from acrilog import NwLogger
+from acrilog import NwLogger as Logger
+from acrilog import NwLoggerClientHandler
 import logging
 import pprint
 from queue import Empty
+import json
 
 module_logger = None
 
@@ -52,12 +54,18 @@ def cmdargs():
     #                    help="""import file before pickle loads.""")
     parser.add_argument('--host', type=str, 
                         help="""Host on which this command was sent to.""")
-    parser.add_argument('--log', type=str, 
-                        help="""Logger name to use.""")
-    parser.add_argument('--logdir', type=str, 
-                        help="""Logger output directory.""")
-    parser.add_argument('--loglevel', type=int, 
-                        help="""Logger level.""")
+    parser.add_argument('--log-info', type=int, dest='log_info',
+                        help="""Logger info dictionary json coded.""")
+    #parser.add_argument('--log-port', type=int, 
+    #                    help="""Logger server port.""")
+    #parser.add_argument('--log-name', type=str, dest='logname',
+    #                    help="""Logger name to use.""")
+    #parser.add_argument('--log-dir', type=str, dest='logdir',
+    #                    help="""Logger output directory.""")
+    #parser.add_argument('--log-encoding', type=str, dest='logencoding', default='utf-8',
+    #                    help="""Logger encoding.""")
+    #parser.add_argument('--log-level', type=int, dest='loglevel',
+    #                    help="""Logger level.""")
     parser.add_argument('--file', type=str, required=False,
                         help="""File to store or recover memory. With --pipe, it would store memory into file. Without --pipe, it would recover memory from store""")
     parser.add_argument('--pipe', action='store_true', 
@@ -151,16 +159,36 @@ def check_agent_process(agent,):
     return True
 
 
-def run():
-    global module_logger
-    args = cmdargs()
-    mplogger = MpLogger(name=args.log+'.agent', logging_level=args.loglevel, console=False, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=args.logdir, encoding='utf8')
-    module_logger = mplogger.start()
-    module_logger.debug("Starting agent: %s" % args)
+def run(log_info, imports, host, file, pipe):
+    ''' Runs EventorAgent in remote host.
     
-    if args.imports is not None:
-        imports = imports_from_cmd(args.imports)
-        module_logger.debug("Importings %s." % (imports))
+    Args: 
+        log_info
+        imports
+        host
+        file
+        pipe
+    '''
+    global module_logger
+    
+    log_info = json.loads(log_info)
+    
+    # TODO: pass other logging attributes
+    logname = log_info['name']
+    logging_level = log_info['logging_level']
+    logdir = log_info['logdir']
+    datefmt = log_info['datefmt']
+    kwargs = log_info['handler_kwargs']
+    
+    logger = Logger(name=logname+'.agent', logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, logdir=logdir, **kwargs)
+    logger.addHandler(NwLoggerClientHandler(log_info))
+    
+    module_logger = logger.start()
+    module_logger.debug("Starting agent: {}".format(args))
+    
+    if imports is not None:
+        imports = imports_from_cmd(imports)
+        module_logger.debug("Importing %s." % (imports))
         for import_file, import_modules in imports:
             if not import_file:
                 for module in import_modules:
@@ -177,21 +205,21 @@ def run():
                         return
             else:
                 for module in import_modules:
-                    module_logger.debug("Importing %s from %s." % (module, args.import_file))
+                    module_logger.debug("Importing %s from %s." % (module, import_file))
                     try:
-                        spec = importlib.util.spec_from_file_location(module, args.import_file)
+                        spec = importlib.util.spec_from_file_location(module, import_file)
                         spec_module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(spec_module)
-                        # sys.modules[args.import_module] = module # not needed for now
+                        # sys.modules[import_module] = module # not needed for now
                     except Exception as e:
-                        module_logger.critical("Failed to import: %s %s;" % (args.import_module, args.import_file))
+                        module_logger.critical("Failed to import: %s %s;" % (import_module, import_file))
                         module_logger.exception(e)
                         # signal to parant via stdout
                         print('TERM')
                         print(e, file=sys.stderr)
                         return
     
-    if args.pipe:
+    if pipe:
         module_logger.debug("Fetching workload. from pipe")
         try:
             msgsize_raw = sys.stdin.buffer.read(4)
@@ -216,13 +244,13 @@ def run():
             return
         
         # store memory into file
-        if args.file:
-            module_logger.debug("Storing workload to {}.".format(args.file))
+        if file:
+            module_logger.debug("Storing workload to {}.".format(file))
             try:
-                with open(args.file, 'wb') as file:
+                with open(file, 'wb') as file:
                     pickle.dump(memory, file)
             except Exception as e:
-                module_logger.critical("Failed to pickle dump workload to {}.".format(args.file))
+                module_logger.critical("Failed to pickle dump workload to {}.".format(file))
                 module_logger.exception(e)
                 # signal to parant via stdout
                 print('TERM')
@@ -231,10 +259,10 @@ def run():
     else:
         module_logger.debug("Fetching workload. from file")  
         try:
-            with open(args.file, 'rb') as file:
+            with open(file, 'rb') as file:
                 memory = pickle.load(file)
         except Exception as e:
-            module_logger.critical("Failed to pickle load workload from {}.".format(args.file))
+            module_logger.critical("Failed to pickle load workload from {}.".format(file))
             module_logger.exception(e)
             # signal to parant via stdout
             print('TERM')
@@ -243,12 +271,13 @@ def run():
                 
     
     module_logger.debug("Memory received:\n%s" % pprint.pformat(memory, indent=4, ))
-    logger_info = mplogger.logger_info()
+    logger_info = logger.logger_info()
     
     try:
         kwargs = memory.kwargs.copy()
+        # change logger_info to this agent logger info.
         memory.logger_info = logger_info
-        kwargs['host'] = args.host
+        kwargs['host'] = host
         kwargs['memory'] = memory
     except Exception as e:
         module_logger.critical("Failed get kwargs from received memory.")
@@ -345,5 +374,6 @@ def run():
 if __name__ == '__main__':
     mp.freeze_support()
     mp.set_start_method('spawn')
-    run()
+    args = cmdargs()
+    run(**args.vars())
     

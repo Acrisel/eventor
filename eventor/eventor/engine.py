@@ -21,6 +21,7 @@ import time
 from collections import Mapping
 from datetime import datetime
 import signal
+import json
 
 
 from eventor.step import Step
@@ -34,7 +35,7 @@ from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
-from eventor.sshpipe import SSHPipe #, read_ssh_config
+from sshutil.sshpipe import SSHPipe #, read_ssh_config
 import sshutil
 from eventor.expandvars import expandvars
 
@@ -372,8 +373,8 @@ class Eventor(object):
         self.ssh_port = self.__config.get('ssh_port', 22)
         
         self.__memory = MemEventor() if memory is None else memory
-        self.__is_agent = memory is not None
-        if not self.__is_agent:
+        self.__is_server = memory is None
+        if self.__is_server:
             self.__memory.kwargs.update(eventor_kwargs)
             #self.__memory.kwargs['agent'] = True
             #self.__memory.kargs['memory'] = self.__memory
@@ -390,24 +391,15 @@ class Eventor(object):
             self.__memory.kwargs['run_id'] = self.run_id
 
         
+        '''
         logging_root = '.'.join(__name__.split('.')[:-1])
-        #if dedicated_logging:
-        #    logging_root = '.'.join(__name__.split('.')[:-1])
-        #else:
-        #    logging_root = ''
         level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
                         'default':   "[ %(asctime)-15s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]",
                         }
         
-        # TODO(Arnon): get to logging configuration (as in Database)
-        # TODO(Arnon): drive encoding from parameter
-        # TODO(Arnon): log name needs to be driven by calling 
-        # TODO(Arnon): add run_id to log name
         logger_name = "{}{}".format(name,".{}".format(self.run_id.replace("@","-")) if self.run_id else '')
-        #if dedicated_logging:
-        #    logger_name = name
         
-        if not self.__is_agent:
+        if self.__is_server:
             self.__logger = Logger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
             self.__logger.start()
             self.__logger_info = self.__logger.logger_info()
@@ -417,6 +409,8 @@ class Eventor(object):
             self.__logger_info = memory.logger_info
             self.__logger_info['name'] = logger_name
             self.__logger = None
+        '''
+        self.__set_logger(logging_level, memory)
             
         # TODO(Arnon): in case of Sequent, depth is 3 and not 2 as default.  Need to find way to drive calling module.
         self.__calling_module = calling_module()
@@ -432,14 +426,46 @@ class Eventor(object):
         
         
         module_logger.info("Process PID: {}; run_id: {}.".format(os.getpid(), repr(self.run_id),)) 
-        module_logger.debug("Process is agent: {}.".format(self.__is_agent)) 
+        module_logger.debug("Process is server: {}.".format(self.__is_server)) 
         module_logger.debug("Logger info: {}.".format(self.__logger_info)) 
         rest_sequences()   
-        self.__setup_db_connection(create=not self.__is_agent)
+        self.__setup_db_connection(create=self.__is_server)
         
         self.__program_artifacts = ProgramArtifacts(dict(), dict(), list())
         
         self.__listener_q = listener_q
+        
+    def __set_logger(self, logging_level, memory):
+        global module_logger
+        logging_root = '.'.join(__name__.split('.')[:-1])
+        #if dedicated_logging:
+        #    logging_root = '.'.join(__name__.split('.')[:-1])
+        #else:
+        #    logging_root = ''
+        level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
+                        'default':   "[ %(asctime)-15s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]",
+                        }
+        
+        # TODO(Arnon): get to logging configuration (as in Database)
+        # TODO(Arnon): drive encoding from parameter
+        # TODO(Arnon): log name needs to be driven by calling 
+        logger_name = "{}{}".format(self.name,".{}".format(self.run_id.replace("@","-")) if self.run_id else '')
+        #if dedicated_logging:
+        #    logger_name = name
+        
+        if self.__is_server:
+            self.__logger = Logger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
+            self.__logger.start()
+            self.__logger_info = self.__logger.logger_info()
+            module_logger = Logger.get_logger(logger_info=self.__logger_info, name=logger_name)
+        else:
+            # agent needs two log handlers. One is logging back into the server. The other is local log service.
+            # Logger.get_logger will add logger handler that would start 
+            module_logger = Logger.get_logger(logger_info=memory.logger_info, name=logger_name)
+            self.__logger_info = memory.logger_info
+            self.__logger_info['name'] = logger_name
+            self.__logger = None
+
         
     def __get_dbapi(self, create=True):
         filename = store_from_module(self.__calling_module)
@@ -474,7 +500,7 @@ class Eventor(object):
         #    else:
         #        self.__db_daly_adj=(datetime.now() - datetime.fromtimestamp(db_mtime)).total_seconds()
         self.__get_dbapi(create=create)
-        if self.__run_mode == RunMode.restart and not self.__is_agent:
+        if self.__run_mode == RunMode.restart and self.__is_server:
             self.__write_info()
         else:
             self.__read_info(run_mode=self.__run_mode, recovery_run=self.__recovery_run)
@@ -1335,7 +1361,7 @@ class Eventor(object):
         # there are two routes.  One for server. The other is agent
         # agent takes only tasks for their hosts. 
         module_logger.debug("Going to fetch tasks: {}: recovery: {}.".format(self.name, self.__recovery, ))
-        query_host = self.host if self.__is_agent else None
+        query_host = self.host if not self.__is_server else None
         tasks = self.db.get_task_iter(host=query_host, recovery=self.__recovery, status=[TaskStatus.ready, TaskStatus.allocate, TaskStatus.fueled, TaskStatus.active ])
         #module_logger.debug("Number tasks fetched: %s" % (len(list(tasks)), ))
         for task in tasks:
@@ -1349,7 +1375,7 @@ class Eventor(object):
             ready_to_launch = task.status == TaskStatus.fueled or (task.status == TaskStatus.ready and not step.acquires)
             launch_here = self.host == task.host
             task_is_a_delay = task.step_id.startswith('_evr_delay_')
-            if not self.__is_agent:
+            if self.__is_server:
                 if ready_to_launch:
                     if not task_is_a_delay:
                         if launch_here:
@@ -1427,11 +1453,11 @@ class Eventor(object):
         '''
         result_loop_trigger = False
         
-        if not self.__is_agent:
+        if self.__is_server:
             self.__loop_delay()
             self.__loop_event()
         result_loop_task = self.__loop_task()
-        if not self.__is_agent:
+        if self.__is_server:
             result_loop_trigger = self.__loop_trigger_request()
         self.__loop_awating_resource_allocation()
         
@@ -1535,8 +1561,8 @@ class Eventor(object):
             # count ready tasks only if active
             total_todo = self.count_todos(with_delayeds=False) 
             work = total_todo > 0 or result                   
-            loop = (work or self.__is_agent) and not self.__term and self.__agent_loop
-            #loop = (total_todo > 0 or self.__is_agent) and not self.__term and self.__agent_loop
+            loop = (work or not self.__is_server) and not self.__term and self.__agent_loop
+            #loop = (total_todo > 0 or not self.__is_server) and not self.__term and self.__agent_loop
             #loop = total_todo > 0 and not self.__term
             if loop:
                 loop = self.__check_control()
@@ -1573,8 +1599,8 @@ class Eventor(object):
             # count ready tasks only if active
             total_todo, min_delay = self.count_todos()   
             work = total_todo > 0 or result                    
-            loop = (work or self.__is_agent) and not self.__term and self.__agent_loop
-            #loop = (total_todo > 0 or self.__is_agent) and not self.__term and self.__agent_loop
+            loop = (work or not self.__is_server) and not self.__term and self.__agent_loop
+            #loop = (total_todo > 0 or not self.__is_server) and not self.__term and self.__agent_loop
             #loop = total_todo > 0 and not self.__term 
             if loop:
                 loop = self.__check_control()
@@ -1640,7 +1666,14 @@ class Eventor(object):
             kwargs.append(("--imports", imports))
             #if self.import_file:
             #    kwargs.append(("--import-file", self.import_file))
-        kwargs.extend([('--host', host), ('--log',self.__logger_info['name']), ('--logdir',self.__logger_info['logdir']), ('--loglevel', self.__logger_info['logging_level'])])
+        kwargs.extend([('--host', host), 
+                       ('--log-info', "'{}'".format(json.dumps(self.__logger_info))),
+                       #('--log-port', self.__logger_info['port']), 
+                       #('--log-name',self.__logger_info['name']), 
+                       #('--log-dir',self.__logger_info['logdir']), 
+                       #('--log-level', self.__logger_info['logging_level']),
+                       #('--log-encoding', self.__logger_info['handler_kwargs']['encoding']),
+                       ])
         if __debug__:
             work = self.__config['workdir']
             file = "{}{}.dat".format(self.__logger_info['name'], "_{}".format(self.run_id) if self.run_id else '')
@@ -1846,7 +1879,7 @@ class Eventor(object):
             setproctitle("eventor: {}".format(run_id,))
             
         self.__agents = dict()
-        if not self.__is_agent:
+        if self.__is_server:
             # start agents, if this is not already one
             self.remotes = list(set(self.remotes) - set([self.host,]))
             hosts = set([step.host for step in self.__memory.steps.values()] + self.remotes)
@@ -1892,7 +1925,7 @@ class Eventor(object):
             #module_logger.info('Processing finished')
           
         # wait for agents, if this is not already one  
-        if not self.__is_agent:
+        if self.__is_server:
             for host, agent in list(self.__agents.items()):
                 #pid, status = os.waitpid(pid, os.WNOHANG)
                 #agent.poll()
