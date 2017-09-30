@@ -183,7 +183,8 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     kwargs = log_info['handler_kwargs']
     
     #logger = Logger(name=logname+'.agent', logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, logdir=logdir, **kwargs)
-    logger_name = name=logname+'.agent'
+    #logger_name = name = logname +'.agent'
+    logger_name = logname
     logger = Logger(name=logger_name, logging_level=logging_level, console=False, **kwargs)
     logger.start()
 
