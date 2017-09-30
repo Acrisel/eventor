@@ -181,7 +181,7 @@ def run(log_info, imports, host, file, pipe):
     kwargs = log_info['handler_kwargs']
     
     #logger = Logger(name=logname+'.agent', logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, logdir=logdir, **kwargs)
-    logger = Logger(name=logname+'.agent', logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, **kwargs)
+    logger = Logger(name=logname+'.agent', logging_level=logging_level, console=False, **kwargs)
     logger.addHandler(NwLoggerClientHandler(log_info))
     
     module_logger = logger.start()
