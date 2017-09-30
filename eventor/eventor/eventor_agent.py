@@ -179,7 +179,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     logname = log_info['name']
     logging_level = log_info['logging_level']
     #logdir = log_info['logdir']
-    datefmt = log_info['datefmt']
+    #datefmt = log_info['datefmt']
     kwargs = log_info['handler_kwargs']
     
     #logger = Logger(name=logname+'.agent', logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, logdir=logdir, **kwargs)
@@ -191,7 +191,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     logger_info = logger.logger_info()
     module_logger = Logger.get_logger(logger_info=logger_info, name=logger_name)
     
-    module_logger.addHandler(NwLoggerClientHandler(log_info, ssh_host=ssh_host, logger=module_logger))
+    module_logger.addHandler(NwLoggerClientHandler(log_info, ssh_host=ssh_host,))
     
     module_logger.debug("Starting agent: {}".format(args))
     
