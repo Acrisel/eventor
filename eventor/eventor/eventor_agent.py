@@ -79,7 +79,7 @@ def cmdargs():
 
 def start_eventor(queue, logger_info, **kwargs):
     global module_logger
-    module_logger = NwLogger.get_logger(logger_info, logger_info['name'])
+    module_logger = Logger.get_logger(logger_info, logger_info['name'])
     module_logger.debug('Starting EventorAgent:\n%s' % pprint.pformat(kwargs, indent=4))
     try:
         eventor = Eventor(**kwargs)
@@ -176,11 +176,12 @@ def run(log_info, imports, host, file, pipe):
     # TODO: pass other logging attributes
     logname = log_info['name']
     logging_level = log_info['logging_level']
-    logdir = log_info['logdir']
+    #logdir = log_info['logdir']
     datefmt = log_info['datefmt']
     kwargs = log_info['handler_kwargs']
     
-    logger = Logger(name=logname+'.agent', logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, logdir=logdir, **kwargs)
+    #logger = Logger(name=logname+'.agent', logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, logdir=logdir, **kwargs)
+    logger = Logger(name=logname+'.agent', logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, **kwargs)
     logger.addHandler(NwLoggerClientHandler(log_info))
     
     module_logger = logger.start()
