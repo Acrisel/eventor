@@ -54,6 +54,8 @@ def cmdargs():
     #                    help="""import file before pickle loads.""")
     parser.add_argument('--host', type=str, 
                         help="""Host on which this command was sent to.""")
+    parser.add_argument('--ssh-server-host', type=str, dest='ssh_host',
+                        help="""SSH Host to use for back cahnnel.""")
     parser.add_argument('--log-info', type=str, dest='log_info',
                         help="""Logger info dictionary json coded.""")
     #parser.add_argument('--log-port', type=int, 
@@ -159,7 +161,7 @@ def check_agent_process(agent,):
     return True
 
 
-def run(log_info, imports, host, file, pipe):
+def run(log_info, imports, host, ssh_host, file, pipe):
     ''' Runs EventorAgent in remote host.
     
     Args: 
@@ -188,7 +190,7 @@ def run(log_info, imports, host, file, pipe):
     logger_info = logger.logger_info()
     module_logger = Logger.get_logger(logger_info=logger_info, name=logger_name)
     
-    module_logger.addHandler(NwLoggerClientHandler(log_info))
+    module_logger.addHandler(NwLoggerClientHandler(log_info, ssh_host=ssh_host))
     module_logger.debug("Starting agent: {}".format(args))
     
     if imports is not None:

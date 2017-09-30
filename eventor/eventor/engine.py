@@ -38,6 +38,7 @@ from eventor.etypes import MemEventor
 from sshutil.sshpipe import SSHPipe #, read_ssh_config
 import sshutil
 from eventor.expandvars import expandvars
+from acrilog.utils import get_hostname, get_ip_address, hostname_resolves
 
 '''
 try: 
@@ -56,38 +57,6 @@ from eventor.utils import decorate_all, print_method
 
 #traced=traced_method(None, True)
 
-        
-import socket
-def get_ip_address():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("8.8.8.8", 80))
-    except OSError:
-        address = 'localhost'
-    else:
-        address = s.getsockname()[0]
-    s.close()
-    return address
-
-
-def get_hostname(full=False):
-    ip = get_ip_address()
-    if full == False:
-        try:
-            name = socket.gethostbyaddr(ip)[0]
-        except:
-            name = ip
-    else:
-        name = socket.getfqdn(ip)
-    return name
-
-
-def hostname_resolves(hostname):
-    try:
-        socket.gethostbyname(hostname)
-        return 1
-    except socket.error:
-        return 0
     
 RUN_ID_SEPARATOR='-'
 def get_unique_run_id():
@@ -257,6 +226,8 @@ class Eventor(object):
                        'remote_method' : 'ssh',
                        'pass_logger_to_task': False,
                        'shared_db': False,
+                       'ssh_config': os.path.expanduser('~/.ssh/config'),
+                       'ssh_host': get_hostname(),
                        'ssh_port': 22,
                        'DATABASES' : {'dialect': 'sqlite', 'query': {'cache': 'shared'}},
                        }  
@@ -269,8 +240,11 @@ class Eventor(object):
                        StepStatus.active: StepReplay.rerun, 
                        StepStatus.failure: StepReplay.rerun, 
                        StepStatus.success: StepReplay.skip,}  
-        
-    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], dedicated_logging=False, logging_level=logging.INFO, run_id='', config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None,listener_q = None):
+    
+    
+    # TODO: SSH HOST as server to send logging to.
+         
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], dedicated_logging=False, logging_level=logging.INFO, run_id='', config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None,listener_q=None):
         """initializes steps object
         
         Args:
@@ -283,7 +257,7 @@ class Eventor(object):
             recovery_run (int): since 'store' maintain historical runs, recovery can engage any
                 previous run.  recovery_run, if provided, will tell Eventor which run to recover.
                 If not provided, latest run is assumed.
-            host: hostname or ip address for steps with not specified host; if none, current runnign host will be used.
+            host: hostname or ip address for steps with not specified host; if none, current THIS host will be used.
             remotes: hint to Eventor for remote host associated with hidden steps (steps that will be deposit on-the-fly).
             shared_db: (boolean) if set, indicates that the database used is by multiple 
                 programs or instances thereof. 
@@ -303,12 +277,13 @@ class Eventor(object):
                 - task_construct=mp.Process, 
                 - stop_on_exception=True,
                 - sleep_between_loops=1
+                - ssh_config: provides alternative to ~/.ssh/config
+                - ssh_host: name of SSH config (~/.ssh/config) Host to use for SSH back channel
                 - databases: if config is provided, 
                     it will try to fetch store or name as code for database.
                     if both not provided, will try default database code.
                     if not found, will treat store and name as above.
-                                                                  
-                Example:
+                
                     DATABASES:
                         default: 
                             dialect:  postgresql
@@ -323,6 +298,10 @@ class Eventor(object):
                         playfile:
                             dialect: sqlite
                             file: /var/database/alchemy/schema.db  
+                            
+                - hosts: mapping of tag -> hostname/ip.
+                    tag can then be used in add_step() instead of full qualifying name.
+                                                                  
                     HOSTS:
                         mainhost: 192.168.1.71
                         process:  192.168.1.70
@@ -361,6 +340,7 @@ class Eventor(object):
         defaults = dict([(name, expandvars(value, os.environ)) for name, value in Eventor.config_defaults.items()])
         self.__config = MergedChainedDict(rootconfig, os.environ, defaults) 
 
+        # HOSTS configuration mapping of host tags to host names
         hosts_root_name = os.environ.get('EVENTOR_CONFIG_HOSTS_TAG', 'HOSTS')
         self.hosts = rootconfig.get(hosts_root_name, {})
         #self.host = get_ip_address()
@@ -370,7 +350,9 @@ class Eventor(object):
         else:
             # try to see if provided host is mapped in configuration
             self.host = self.hosts.get(host, host)
+        self.ssh_config = self.__config.get('ssh_config',)
         self.ssh_port = self.__config.get('ssh_port', 22)
+        self.ssh_host = self.__config.get('ssh_host', self.host)
         
         self.__memory = MemEventor() if memory is None else memory
         self.__is_server = memory is None
@@ -454,7 +436,7 @@ class Eventor(object):
         #    logger_name = name
         
         if self.__is_server:
-            self.__logger = Logger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
+            self.__logger = Logger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8', )
             self.__logger.start()
             self.__logger_info = self.__logger.logger_info()
             module_logger = Logger.get_logger(logger_info=self.__logger_info, name=logger_name)
@@ -1667,6 +1649,7 @@ class Eventor(object):
             #if self.import_file:
             #    kwargs.append(("--import-file", self.import_file))
         kwargs.extend([('--host', host), 
+                       ('--ssh-server-host', self.ssh_host)
                        ('--log-info', "'{}'".format(json.dumps(self.__logger_info))),
                        #('--log-port', self.__logger_info['port']), 
                        #('--log-name',self.__logger_info['name']), 
