@@ -192,11 +192,12 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     module_logger = Logger.get_logger(logger_info=logger_info, name=logger_name)
     
     module_logger.addHandler(NwLoggerClientHandler(log_info, ssh_host=ssh_host, logger=module_logger))
+    
     module_logger.debug("Starting agent: {}".format(args))
     
     if imports is not None:
         imports = imports_from_cmd(imports)
-        module_logger.debug("Importing %s." % (imports))
+        module_logger.debug("Importing {}.".format(imports))
         for import_file, import_modules in imports:
             if not import_file:
                 for module in import_modules:
@@ -333,6 +334,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     
     # wait for remote parent or from child Eventor 
     if not check_agent_process(agent):
+        module_logger.debug("Agent process is dead, exiting.".format(agent.pid))
         return
     
     while True:
@@ -342,6 +344,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
             msg = None
             if not check_agent_process(agent):
                 # since agent is gone - nothing to do.
+                module_logger.debug("Empty queue, agent process is dead, exiting.".format(agent.pid))
                 return
         if not msg: continue
         msg, error = msg
