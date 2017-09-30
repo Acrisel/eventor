@@ -191,7 +191,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     logger_info = logger.logger_info()
     module_logger = Logger.get_logger(logger_info=logger_info, name=logger_name)
     
-    module_logger.addHandler(NwLoggerClientHandler(log_info, ssh_host=ssh_host))
+    module_logger.addHandler(NwLoggerClientHandler(log_info, ssh_host=ssh_host, logger=module_logger))
     module_logger.debug("Starting agent: {}".format(args))
     
     if imports is not None:
@@ -341,6 +341,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
         except Empty:
             msg = None
             if not check_agent_process(agent):
+                # since agent is gone - nothing to do.
                 return
         if not msg: continue
         msg, error = msg
