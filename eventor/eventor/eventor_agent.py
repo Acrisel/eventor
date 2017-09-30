@@ -54,7 +54,7 @@ def cmdargs():
     #                    help="""import file before pickle loads.""")
     parser.add_argument('--host', type=str, 
                         help="""Host on which this command was sent to.""")
-    parser.add_argument('--log-info', type=int, dest='log_info',
+    parser.add_argument('--log-info', type=str, dest='log_info',
                         help="""Logger info dictionary json coded.""")
     #parser.add_argument('--log-port', type=int, 
     #                    help="""Logger server port.""")
