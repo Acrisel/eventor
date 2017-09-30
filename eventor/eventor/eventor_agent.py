@@ -369,11 +369,11 @@ def run(log_info, imports, host, file, pipe):
     
     module_logger.debug("Closing stdin.")
     #sys.stdin.close()
-    mplogger.stop()
+    logger.stop()
 
 if __name__ == '__main__':
     mp.freeze_support()
     mp.set_start_method('spawn')
     args = cmdargs()
-    run(**args.vars())
+    run(**vars(args))
     
