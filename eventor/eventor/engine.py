@@ -1912,8 +1912,9 @@ class Eventor(object):
             for host, agent in list(self.__agents.items()):
                 #pid, status = os.waitpid(pid, os.WNOHANG)
                 #agent.poll()
-                module_logger.debug('Sending FINISH to child: {}'.format(host))
-                agent.close(msg='FINISH')
+                msg = 'FINISH'
+                module_logger.debug('Sending {} to child: {}'.format(msg, host))
+                agent.close(msg=msg)
                 module_logger.debug('Agent process finished: {}:{}; '.format(host, agent.pid,)) 
         elif self.__listener_q is not None:
             self.__listener_q.put('FINISH')
