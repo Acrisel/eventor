@@ -1649,7 +1649,7 @@ class Eventor(object):
             #if self.import_file:
             #    kwargs.append(("--import-file", self.import_file))
         kwargs.extend([('--host', host), 
-                       ('--ssh-server-host', self.ssh_host)
+                       ('--ssh-server-host', self.ssh_host),
                        ('--log-info', "'{}'".format(json.dumps(self.__logger_info))),
                        #('--log-port', self.__logger_info['port']), 
                        #('--log-name',self.__logger_info['name']), 
