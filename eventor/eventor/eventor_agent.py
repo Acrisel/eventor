@@ -182,10 +182,12 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     #datefmt = log_info['datefmt']
     kwargs = log_info['handler_kwargs']
     
+    print('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nfile:\n{}'.format(log_info, imports, host, file))
+    
     #logger = Logger(name=logname+'.agent', logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, logdir=logdir, **kwargs)
     #logger_name = name = logname +'.agent'
     logger_name = logname
-    logger = Logger(name=logger_name, logging_level=logging_level, console=False, **kwargs)
+    logger = Logger(name=logger_name, logging_level=logging_level, console=True, **kwargs)
     logger.start()
 
     logger_info = logger.logger_info()
