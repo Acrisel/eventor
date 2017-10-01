@@ -41,10 +41,10 @@ level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(host)s ][ %(processName)-1
 def cmdargs():
     import argparse
     import os
-
+    
     filename = os.path.basename(__file__)
     progname = filename.rpartition('.')[0]
-
+    
     parser = argparse.ArgumentParser(description="%s runs EventorAgent object" % progname)
     parser.add_argument('--imports', type=str, required=False, dest='imports', nargs='*',
                         help="""import module before pickle loads.""")
@@ -52,13 +52,13 @@ def cmdargs():
     #                    help="""import module before pickle loads.""")
     #parser.add_argument('--import-file', type=str, required=False, dest='import_file',
     #                    help="""import file before pickle loads.""")
-    parser.add_argument('--host', type=str,
+    parser.add_argument('--host', type=str, 
                         help="""Host on which this command was sent to.""")
     parser.add_argument('--ssh-server-host', type=str, dest='ssh_host',
                         help="""SSH Host to use for back cahnnel.""")
     parser.add_argument('--log-info', type=str, dest='log_info',
                         help="""Logger info dictionary json coded.""")
-    #parser.add_argument('--log-port', type=int,
+    #parser.add_argument('--log-port', type=int, 
     #                    help="""Logger server port.""")
     #parser.add_argument('--log-name', type=str, dest='logname',
     #                    help="""Logger name to use.""")
@@ -70,10 +70,10 @@ def cmdargs():
     #                    help="""Logger level.""")
     parser.add_argument('--file', type=str, required=False,
                         help="""File to store or recover memory. With --pipe, it would store memory into file. Without --pipe, it would recover memory from store""")
-    parser.add_argument('--pipe', action='store_true',
+    parser.add_argument('--pipe', action='store_true', 
                         help="""Indicates that memory should be read from STDIN. If --pipe not provided, --file must be.""")
-    args = parser.parse_args()
-
+    args = parser.parse_args()  
+    
     assert args.file is not None or args.pipe, "--pipe or --file must be provided."
     #argsd=vars(args)
     return args
@@ -87,20 +87,20 @@ def start_eventor(queue, logger_info, **kwargs):
         eventor = Eventor(**kwargs)
     except Exception as e:
         raise Exception("Failed to start EventorAgent.") from e
-
+    
     module_logger.debug('Initiated EventorAgent object, going to run().')
-
+    
     try:
-        eventor.run()
+        eventor.run()  
     except Exception as e:
         module_logger.critical("Failed to run EventorAgent, passing TERM to main process.")
         module_logger.exception(e)
         queue.put(('TERM', e))
     else:
-        module_logger.debug('EventorAgent finished: passing DONE to main process.')
+        module_logger.debug('EventorAgent finished: passing DONE to main process.')  
         queue.put(('DONE', ''))
-
-
+    
+    
 def pipe_listener(queue,):
     ''' Pipe listener wait for one message.  Once receive (DONE or TERM) it ends.
     '''
@@ -134,14 +134,14 @@ def pipe_listener(queue,):
         module_logger.exception(e)
         queue.put(('TERM', e))
         return
-
+        
     module_logger.debug('Received message from remote parent: {}; passing to main process.'.format(msg))
-
+        
     queue.put((msg, ''))
 
 def imports_from_cmd(imports_str):
     imports = dict()
-
+    
     for import_str in imports_str:
         import_file, _, import_modules_str = import_str.partition(':')
         import_modules = import_modules_str.split(':')
@@ -149,7 +149,7 @@ def imports_from_cmd(imports_str):
         file_modules.extend(import_modules)
         imports[import_file] = file_modules
     imports = [(import_file, set(modules)) for import_file, modules in imports.items() if modules]
-    return imports
+    return imports   
 
 def check_agent_process(agent,):
     if not agent.is_alive():
@@ -163,8 +163,8 @@ def check_agent_process(agent,):
 
 def run(log_info, imports, host, ssh_host, file, pipe):
     ''' Runs EventorAgent in remote host.
-
-    Args:
+    
+    Args: 
         log_info
         imports
         host
@@ -172,36 +172,29 @@ def run(log_info, imports, host, ssh_host, file, pipe):
         pipe
     '''
     global module_logger
-
+    
     log_info = json.loads(log_info)
-
+    
     # TODO: pass other logging attributes
-    logger_name = log_info['name']
+    logname = log_info['name']
     logging_level = log_info['logging_level']
     #logdir = log_info['logdir']
     #datefmt = log_info['datefmt']
     kwargs = log_info['handler_kwargs']
-    del log_info['handler_kwargs']
-
-
-    print('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nfile:\n{}'.format(log_info, imports, host, file))
-
-    ##logger_name = name = logger_name +'.agent'
-    #logger = Logger(name=logger_name, logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, logdir=logdir, **kwargs)
-    #
-
-    #logger = Logger(name=logger_name, logging_level=logging_level, console=True, **kwargs)
-    logger = Logger(console=True, **log_info, **kwargs)
-
+    
+    #logger = Logger(name=logname+'.agent', logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, logdir=logdir, **kwargs)
+    #logger_name = name = logname +'.agent'
+    logger_name = logname
+    logger = Logger(name=logger_name, logging_level=logging_level, console=False, **kwargs)
     logger.start()
 
     logger_info = logger.logger_info()
     module_logger = Logger.get_logger(logger_info=logger_info, name=logger_name)
-
+    
     module_logger.addHandler(NwLoggerClientHandler(log_info, ssh_host=ssh_host,))
-
+    
     module_logger.debug("Starting agent: {}".format(args))
-
+    
     if imports is not None:
         imports = imports_from_cmd(imports)
         module_logger.debug("Importing {}.".format(imports))
@@ -234,7 +227,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
                         print('TERM')
                         print(e, file=sys.stderr)
                         return
-
+    
     if pipe:
         module_logger.debug("Fetching workload. from pipe")
         try:
@@ -247,7 +240,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
             print('TERM')
             print(e, file=sys.stderr)
             return
-
+        
         try:
             mem_pack = sys.stdin.buffer.read(msgsize[0])
             memory = pickle.loads(mem_pack)
@@ -258,7 +251,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
             print('TERM')
             print(e, file=sys.stderr)
             return
-
+        
         # store memory into file
         if file:
             module_logger.debug("Storing workload to {}.".format(file))
@@ -273,7 +266,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
                 print(e, file=sys.stderr)
                 return
     else:
-        module_logger.debug("Fetching workload. from file")
+        module_logger.debug("Fetching workload. from file")  
         try:
             with open(file, 'rb') as file:
                 memory = pickle.load(file)
@@ -284,11 +277,11 @@ def run(log_info, imports, host, ssh_host, file, pipe):
             print('TERM')
             print(e, file=sys.stderr)
             return
-
-
+                
+    
     module_logger.debug("Memory received:\n%s" % pprint.pformat(memory, indent=4, ))
     logger_info = logger.logger_info()
-
+    
     try:
         kwargs = memory.kwargs.copy()
         # change logger_info to this agent logger info.
@@ -302,11 +295,11 @@ def run(log_info, imports, host, ssh_host, file, pipe):
         print('TERM')
         print(e, file=sys.stderr)
         return
-
+        
     module_logger.debug("Starting Eventor subprocess on remote host.") #:\n%s" % pprint.pformat(kwargs, indent=4))
-
+    
     child_q = mp.Queue()
-
+    
     module_logger.debug("Starting control pipe listener.")
     # we set thread to Daemon so it would be killed when agent is gone
     try:
@@ -319,11 +312,11 @@ def run(log_info, imports, host, ssh_host, file, pipe):
         print('TERM')
         print(e, file=sys.stderr)
         return
-
+    
     eventor_listener_q = mp.Queue()
-
+    
     kwargs['listener_q'] = eventor_listener_q
-
+    
     try:
         agent = mp.Process(target=start_eventor, args=(child_q, logger_info,), kwargs=kwargs, daemon=False)
         agent.start()
@@ -335,15 +328,15 @@ def run(log_info, imports, host, ssh_host, file, pipe):
         print('TERM')
         print(e, file=sys.stderr)
         return
-
+    
     #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
     module_logger.debug("Eventor subprocess pid: {}".format(agent.pid))
-
-    # wait for remote parent or from child Eventor
+    
+    # wait for remote parent or from child Eventor 
     if not check_agent_process(agent):
         module_logger.debug("Agent process is dead, exiting.".format(agent.pid))
         return
-
+    
     while True:
         try:
             msg = child_q.get(timeout=0.5)
@@ -372,7 +365,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
             listener.join()
             print('TERM')
             print(error, file=sys.stderr)
-            # TODO(Arnon): how to terminate listener that is listening
+            # TODO(Arnon): how to terminate listener that is listening 
             break
         elif msg in ['STOP', 'FINISH']:
             # TODO: need to change message from parent to STOP - not TERM
@@ -385,7 +378,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
             module_logger.debug("Eventor process joint.")
             print('DONE')
             break
-
+    
     module_logger.debug("Closing stdin.")
     #sys.stdin.close()
     logger.stop()
@@ -395,3 +388,4 @@ if __name__ == '__main__':
     mp.set_start_method('spawn')
     args = cmdargs()
     run(**vars(args))
+    
