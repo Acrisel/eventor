@@ -212,25 +212,48 @@ class Eventor(object):
     
     """
     
-    config_defaults = {'workdir':'/tmp', 
-                       'logdir': '/var/log/eventor', 
-                       'task_construct': 'process',  # or 'thread'
-                       'envvar_prefix': 'EVENTOR_',
-                       #'synchrous_run': False, 
-                       'max_concurrent': -1, 
-                       'stop_on_exception': True,
-                       'sleep_between_loops': 0.25,
-                       'sequence_arg_name': None, # 'eventor_task_sequence'
-                       #'pass_resources': False,
-                       'day_to_keep_db': 5,
-                       'remote_method' : 'ssh',
-                       'pass_logger_to_task': False,
-                       'shared_db': False,
-                       'ssh_config': os.path.expanduser('~/.ssh/config'),
-                       'ssh_host': get_hostname(),
-                       'ssh_port': 22,
-                       'DATABASES' : {'dialect': 'sqlite', 'query': {'cache': 'shared'}},
-                       }  
+    config_defaults = {
+        'workdir':'/tmp', 
+        'LOGGING': {
+           'logdir': '/var/log/eventor', 
+           'datefmt':'%Y-%m-%d,%H:%M:%S.%f',        
+           'logging_level': logging.INFO,
+           'logdir': '/var/log/eventor',
+           'level_formats': {
+                logging.DEBUG: "[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
+                'default': "[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]",
+                },
+            'consolidate': False,
+            'console': True,
+            'file_prefix': None,
+            'file_suffix': None,
+            'file_mode': 'a',
+            'maxBytes': 0,
+            'backupCount': 0,
+            'encoding': 'utf8' ,
+            'delay': False,
+            'when': 'h',
+            'interval': 1 ,
+            'utc': False ,
+            'atTime': None,
+        },
+        'task_construct': 'process',  # or 'thread'
+        'envvar_prefix': 'EVENTOR_',
+        #'synchrous_run': False, 
+        'max_concurrent': -1, 
+        'stop_on_exception': True,
+        'sleep_between_loops': 0.25,
+        'sequence_arg_name': None, # 'eventor_task_sequence'
+        #'pass_resources': False,
+        'day_to_keep_db': 5,
+        'remote_method' : 'ssh',
+        'pass_logger_to_task': False,
+        'shared_db': False,
+        'ssh_config': os.path.expanduser('~/.ssh/config'),
+        'ssh_host': get_hostname(),
+        'ssh_port': 22,
+        'DATABASES' : {'dialect': 'sqlite', 'query': {'cache': 'shared'}},
+        }  
     
     # TODO(Arnon): build db cleanup subprocess using day_to_keep_db
     
@@ -244,7 +267,7 @@ class Eventor(object):
     
     # TODO: SSH HOST as server to send logging to.
          
-    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], dedicated_logging=False, logging_level=logging.INFO, run_id='', config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None,listener_q=None):
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], run_id='', config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None,listener_q=None):
         """initializes steps object
         
         Args:
@@ -261,7 +284,6 @@ class Eventor(object):
             remotes: hint to Eventor for remote host associated with hidden steps (steps that will be deposit on-the-fly).
             shared_db: (boolean) if set, indicates that the database used is by multiple 
                 programs or instances thereof. 
-            dedicated_logging: disabled   
             run_id: (str) if shared_db, run_id must be unique program execution among all programs 
                     sharing.  If not provided and shared_db is set, unique run_id will be generated.
                     When in recovery, and shared_db is set, run_id must be provided to identify the
@@ -305,8 +327,23 @@ class Eventor(object):
                     HOSTS:
                         mainhost: 192.168.1.71
                         process:  192.168.1.70
-
-
+                        
+                - logging:
+                    LOGGING:
+                        logdir: /var/log/eventor
+                        consolidate: False
+                        console: True
+                        file_prefix: None
+                        file_suffix: None
+                        file_mode: 'a'
+                        maxBytes: 0
+                        backupCount: 0
+                        encoding: 'utf8' 
+                        delay: False
+                        when: 'h'
+                        interval: 1 
+                        utc: False 
+                        atTime: None\
         Returns:
             new object
             
@@ -319,7 +356,7 @@ class Eventor(object):
         eventor_kwargs = locals()
         del eventor_kwargs['self']
         
-        self.name = name
+        self.name = name.replace('.', '_')
         self.remotes = remotes
         
         if import_file is not None and import_module is None:
@@ -338,7 +375,8 @@ class Eventor(object):
                 
         rootconfig = getrootconf(conf=config, root=config_root_name)
         defaults = dict([(name, expandvars(value, os.environ)) for name, value in Eventor.config_defaults.items()])
-        self.__config = MergedChainedDict(rootconfig, os.environ, defaults) 
+        #self.__config = MergedChainedDict(rootconfig, os.environ, defaults, submerge=True) 
+        self.__config = MergedChainedDict(rootconfig, defaults, submerge=True) 
 
         # HOSTS configuration mapping of host tags to host names
         hosts_root_name = os.environ.get('EVENTOR_CONFIG_HOSTS_TAG', 'HOSTS')
@@ -373,31 +411,12 @@ class Eventor(object):
             self.__memory.kwargs['run_id'] = self.run_id
 
         
-        '''
-        logging_root = '.'.join(__name__.split('.')[:-1])
-        level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
-                        'default':   "[ %(asctime)-15s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]",
-                        }
-        
-        logger_name = "{}{}".format(name,".{}".format(self.run_id.replace("@","-")) if self.run_id else '')
-        
-        if self.__is_server:
-            self.__logger = Logger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8')
-            self.__logger.start()
-            self.__logger_info = self.__logger.logger_info()
-            module_logger = Logger.get_logger(logger_info=self.__logger_info, name=logger_name)
-        else:
-            module_logger = Logger.get_logger(logger_info=memory.logger_info, name=logger_name)
-            self.__logger_info = memory.logger_info
-            self.__logger_info['name'] = logger_name
-            self.__logger = None
-        '''
-        self.__set_logger(logging_level, memory)
+        self.__set_logger(memory)
             
         # TODO(Arnon): in case of Sequent, depth is 3 and not 2 as default.  Need to find way to drive calling module.
         self.__calling_module = calling_module()
         self.store = store
-        self.debug = logging_level == logging.DEBUG
+        #self.debug = logging_level == logging.DEBUG
 
         #self.__resource_notification_queue=mp.Queue()
         self.__task_proc = dict()
@@ -417,26 +436,37 @@ class Eventor(object):
         
         self.__listener_q = listener_q
         
-    def __set_logger(self, logging_level, memory):
+    def __set_logger(self, memory):
         global module_logger
-        logging_root = '.'.join(__name__.split('.')[:-1])
+        #logging_root = '.'.join(__name__.split('.')[:-1])
         #if dedicated_logging:
         #    logging_root = '.'.join(__name__.split('.')[:-1])
         #else:
         #    logging_root = ''
-        level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
-                        'default':   "[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]",
-                        }
+        #level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
+        #                'default':   "[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]",
+        #                }
+        
+        logging_config = self.__config.get('LOGGING')
         
         # TODO(Arnon): get to logging configuration (as in Database)
         # TODO(Arnon): drive encoding from parameter
         # TODO(Arnon): log name needs to be driven by calling 
-        logger_name = "{}{}".format(self.name,".{}".format(self.run_id.replace("@","-")) if self.run_id else '')
+        logger_name = "{}{}".format(self.name,"-{}".format(self.run_id.replace("@","-")) if self.run_id else '')
         #if dedicated_logging:
         #    logger_name = name
         
         if self.__is_server:
-            self.__logger = Logger(name=logger_name, logging_level=logging_level, level_formats=level_formats, datefmt='%Y-%m-%d,%H:%M:%S.%f', logdir=self.__config['logdir'], encoding='utf8', )
+            self.__logger_params = {
+                'name':logger_name, 
+                #'logging_level':logging_level, 
+                #'level_formats':level_formats, 
+                #'datefmt':self.__config['datefmt'], 
+                #'logdir':self.__config['logdir'], 
+                #'encoding':'utf8',
+                }
+            self.__logger_params.update(logging_config)
+            self.__logger = Logger(**self.__logger_params)
             self.__logger.start()
             self.__logger_info = self.__logger.logger_info()
             module_logger = Logger.get_logger(logger_info=self.__logger_info, name=logger_name)

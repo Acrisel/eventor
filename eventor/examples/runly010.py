@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 
 # -*- encoding: utf-8 -*-
 ##############################################################################
@@ -62,7 +63,7 @@ def construct_and_run():
     #logger.setLevel(logging.DEBUG)
     
     #ev=evr.Eventor(filename=':memory:')
-    ev=evr.Eventor(name=os.path.basename(__file__), logging_level=logging.INFO)
+    ev=evr.Eventor(name=os.path.basename(__file__),)
     
     ev1s = ev.add_event('run_step1')
     ev1d = ev.add_event('done_step1')
