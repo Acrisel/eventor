@@ -235,7 +235,7 @@ class Eventor(object):
             'when': 'h',
             'interval': 1 ,
             'utc': False ,
-            'atTime': None,
+            'atTime': 86400, # number of seconds in a day
         },
         'task_construct': 'process',  # or 'thread'
         'envvar_prefix': 'EVENTOR_',
@@ -343,7 +343,7 @@ class Eventor(object):
                         when: 'h'
                         interval: 1 
                         utc: False 
-                        atTime: None\
+                        atTime: 86400, # number of seconds in a day
         Returns:
             new object
             
