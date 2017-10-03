@@ -181,10 +181,11 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     #logdir = log_info['logdir']
     #datefmt = log_info['datefmt']
     handler_kwargs = log_info_recv['handler_kwargs']
-    del log_info_recv['handler_kwargs']
+    
 
     logger_info_local = copy(log_info_recv)
     del logger_info_local['port']
+    del logger_info_local['handler_kwargs']
     #print('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nfile:\n{}'.format(log_info, imports, host, file))
 
     ##logger_name = name = logger_name +'.agent'
@@ -198,7 +199,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     logger_info = logger.logger_info()
     module_logger = Logger.get_logger(logger_info=logger_info, name=logger_name)
     
-    module_logger.debug('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nfile:\n{}'.format(log_info_recv, imports, host, file))
+    module_logger.debug('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nssh host:\n{}\nfile:\n{}'.format(log_info_recv, imports, host, ssh_host, file))
     module_logger.debug('Local logger:\n{}'.format(log_info))
 
     module_logger.addHandler(NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host,))
