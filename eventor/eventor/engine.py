@@ -21,7 +21,7 @@ import time
 from collections import Mapping
 from datetime import datetime
 import signal
-import json
+import yaml
 
 
 from eventor.step import Step
@@ -1680,7 +1680,7 @@ class Eventor(object):
             #    kwargs.append(("--import-file", self.import_file))
         kwargs.extend([('--host', host), 
                        ('--ssh-server-host', self.ssh_host),
-                       ('--log-info', "'{}'".format(json.dumps(self.__logger_info))),
+                       ('--log-info', "'{}'".format(yaml.dump(self.__logger_info))),
                        #('--log-port', self.__logger_info['port']), 
                        #('--log-name',self.__logger_info['name']), 
                        #('--log-dir',self.__logger_info['logdir']), 

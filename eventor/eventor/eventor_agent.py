@@ -23,14 +23,13 @@ from acrilog import NwLoggerClientHandler
 import logging
 import pprint
 from queue import Empty
-import json
+import yaml
 
 module_logger = None
 
 level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
                 'default':   "[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]",
                 }
-
 
 #class EventorAgent(Eventor):
 #    def __init__(self, memory=None, *args, **kwargs):
@@ -173,7 +172,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     '''
     global module_logger
 
-    log_info = json.loads(log_info)
+    log_info_recv = yaml.load(log_info)
 
     # TODO: pass other logging attributes
     logger_name = log_info['name']
@@ -184,7 +183,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     del log_info['handler_kwargs']
 
 
-    print('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nfile:\n{}'.format(log_info, imports, host, file))
+    #print('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nfile:\n{}'.format(log_info, imports, host, file))
 
     ##logger_name = name = logger_name +'.agent'
     #logger = Logger(name=logger_name, logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, logdir=logdir, **kwargs)
@@ -192,13 +191,15 @@ def run(log_info, imports, host, ssh_host, file, pipe):
 
     #logger = Logger(name=logger_name, logging_level=logging_level, console=True, **kwargs)
     logger = Logger(console=True, **log_info, **kwargs)
-
     logger.start()
-
+    
     logger_info = logger.logger_info()
     module_logger = Logger.get_logger(logger_info=logger_info, name=logger_name)
+    
+    module_logger.debug('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nfile:\n{}'.format(log_info_recv, imports, host, file))
+    module_logger.debug('Local logger:\n{}'.format(log_info))
 
-    module_logger.addHandler(NwLoggerClientHandler(log_info, ssh_host=ssh_host,))
+    module_logger.addHandler(NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host,))
 
     module_logger.debug("Starting agent: {}".format(args))
 
