@@ -193,7 +193,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     #
 
     #logger = Logger(name=logger_name, logging_level=logging_level, console=True, **kwargs)
-    logger = Logger(console=True, **logger_info_local, **handler_kwargs)
+    logger = Logger(console=False, **logger_info_local, **handler_kwargs)
     logger.start()
     
     logger_info = logger.logger_info()
@@ -203,7 +203,8 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
     module_logger.debug('Module logger:\n{}'.format(log_info))
 
-    module_logger.addHandler(NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host,))
+    remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger)
+    module_logger.addHandler(remote_logger_handler)
 
     module_logger.debug("Starting agent: {}".format(args))
 
