@@ -24,7 +24,6 @@ import logging
 import pprint
 from queue import Empty
 import yaml
-import json
 
 module_logger = None
 
@@ -173,7 +172,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     '''
     global module_logger
 
-    log_info_recv = yaml.load(json.loads(log_info))
+    log_info_recv = yaml.load(log_info[1:-1])
 
     # TODO: pass other logging attributes
     logger_name = log_info['name']
