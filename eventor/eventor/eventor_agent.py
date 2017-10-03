@@ -24,6 +24,7 @@ import logging
 import pprint
 from queue import Empty
 import yaml
+from copy import copy
 
 module_logger = None
 
@@ -179,10 +180,11 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     logging_level = log_info_recv['logging_level']
     #logdir = log_info['logdir']
     #datefmt = log_info['datefmt']
-    kwargs = log_info_recv['handler_kwargs']
+    handler_kwargs = log_info_recv['handler_kwargs']
     del log_info_recv['handler_kwargs']
 
-
+    logger_info_local = copy(log_info_recv)
+    del logger_info_local['port']
     #print('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nfile:\n{}'.format(log_info, imports, host, file))
 
     ##logger_name = name = logger_name +'.agent'
@@ -190,7 +192,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     #
 
     #logger = Logger(name=logger_name, logging_level=logging_level, console=True, **kwargs)
-    logger = Logger(console=True, **log_info_recv, **kwargs)
+    logger = Logger(console=True, **logger_info_local, **handler_kwargs)
     logger.start()
     
     logger_info = logger.logger_info()
