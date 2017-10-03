@@ -175,12 +175,12 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     log_info_recv = yaml.load(log_info[1:-1])
 
     # TODO: pass other logging attributes
-    logger_name = log_info['name']
-    logging_level = log_info['logging_level']
+    logger_name = log_info_recv['name']
+    logging_level = log_info_recv['logging_level']
     #logdir = log_info['logdir']
     #datefmt = log_info['datefmt']
-    kwargs = log_info['handler_kwargs']
-    del log_info['handler_kwargs']
+    kwargs = log_info_recv['handler_kwargs']
+    del log_info_recv['handler_kwargs']
 
 
     #print('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nfile:\n{}'.format(log_info, imports, host, file))
@@ -190,7 +190,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     #
 
     #logger = Logger(name=logger_name, logging_level=logging_level, console=True, **kwargs)
-    logger = Logger(console=True, **log_info, **kwargs)
+    logger = Logger(console=True, **log_info_recv, **kwargs)
     logger.start()
     
     logger_info = logger.logger_info()
