@@ -203,7 +203,7 @@ def run(log_info, imports, host, ssh_host, file, pipe):
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
     module_logger.debug('Module logger:\n{}'.format(log_info))
 
-    remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger)
+    remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
     module_logger.addHandler(remote_logger_handler)
 
     module_logger.debug("Starting agent: {}".format(args))
