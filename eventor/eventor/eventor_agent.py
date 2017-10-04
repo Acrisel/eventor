@@ -65,31 +65,17 @@ def cmdargs():
     parser_act = subparsers.add_parser('action', aliases=['act'], help='perform new action')
     parser_rec = subparsers.add_parser('recover', aliases=['rec'], help='recover previous act')
     
-    parser_act.set_defaults(func=run)
-    parser_rec.set_defaults(func=recover)
+    parser_act.set_defaults(run=True, recover=False)
+    parser_rec.set_defaults(run=False, recover=True)
     
     parser_act.add_argument('--imports', type=str, required=False, dest='imports', nargs='*',
                         help="""import module before pickle loads.""")
-    #parser_act.add_argument('--import-module', type=str, required=False, dest='import_module', nargs='*',
-    #                    help="""import module before pickle loads.""")
-    #parser_act.add_argument('--import-file', type=str, required=False, dest='import_file',
-    #                    help="""import file before pickle loads.""")
     parser_act.add_argument('--host', type=str,
                         help="""Host on which this command was sent to.""")
     parser_act.add_argument('--ssh-server-host', type=str, dest='ssh_host',
-                        help="""SSH Host to use for back cahnnel.""")
+                        help="""SSH Host to use for back channel.""")
     parser_act.add_argument('--log-info', type=str, dest='log_info',
                         help="""Logger info dictionary json coded.""")
-    #parser_act.add_argument('--log-port', type=int,
-    #                    help="""Logger server port.""")
-    #parser_act.add_argument('--log-name', type=str, dest='logname',
-    #                    help="""Logger name to use.""")
-    #parser_act.add_argument('--log-dir', type=str, dest='logdir',
-    #                    help="""Logger output directory.""")
-    #parser_act.add_argument('--log-encoding', type=str, dest='logencoding', default='utf-8',
-    #                    help="""Logger encoding.""")
-    #parser_act.add_argument('--log-level', type=int, dest='loglevel',
-    #                    help="""Logger level.""")
     parser_act.add_argument('--file', type=str, required=False,
                         help="""File to store or recover memory. With --pipe, it would store memory into file. Without --pipe, it would recover memory from store""")
     parser_act.add_argument('--pipe', action='store_true',
@@ -435,4 +421,7 @@ if __name__ == '__main__':
     mp.freeze_support()
     mp.set_start_method('spawn')
     args = cmdargs()
-    run(args)
+    if args.run:
+        run(args)
+    else:
+        recover(args)
