@@ -248,7 +248,8 @@ def run(args, ):
     args_file = new_recvoer_args_file()
     module_logger.debug("Storing agent args: {}".format(args_file))
     try:
-        pickle.dump(args, args_file)
+        with open(args_file, 'wb') as f:
+            pickle.dump(args, f)
     except Exception as e:
         module_logger.critical("Failed to store args.")
         module_logger.exception(e)
@@ -424,7 +425,8 @@ def recover(args):
     file = args.file
     if file is None:
         file = last_recvoer_args_file()
-    args = pickle.load(file)
+    with open(file, 'rb') as f:
+        args = pickle.load(f)
     run(args)
 
 if __name__ == '__main__':
