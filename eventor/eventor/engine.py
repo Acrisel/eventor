@@ -472,6 +472,7 @@ class Eventor(object):
             self.__logger.start()
             self.__logger_info = self.__logger.logger_info()
             module_logger = Logger.get_logger(logger_info=self.__logger_info, name=logger_name)
+            module_logger.debug('Logger listens on port {}.'.format(self.__logger.port))
         else:
             # agent needs two log handlers. One is logging back into the server. The other is local log service.
             # Logger.get_logger will add logger handler that would start 
