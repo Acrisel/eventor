@@ -89,6 +89,38 @@ def cmdargs():
     #argsd=vars(args)
     return args
 
+def do_imports(imports):
+    imports = imports_from_cmd(imports)
+    module_logger.debug("Importing {}.".format(imports))
+    for import_file, import_modules in imports:
+        if not import_file:
+            for module in import_modules:
+                module_logger.debug("Importing %s." % (module))
+                try:
+                    from importlib import import_module
+                    import_module(module)
+                except Exception as e:
+                    module_logger.critical("Failed to import: %s." % (module))
+                    module_logger.exception(e)
+                    # signal to parent via stdout
+                    print('TERM')
+                    print(e, file=sys.stderr)
+                    return
+        else:
+            for module in import_modules:
+                module_logger.debug("Importing %s from %s." % (module, import_file))
+                try:
+                    spec = importlib.util.spec_from_file_location(module, import_file)
+                    spec_module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(spec_module)
+                    # sys.modules[import_module] = module # not needed for now
+                except Exception as e:
+                    module_logger.critical("Failed to import: %s %s;" % (import_module, import_file))
+                    module_logger.exception(e)
+                    # signal to parant via stdout
+                    print('TERM')
+                    print(e, file=sys.stderr)
+                    return
 
 def start_eventor(queue, logger_info, **kwargs):
     global module_logger
@@ -214,7 +246,15 @@ def run(args, ):
     
     module_logger.debug("Starting agent: {}".format(args))
     args_file = new_recvoer_args_file()
-    pickle.dump(args, args_file)
+    module_logger.debug("Storing agent args: {}".format(args_file))
+    try:
+        pickle.dump(args, args_file)
+    except Exception as e:
+        module_logger.critical("Failed to store args.")
+        module_logger.exception(e)
+        print('TERM')
+        print(e, file=sys.stderr)
+        return
     
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
     module_logger.debug('Module logger:\n{}'.format(log_info))
@@ -223,38 +263,8 @@ def run(args, ):
     module_logger.addHandler(remote_logger_handler)
 
     if imports is not None:
-        imports = imports_from_cmd(imports)
-        module_logger.debug("Importing {}.".format(imports))
-        for import_file, import_modules in imports:
-            if not import_file:
-                for module in import_modules:
-                    module_logger.debug("Importing %s." % (module))
-                    try:
-                        from importlib import import_module
-                        import_module(module)
-                    except Exception as e:
-                        module_logger.critical("Failed to import: %s." % (module))
-                        module_logger.exception(e)
-                        # signal to parent via stdout
-                        print('TERM')
-                        print(e, file=sys.stderr)
-                        return
-            else:
-                for module in import_modules:
-                    module_logger.debug("Importing %s from %s." % (module, import_file))
-                    try:
-                        spec = importlib.util.spec_from_file_location(module, import_file)
-                        spec_module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(spec_module)
-                        # sys.modules[import_module] = module # not needed for now
-                    except Exception as e:
-                        module_logger.critical("Failed to import: %s %s;" % (import_module, import_file))
-                        module_logger.exception(e)
-                        # signal to parant via stdout
-                        print('TERM')
-                        print(e, file=sys.stderr)
-                        return
-
+        do_imports(imports)
+        
     if pipe:
         module_logger.debug("Fetching workload. from pipe")
         try:
