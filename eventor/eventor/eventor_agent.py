@@ -260,8 +260,8 @@ def run(args, ):
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
     module_logger.debug('Module logger:\n{}'.format(log_info))
 
-    remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
-    module_logger.addHandler(remote_logger_handler)
+    #remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
+    #module_logger.addHandler(remote_logger_handler)
 
     if imports is not None:
         do_imports(imports)
