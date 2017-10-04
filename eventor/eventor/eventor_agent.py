@@ -29,6 +29,8 @@ import os
 
 module_logger = None
 
+class EventorAgentError(Exception): pass
+
 level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
                 'default':   "[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]",
                 }
@@ -80,6 +82,8 @@ def cmdargs():
                         help="""File to store or recover memory. With --pipe, it would store memory into file. Without --pipe, it would recover memory from store""")
     parser_act.add_argument('--pipe', action='store_true',
                         help="""Indicates that memory should be read from STDIN. If --pipe not provided, --file must be.""")
+    parser_act.add_argument('--debug', action='store_true',
+                        help="""Invokes additional debug utilities, e.g., store args for recovery.""")
     
     parser_rec.add_argument('--file', type=str, required=False,
                         help="""File from which to restore previous args""")
@@ -204,6 +208,14 @@ def check_agent_process(agent,):
     return True
 
 
+def logger_remote_handler(remote_logger_queue, log_info_recv, ssh_host, logdir):
+    remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=logdir)
+    #module_logger.addHandler(remote_logger_handler)
+    listener = logging.handlers.QueueListener(remote_logger_queue, remote_logger_handler)
+    listener.start()
+    return listener
+
+
 def run(args, ):
     ''' Runs EventorAgent in remote host.
 
@@ -239,24 +251,29 @@ def run(args, ):
     module_logger = Logger.get_logger(logger_info=logger_info, name=logger_name)
     
     module_logger.debug("Starting agent: {}".format(args))
-    args_file = new_recvoer_args_file()
-    module_logger.debug("Storing agent args: {}".format(args_file))
-    try:
-        with open(args_file, 'wb') as f:
-            pickle.dump(args, f)
-    except Exception as e:
-        module_logger.critical("Failed to store args.")
-        module_logger.exception(e)
-        print('TERM')
-        print(e, file=sys.stderr)
-        return
+    if args.debug:
+        args_file = new_recvoer_args_file()
+        try:
+            with open(args_file, 'wb') as f:
+                pickle.dump(args, f)
+        except Exception as e:
+            module_logger.critical("Failed to store args.")
+            module_logger.exception(e)
+            print('TERM')
+            print(e, file=sys.stderr)
+            return
+        module_logger.debug("Stored agent args: {}".format(args_file))
     
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
     module_logger.debug('Module logger:\n{}'.format(log_info))
-
-    remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
-    module_logger.addHandler(remote_logger_handler)
-
+    
+    remote_logger_queue = mp.Queue()
+    queue_handler = logging.handlers.QueueHandler(remote_logger_queue)
+    module_logger.addHandler(queue_handler)
+    #remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
+    #module_logger.addHandler(remote_logger_handler)
+    listener = logger_remote_handler(remote_logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host, logdir=handler_kwargs['logdir'])
+    
     if imports is not None:
         do_imports(imports)
         
@@ -269,8 +286,9 @@ def run(args, ):
         except Exception as e:
             module_logger.critical("Failed to read size of workload.")
             module_logger.exception(e)
-            print('TERM')
-            print(e, file=sys.stderr)
+            #print('TERM')
+            #print(e, file=sys.stderr)
+            close_run(listener, logger, msg='TERM', err=e)
             return
 
         try:
@@ -280,8 +298,9 @@ def run(args, ):
             module_logger.critical("Failed to pickle loads workload.")
             module_logger.exception(e)
             # signal to parant via stdout
-            print('TERM')
-            print(e, file=sys.stderr)
+            #print('TERM')
+            #print(e, file=sys.stderr)
+            close_run(listener, logger, msg='TERM', err=e)
             return
 
         # store memory into file
@@ -294,11 +313,12 @@ def run(args, ):
                 module_logger.critical("Failed to pickle dump workload to {}.".format(file))
                 module_logger.exception(e)
                 # signal to parant via stdout
-                print('TERM')
-                print(e, file=sys.stderr)
+                #print('TERM')
+                #print(e, file=sys.stderr)
+                close_run(listener, logger, msg='TERM', err=e)
                 return
     else:
-        module_logger.debug("Fetching workload. from file")
+        module_logger.debug("Fetching workload from file.")
         try:
             with open(file, 'rb') as file:
                 memory = pickle.load(file)
@@ -306,12 +326,13 @@ def run(args, ):
             module_logger.critical("Failed to pickle load workload from {}.".format(file))
             module_logger.exception(e)
             # signal to parant via stdout
-            print('TERM')
-            print(e, file=sys.stderr)
+            #print('TERM')
+            #print(e, file=sys.stderr)
+            close_run(listener, logger, msg='TERM', err=e)
             return
 
 
-    module_logger.debug("Memory received:\n%s" % pprint.pformat(memory, indent=4, ))
+    module_logger.debug("Memory received:\n{}".format(pprint.pformat(memory, indent=4, )))
     logger_info = logger.logger_info()
 
     try:
@@ -324,8 +345,9 @@ def run(args, ):
         module_logger.critical("Failed get kwargs from received memory.")
         module_logger.exception(e)
         # signal to parant via stdout
-        print('TERM')
-        print(e, file=sys.stderr)
+        #print('TERM')
+        #print(e, file=sys.stderr)
+        close_run(listener, logger, msg='TERM', err=e)
         return
 
     module_logger.debug("Starting Eventor subprocess on remote host.") #:\n%s" % pprint.pformat(kwargs, indent=4))
@@ -341,8 +363,9 @@ def run(args, ):
         module_logger.critical("Failed to queue listener thread.")
         module_logger.exception(e)
         # signal to parent via stdout
-        print('TERM')
-        print(e, file=sys.stderr)
+        #print('TERM')
+        #print(e, file=sys.stderr)
+        close_run(listener, logger, msg='TERM', err=e)
         return
 
     eventor_listener_q = mp.Queue()
@@ -357,8 +380,9 @@ def run(args, ):
         module_logger.critical("Failed to start Eventor process.")
         module_logger.exception(e)
         # signal to parant via stdout
-        print('TERM')
-        print(e, file=sys.stderr)
+        #print('TERM')
+        #print(e, file=sys.stderr)
+        close_run(listener, logger, msg='TERM', err=e)
         return
 
     #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
@@ -367,6 +391,7 @@ def run(args, ):
     # wait for remote parent or from child Eventor
     if not check_agent_process(agent):
         module_logger.debug("Agent process is dead, exiting.".format(agent.pid))
+        close_run(listener, logger, ) #msg='TERM', err=error)
         return
 
     while True:
@@ -377,6 +402,7 @@ def run(args, ):
             if not check_agent_process(agent):
                 # since agent is gone - nothing to do.
                 module_logger.debug("Empty queue, agent process is dead, exiting.".format(agent.pid))
+                close_run(listener, logger, ) # msg='TERM', err=error)
                 return
         if not msg: continue
         msg, error = msg
@@ -387,6 +413,7 @@ def run(args, ):
             agent.join()
             listener.join()
             module_logger.debug("Eventor process joint.")
+            close_run(listener, logger, ) #msg='TERM', err=error)
             break
         elif msg == 'TERM':
             # TODO: need to change message from parent to STOP - not TERM
@@ -395,8 +422,9 @@ def run(args, ):
             eventor_listener_q.put('STOP')
             agent.join()
             listener.join()
-            print('TERM')
-            print(error, file=sys.stderr)
+            #print('TERM')
+            #print(error, file=sys.stderr)
+            close_run(listener, logger, msg='TERM', err=error)
             # TODO(Arnon): how to terminate listener that is listening
             break
         elif msg in ['STOP', 'FINISH']:
@@ -408,20 +436,37 @@ def run(args, ):
             agent.join()
             listener.join()
             module_logger.debug("Eventor process joint.")
-            print('DONE')
+            #print('DONE')
+            close_run(listener, logger, msg='DONE', err=None)
             break
 
-    module_logger.debug("Closing stdin.")
+    #module_logger.debug("Closing stdin.")
     #sys.stdin.close()
+    #logger.stop()
+    #listener.stop()
+    
+def close_run(listener, logger, msg=None, err=None):
+    global module_logger
+    module_logger.debug("Closing stdin.")
+    
+    if msg is not None:
+        print(msg)
+    if err is not None:
+        print(err, file=sys.stderr)
+    
     logger.stop()
+    listener.stop()
     
 def recover(args):
     file = args.file
     if file is None:
         file = last_recvoer_args_file()
-    with open(file, 'rb') as f:
-        args = pickle.load(f)
-    run(args)
+    if file is not None:
+        with open(file, 'rb') as f:
+            args = pickle.load(f)
+        run(args)
+    else:
+        raise EventorAgentError("Trying to run in recovery, but no recovery file found.")
 
 if __name__ == '__main__':
     mp.freeze_support()
