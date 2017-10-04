@@ -45,7 +45,7 @@ def cmdargs():
     filename = os.path.basename(__file__)
     progname = filename.rpartition('.')[0]
 
-    parser = argparse.ArgumentParser(description="%s runs EventorAgent object" % progname)
+    parser = argparse.ArgumentParser(prog=progname, description="runs EventorAgent object.")
     parser.add_argument('--imports', type=str, required=False, dest='imports', nargs='*',
                         help="""import module before pickle loads.""")
     #parser.add_argument('--import-module', type=str, required=False, dest='import_module', nargs='*',
@@ -199,14 +199,13 @@ def run(args, log_info, imports, host, ssh_host, file, pipe):
     logger_info = logger.logger_info()
     module_logger = Logger.get_logger(logger_info=logger_info, name=logger_name)
     
-    module_logger.debug('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nssh host:\n{}\nfile:\n{}'.format(log_info_recv, imports, host, ssh_host, file))
+    module_logger.debug("Starting agent: {}".format(args))
+    
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
     module_logger.debug('Module logger:\n{}'.format(log_info))
 
     remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
     module_logger.addHandler(remote_logger_handler)
-
-    module_logger.debug("Starting agent: {}".format(args))
 
     if imports is not None:
         imports = imports_from_cmd(imports)
