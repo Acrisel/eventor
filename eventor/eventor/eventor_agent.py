@@ -186,7 +186,7 @@ def check_agent_process(agent,):
     return True
 
 
-def run(args, log_info, imports, host, ssh_host, file, pipe):
+def run(args, ):
     ''' Runs EventorAgent in remote host.
 
     Args:
@@ -198,6 +198,8 @@ def run(args, log_info, imports, host, ssh_host, file, pipe):
     '''
     global module_logger
 
+    log_info, imports, host, ssh_host, file, pipe = args.log_info, args.imports, args.host, args.ssh_host, args.file, args.pipe
+    
     log_info_recv = yaml.load(log_info[1:-1])
 
     # TODO: pass other logging attributes
@@ -422,14 +424,15 @@ def run(args, log_info, imports, host, ssh_host, file, pipe):
     #sys.stdin.close()
     logger.stop()
     
-def recover(file=None):
+def recover(args):
+    file = args.file
     if file is None:
         file = last_recvoer_args_file()
     args = pickle.load(file)
-    run(**vars(args))
+    run(args)
 
 if __name__ == '__main__':
     mp.freeze_support()
     mp.set_start_method('spawn')
     args = cmdargs()
-    run(args=args, **vars(args))
+    run(args)
