@@ -13,11 +13,11 @@ logger=logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-import examples.run_types as eprog
+import eventor_examples.run_types as eprog
     
 
 def build_flow(run_mode):
-    ev=evr.Eventor(run_mode=run_mode, logging_level=logging.INFO)
+    ev=evr.Eventor(run_mode=run_mode,) # logging_level=logging.INFO)
 
     ev1s=ev.add_event('run_step1')
     ev2s=ev.add_event('run_step2')
@@ -36,7 +36,7 @@ def build_flow(run_mode):
     
 
 def construct_and_run():
-    ev=build_flow(run_mode=evr.RunMode.restart)
+    ev = build_flow(run_mode=evr.RunMode.restart)
     ev.run(max_loops=1)
     ev.close()
 
