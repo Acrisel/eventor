@@ -289,6 +289,8 @@ class Eventor(object):
                     When in recovery, and shared_db is set, run_id must be provided to identify the
                     program and its run to be recovered.
             listener_q: (mp.queue) Termination messages from initiator can be sent through this queue.
+            import file: a file path from which to import modules
+            import module: list of modules to load
 
             config: configuration parameters to be used in operating eventor.
             can be file with YAML style configuration or a dictionary
