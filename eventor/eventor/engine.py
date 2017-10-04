@@ -1697,7 +1697,7 @@ class Eventor(object):
         agentpy = 'eventor_agent.py' 
         kw = ["{} {}".format(name, value) for name, value in kwargs]
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
-        cmd = "{} {} {}".format(agentpy, ' '.join(args), " ".join(kw))
+        cmd = "{} act {} {}".format(agentpy, ' '.join(args), " ".join(kw))
         module_logger.debug('Agent command: {}: {}.'.format(host, cmd))
         sshname = "{}.sshagent.log".format(self.__logger_params['name'])
         sshagent = SSHPipe(host, cmd, name=sshname, logdir=self.__logger_params['logdir'], logger=module_logger) #=module_logger)

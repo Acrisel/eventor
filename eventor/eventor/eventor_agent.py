@@ -25,6 +25,7 @@ import pprint
 from queue import Empty
 import yaml
 from copy import copy
+import os
 
 module_logger = None
 
@@ -37,41 +38,65 @@ level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(host)s ][ %(processName)-1
 #        super().__init__(*args, **kwargs)
 #        super().set_memory(memory)
 
+RECOVER_ARGS_DIR = '/tmp'
+RECOVER_ARGS_FILE = 'eventor_agent_args'
+
+def new_recvoer_args_file():
+    file = "{}.{}.dat".format(RECOVER_ARGS_FILE, os.getpid())
+    file = os.path.join(RECOVER_ARGS_DIR, file)
+    return file
+
+def last_recvoer_args_file():
+    files = filter(lambda x: os.path.isfile(x) and x.startswith(RECOVER_ARGS_FILE), os.listdir(RECOVER_ARGS_DIR))
+    files = [os.path.join(RECOVER_ARGS_DIR, f) for f in files] # add path to each file
+    files.sort(key=lambda x: os.path.getmtime(x))
+    return files[-1] if len(files) > 0 else None
 
 def cmdargs():
     import argparse
-    import os
 
     filename = os.path.basename(__file__)
     progname = filename.rpartition('.')[0]
 
     parser = argparse.ArgumentParser(prog=progname, description="runs EventorAgent object.")
-    parser.add_argument('--imports', type=str, required=False, dest='imports', nargs='*',
+    subparsers = parser.add_subparsers(title='subcommands',
+                                       description='valid subcommands',
+                                       help='additional help')
+    parser_act = subparsers.add_parser('action', aliases=['act'], help='perform new action')
+    parser_rec = subparsers.add_parser('recover', aliases=['rec'], help='recover previous act')
+    
+    parser_act.set_defaults(func=run)
+    parser_rec.set_defaults(func=recover)
+    
+    parser_act.add_argument('--imports', type=str, required=False, dest='imports', nargs='*',
                         help="""import module before pickle loads.""")
-    #parser.add_argument('--import-module', type=str, required=False, dest='import_module', nargs='*',
+    #parser_act.add_argument('--import-module', type=str, required=False, dest='import_module', nargs='*',
     #                    help="""import module before pickle loads.""")
-    #parser.add_argument('--import-file', type=str, required=False, dest='import_file',
+    #parser_act.add_argument('--import-file', type=str, required=False, dest='import_file',
     #                    help="""import file before pickle loads.""")
-    parser.add_argument('--host', type=str,
+    parser_act.add_argument('--host', type=str,
                         help="""Host on which this command was sent to.""")
-    parser.add_argument('--ssh-server-host', type=str, dest='ssh_host',
+    parser_act.add_argument('--ssh-server-host', type=str, dest='ssh_host',
                         help="""SSH Host to use for back cahnnel.""")
-    parser.add_argument('--log-info', type=str, dest='log_info',
+    parser_act.add_argument('--log-info', type=str, dest='log_info',
                         help="""Logger info dictionary json coded.""")
-    #parser.add_argument('--log-port', type=int,
+    #parser_act.add_argument('--log-port', type=int,
     #                    help="""Logger server port.""")
-    #parser.add_argument('--log-name', type=str, dest='logname',
+    #parser_act.add_argument('--log-name', type=str, dest='logname',
     #                    help="""Logger name to use.""")
-    #parser.add_argument('--log-dir', type=str, dest='logdir',
+    #parser_act.add_argument('--log-dir', type=str, dest='logdir',
     #                    help="""Logger output directory.""")
-    #parser.add_argument('--log-encoding', type=str, dest='logencoding', default='utf-8',
+    #parser_act.add_argument('--log-encoding', type=str, dest='logencoding', default='utf-8',
     #                    help="""Logger encoding.""")
-    #parser.add_argument('--log-level', type=int, dest='loglevel',
+    #parser_act.add_argument('--log-level', type=int, dest='loglevel',
     #                    help="""Logger level.""")
-    parser.add_argument('--file', type=str, required=False,
+    parser_act.add_argument('--file', type=str, required=False,
                         help="""File to store or recover memory. With --pipe, it would store memory into file. Without --pipe, it would recover memory from store""")
-    parser.add_argument('--pipe', action='store_true',
+    parser_act.add_argument('--pipe', action='store_true',
                         help="""Indicates that memory should be read from STDIN. If --pipe not provided, --file must be.""")
+    
+    parser_rec.add_argument('--file', type=str, required=False,
+                        help="""File from which to restore previous args""")
     args = parser.parse_args()
 
     assert args.file is not None or args.pipe, "--pipe or --file must be provided."
@@ -200,6 +225,8 @@ def run(args, log_info, imports, host, ssh_host, file, pipe):
     module_logger = Logger.get_logger(logger_info=logger_info, name=logger_name)
     
     module_logger.debug("Starting agent: {}".format(args))
+    args_file = new_recvoer_args_file()
+    pickle.dump(args, args_file)
     
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
     module_logger.debug('Module logger:\n{}'.format(log_info))
@@ -394,6 +421,12 @@ def run(args, log_info, imports, host, ssh_host, file, pipe):
     module_logger.debug("Closing stdin.")
     #sys.stdin.close()
     logger.stop()
+    
+def recover(file=None):
+    if file is None:
+        file = last_recvoer_args_file()
+    args = pickle.load(file)
+    run(**vars(args))
 
 if __name__ == '__main__':
     mp.freeze_support()
