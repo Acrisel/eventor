@@ -171,6 +171,14 @@ def port_is_open(host, port,):
         result = True
     return result
 
+LOCAL_HOST  = '127.0.0.1'
+def get_free_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((LOCAL_HOST,0))
+    host, port = s.getsockname()
+    s.close()
+    return host, port
+
 
 if __name__ == '__main__':
 
@@ -196,13 +204,6 @@ if __name__ == '__main__':
     foo.bar()   
     foo.bar()   
     
-LOCAL_HOST  = '127.0.0.1'
-def get_free_port():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((LOCAL_HOST,0))
-    host, port = s.getsockname()
-    s.close()
-    return host, port
 
 
 
