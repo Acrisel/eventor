@@ -272,7 +272,7 @@ def run(args, ):
     module_logger.addHandler(queue_handler)
     #remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
     #module_logger.addHandler(remote_logger_handler)
-    listener = logger_remote_handler(remote_logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host, logdir=handler_kwargs['logdir'])
+    logger_remote_listener = logger_remote_handler(remote_logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host, logdir=handler_kwargs['logdir'])
     
     if imports is not None:
         do_imports(imports)
@@ -288,7 +288,7 @@ def run(args, ):
             module_logger.exception(e)
             #print('TERM')
             #print(e, file=sys.stderr)
-            close_run(listener, logger, msg='TERM', err=e)
+            close_run(logger_remote_listener, logger, msg='TERM', err=e)
             return
 
         try:
@@ -300,7 +300,7 @@ def run(args, ):
             # signal to parant via stdout
             #print('TERM')
             #print(e, file=sys.stderr)
-            close_run(listener, logger, msg='TERM', err=e)
+            close_run(logger_remote_listener, logger, msg='TERM', err=e)
             return
 
         # store memory into file
@@ -315,7 +315,7 @@ def run(args, ):
                 # signal to parant via stdout
                 #print('TERM')
                 #print(e, file=sys.stderr)
-                close_run(listener, logger, msg='TERM', err=e)
+                close_run(logger_remote_listener, logger, msg='TERM', err=e)
                 return
     else:
         module_logger.debug("Fetching workload from file.")
@@ -328,7 +328,7 @@ def run(args, ):
             # signal to parant via stdout
             #print('TERM')
             #print(e, file=sys.stderr)
-            close_run(listener, logger, msg='TERM', err=e)
+            close_run(logger_remote_listener, logger, msg='TERM', err=e)
             return
 
 
@@ -347,7 +347,7 @@ def run(args, ):
         # signal to parant via stdout
         #print('TERM')
         #print(e, file=sys.stderr)
-        close_run(listener, logger, msg='TERM', err=e)
+        close_run(logger_remote_listener, logger, msg='TERM', err=e)
         return
 
     module_logger.debug("Starting Eventor subprocess on remote host.") #:\n%s" % pprint.pformat(kwargs, indent=4))
@@ -382,7 +382,7 @@ def run(args, ):
         # signal to parant via stdout
         #print('TERM')
         #print(e, file=sys.stderr)
-        close_run(listener, logger, msg='TERM', err=e)
+        close_run(logger_remote_listener, logger, msg='TERM', err=e)
         return
 
     #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
@@ -391,7 +391,7 @@ def run(args, ):
     # wait for remote parent or from child Eventor
     if not check_agent_process(agent):
         module_logger.debug("Agent process is dead, exiting.".format(agent.pid))
-        close_run(listener, logger, ) #msg='TERM', err=error)
+        close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
         return
 
     while True:
@@ -402,7 +402,7 @@ def run(args, ):
             if not check_agent_process(agent):
                 # since agent is gone - nothing to do.
                 module_logger.debug("Empty queue, agent process is dead, exiting.".format(agent.pid))
-                close_run(listener, logger, ) # msg='TERM', err=error)
+                close_run(logger_remote_listener, logger, ) # msg='TERM', err=error)
                 return
         if not msg: continue
         msg, error = msg
@@ -413,7 +413,7 @@ def run(args, ):
             agent.join()
             listener.join()
             module_logger.debug("Eventor process joint.")
-            close_run(listener, logger, ) #msg='TERM', err=error)
+            close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
             break
         elif msg == 'TERM':
             # TODO: need to change message from parent to STOP - not TERM
@@ -424,7 +424,7 @@ def run(args, ):
             listener.join()
             #print('TERM')
             #print(error, file=sys.stderr)
-            close_run(listener, logger, msg='TERM', err=error)
+            close_run(logger_remote_listener, logger, msg='TERM', err=error)
             # TODO(Arnon): how to terminate listener that is listening
             break
         elif msg in ['STOP', 'FINISH']:
@@ -437,7 +437,7 @@ def run(args, ):
             listener.join()
             module_logger.debug("Eventor process joint.")
             #print('DONE')
-            close_run(listener, logger, msg='DONE', err=None)
+            close_run(logger_remote_listener, logger, msg='DONE', err=None)
             break
 
     #module_logger.debug("Closing stdin.")
