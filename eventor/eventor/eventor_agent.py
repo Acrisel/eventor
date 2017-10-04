@@ -161,7 +161,7 @@ def check_agent_process(agent,):
     return True
 
 
-def run(log_info, imports, host, ssh_host, file, pipe):
+def run(args, log_info, imports, host, ssh_host, file, pipe):
     ''' Runs EventorAgent in remote host.
 
     Args:
@@ -400,4 +400,4 @@ if __name__ == '__main__':
     mp.freeze_support()
     mp.set_start_method('spawn')
     args = cmdargs()
-    run(**vars(args))
+    run(args=args, **vars(args))
