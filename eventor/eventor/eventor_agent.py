@@ -231,13 +231,7 @@ def run(args, ):
     logger_info_local = copy(log_info_recv)
     del logger_info_local['port']
     del logger_info_local['handler_kwargs']
-    #print('Run args: info:\n{}\n imports:\n{}\nhost:\n{}\nfile:\n{}'.format(log_info, imports, host, file))
 
-    ##logger_name = name = logger_name +'.agent'
-    #logger = Logger(name=logger_name, logging_level=logging_level, console=False, level_formats=level_formats, datefmt=datefmt, logdir=logdir, **kwargs)
-    #
-
-    #logger = Logger(name=logger_name, logging_level=logging_level, console=True, **kwargs)
     logger = Logger(console=False, **logger_info_local, **handler_kwargs)
     logger.start()
     
@@ -260,8 +254,8 @@ def run(args, ):
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
     module_logger.debug('Module logger:\n{}'.format(log_info))
 
-    #remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
-    #module_logger.addHandler(remote_logger_handler)
+    remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
+    module_logger.addHandler(remote_logger_handler)
 
     if imports is not None:
         do_imports(imports)
