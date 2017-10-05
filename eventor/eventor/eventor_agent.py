@@ -231,7 +231,7 @@ def run(args, ):
 
     log_info, imports, host, ssh_host, file, pipe = args.log_info, args.imports, args.host, args.ssh_host, args.file, args.pipe
     
-    log_info_recv = yaml.load(log_info[1:-1])
+    log_info_recv = yaml.load(log_info) #[1:-1])
 
     # TODO: pass other logging attributes
     logger_name = log_info_recv['name']
