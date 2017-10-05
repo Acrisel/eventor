@@ -1706,7 +1706,7 @@ class Eventor(object):
             work_file = os.path.join(work, file)
             kwargs.append(('--file', work_file))
             
-        args = ['--pipe']
+        args = ['--pipe', '--debug', ]
         agentpy = 'eventor_agent.py' 
         kw = ["{} {}".format(name, value) for name, value in kwargs]
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
