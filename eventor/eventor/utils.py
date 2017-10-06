@@ -171,6 +171,7 @@ def port_is_open(host, port,):
         result = True
     return result
 
+
 LOCAL_HOST  = '127.0.0.1'
 def get_free_port():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -178,6 +179,16 @@ def get_free_port():
     host, port = s.getsockname()
     s.close()
     return host, port
+
+
+def logger_process_lambda(logger_info):
+    logger_info = deepcopy(logger_info)
+    def internal(name=None):
+        if name is not None:
+            logger_info['name'] = name
+        logger = Logger.get_logger(logger_info)
+        return logger
+    return internal
 
 
 if __name__ == '__main__':

@@ -30,7 +30,7 @@ from eventor.event import Event
 from eventor.delay import Delay
 from eventor.assoc import Assoc
 from eventor.dbapi import DbApi
-from eventor.utils import calling_module, traces, rest_sequences, store_from_module, get_delay_id, port_is_open
+from eventor.utils import calling_module, traces, rest_sequences, store_from_module, get_delay_id, port_is_open, logger_process_lambda
 from eventor.eventor_types import Invoke, EventorError, TaskStatus, step_to_task_status, task_to_step_status, LoopControl, StepStatus, StepReplay, RunMode, DbMode
 from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
@@ -193,16 +193,6 @@ def make_imports(import_file, import_module):
     if len(import_module) > 0:
         imports = "%s:%s" % (import_file, ':'.join(import_module))
     return imports
-
-
-def logger_process_lambda(logger_info):
-    logger_info = deepcopy(logger_info)
-    def internal(name=None):
-        if name is not None:
-            logger_info['name'] = name
-        logger = Logger.get_logger(logger_info)
-        return logger
-    return internal
 
     
 #class Eventor(metaclass=decorate_all(print_method(module_logger.debug))):
