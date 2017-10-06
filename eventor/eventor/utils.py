@@ -181,13 +181,13 @@ def get_free_port():
     s.close()
     return host, port
 
-
-def logger_process_lambda(Logger, logger_info):
+from acrilog import NwLogger
+def logger_process_lambda(logger_info):
     logger_info = deepcopy(logger_info)
     def internal(name=None):
         if name is not None:
             logger_info['name'] = name
-        logger = Logger.get_logger(logger_info)
+        logger = NwLogger.get_logger(logger_info)
         return logger
     return internal
 
