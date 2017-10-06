@@ -194,6 +194,17 @@ def make_imports(import_file, import_module):
         imports = "%s:%s" % (import_file, ':'.join(import_module))
     return imports
 
+
+'''
+def logger_process_lambda(logger_info):
+    logger_info = deepcopy(logger_info)
+    def internal(name=None):
+        if name is not None:
+            logger_info['name'] = name
+        logger = Logger.get_logger(logger_info)
+        return logger
+    return internal
+'''
     
 #class Eventor(metaclass=decorate_all(print_method(module_logger.debug))):
 class Eventor(object):
@@ -1661,7 +1672,7 @@ class Eventor(object):
     
     def __logger_process_lambda(self,):
         logger_info = deepcopy(self.__logger_info)
-        def internal(self, name=None):
+        def internal(name=None):
             if name is not None:
                 logger_info['name'] = name
             logger = Logger.get_logger(logger_info)
