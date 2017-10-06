@@ -11,6 +11,7 @@ import datetime
 import os
 import socket
 import json
+from copy import deepcopy
 
 def is_require_op(op):
     if op in ['or', 'and',]:
@@ -181,7 +182,7 @@ def get_free_port():
     return host, port
 
 
-def logger_process_lambda(logger_info):
+def logger_process_lambda(Logger, logger_info):
     logger_info = deepcopy(logger_info)
     def internal(name=None):
         if name is not None:
