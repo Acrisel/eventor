@@ -195,7 +195,6 @@ def make_imports(import_file, import_module):
     return imports
 
 
-'''
 def logger_process_lambda(logger_info):
     logger_info = deepcopy(logger_info)
     def internal(name=None):
@@ -204,7 +203,7 @@ def logger_process_lambda(logger_info):
         logger = Logger.get_logger(logger_info)
         return logger
     return internal
-'''
+
     
 #class Eventor(metaclass=decorate_all(print_method(module_logger.debug))):
 class Eventor(object):
@@ -1724,7 +1723,7 @@ class Eventor(object):
         cmd = "{} act {} {}".format(agentpy, ' '.join(args), " ".join(kw))
         module_logger.debug('Agent command: {}: {}.'.format(host, cmd))
         sshname = "{}.sshagent.log".format(self.__logger_params['name'])
-        sshagent = SSHPipe(host, cmd, name=sshname, get_logger=self.__logger_process_lambda(), ) #logger=module_logger) #=module_logger)
+        sshagent = SSHPipe(host, cmd, name=sshname, get_logger=logger_process_lambda(self.__logger_info), ) #logger=module_logger) #=module_logger)
         sshagent.start(wait=0.2)
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         #agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', pipe_read, pipe_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
