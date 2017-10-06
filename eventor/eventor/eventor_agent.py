@@ -236,7 +236,7 @@ def run(args, ):
 
     # TODO: pass other logging attributes
     logger_name = log_info_recv['name']
-    logging_level = log_info_recv['logging_level']
+    #logging_level = log_info_recv['logging_level']
     #logdir = log_info['logdir']
     #datefmt = log_info['datefmt']
     handler_kwargs = log_info_recv['handler_kwargs']
