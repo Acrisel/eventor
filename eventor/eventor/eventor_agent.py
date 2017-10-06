@@ -413,7 +413,7 @@ def run(args, ):
             module_logger.debug("Joining with Eventor process.")
             agent.join()
             listener.join()
-            module_logger.debug("Eventor process joint.")
+            module_logger.debug("Eventor process joint after DONE.")
             close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
             break
         elif msg == 'TERM':
@@ -436,7 +436,7 @@ def run(args, ):
             module_logger.debug("Joining with Eventor process.")
             agent.join()
             listener.join()
-            module_logger.debug("Eventor process joint.")
+            module_logger.debug("Eventor process joint after {}.".format(msg))
             #print('DONE')
             close_run(logger_remote_listener, logger, msg='DONE', err=None)
             break
