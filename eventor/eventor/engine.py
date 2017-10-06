@@ -1732,6 +1732,7 @@ class Eventor(object):
         except Exception as e:
             module_logger.error("Failed to send workload to {}.".format(host))
             module_logger.exception(e)
+            return None
             #agent = None
         module_logger.debug('Sent workload to: {}.'.format(host,))
         if not sshagent.is_alive():
