@@ -198,6 +198,7 @@ def imports_from_cmd(imports_str):
     imports = [(import_file, set(modules)) for import_file, modules in imports.items() if modules]
     return imports
 
+
 def check_agent_process(agent,):
     if not agent.is_alive():
         agent.join()
@@ -331,7 +332,6 @@ def run(args, ):
             #print(e, file=sys.stderr)
             close_run(logger_remote_listener, logger, msg='TERM', err=e)
             return
-
 
     module_logger.debug("Memory received:\n{}".format(pprint.pformat(memory, indent=4, )))
     logger_info = logger.logger_info()
