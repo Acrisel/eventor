@@ -1864,7 +1864,7 @@ class Eventor(object):
         
         started =True
         if len(self.__agents) < len(hosts):
-            # not all agents came up; send TREM to rest
+            # not all agents came up; send TERM to rest
             # TODO(Arnon): Need to build test case for partial failure to start remote agents
             for agent in list(self.__agents):
                 #agent.poll()
