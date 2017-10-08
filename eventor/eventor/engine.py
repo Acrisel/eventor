@@ -1788,7 +1788,7 @@ class Eventor(object):
             module_logger.critical(msg)
             raise EventorError(msg)
 
-    def __listent_to_remote(self, parentq):
+    def __listent_to_remote(self, parentq, wait=0.25):
         agent_count = len(self.__agents)
         module_logger.debug('Listening to agents: {}.'.format(repr(self.__agents)))
         while agent_count > 0:
@@ -1813,7 +1813,7 @@ class Eventor(object):
                     del self.__agents[host]
             agent_count = len(self.__agents)
             if agent_count > 0:
-                time.sleep(0.25)
+                time.sleep(wait)
      
     def __term_agents(self, msg, join=True):
         module_logger.debug('Sending {} to agents: {}.'.format(msg, ", ".join(self.__agents.keys())))
