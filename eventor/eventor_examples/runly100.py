@@ -55,7 +55,7 @@ import logging
 import os
 
 
-logger=logging.getLogger(__name__)
+logger=logging.getLogger(__file__)
 
 import eventor_examples.run_types as rtypes
 
