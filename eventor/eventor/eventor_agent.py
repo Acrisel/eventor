@@ -43,8 +43,9 @@ level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(host)s ][ %(processName)-1
 RECOVER_ARGS_DIR = '/tmp'
 RECOVER_ARGS_FILE = 'eventor_agent_args'
 
-def new_recvoer_args_file():
-    file = "{}.{}.dat".format(RECOVER_ARGS_FILE, os.getpid())
+def new_recvoer_args_file(file=None):
+    file = "{}.".format(file) if file else ""
+    file = "{}{}.{}.dat".format(file, RECOVER_ARGS_FILE, os.getpid())
     file = os.path.join(RECOVER_ARGS_DIR, file)
     return file
 
@@ -211,7 +212,7 @@ def check_agent_process(agent,):
 
 def logger_remote_handler(remote_logger_queue, log_info_recv, ssh_host, logdir):
     #log_info_recv['name'] = '{}_eventor_sshagent'.format(log_info_recv['name'])
-    remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=logdir)
+    remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host,) # logger=module_logger, logdir=logdir)
     #module_logger.addHandler(remote_logger_handler)
     listener = logging.handlers.QueueListener(remote_logger_queue, remote_logger_handler)
     listener.start()
@@ -254,7 +255,7 @@ def run(args, ):
     
     module_logger.debug("Starting agent: {}".format(args))
     if args.debug:
-        args_file = new_recvoer_args_file()
+        args_file = new_recvoer_args_file(file)
         try:
             with open(args_file, 'wb') as f:
                 pickle.dump(args, f)
