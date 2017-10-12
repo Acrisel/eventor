@@ -2,4 +2,7 @@ eclipse.preferences.version=1
 encoding//eventor/cmd.py=utf-8
 encoding//eventor/vrp.py=utf-8
 encoding//eventor/vrpdb.py=utf-8
+encoding//eventor_examples/runly000.py=utf-8
+encoding//eventor_examples/runly001.py=utf-8
+encoding//eventor_examples/runly003.py=utf-8
 encoding//eventor_examples/runly100.py=utf-8
