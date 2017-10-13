@@ -210,7 +210,7 @@ def check_agent_process(agent,):
     return True
 
 
-def logger_remote_handler(remote_logger_queue, log_info_recv, ssh_host, logdir):
+def logger_remote_handler(remote_logger_queue, log_info_recv, ssh_host,):
     #log_info_recv['name'] = '{}_eventor_sshagent'.format(log_info_recv['name'])
     remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host,) # logger=module_logger, logdir=logdir)
     #module_logger.addHandler(remote_logger_handler)
@@ -275,7 +275,7 @@ def run(args, ):
     module_logger.addHandler(queue_handler)
     #remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
     #module_logger.addHandler(remote_logger_handler)
-    logger_remote_listener = logger_remote_handler(remote_logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host, logdir=handler_kwargs['logdir'])
+    logger_remote_listener = logger_remote_handler(remote_logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host,) # logdir=handler_kwargs['logdir'])
     
     if imports is not None:
         do_imports(imports)

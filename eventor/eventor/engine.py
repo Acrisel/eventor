@@ -382,7 +382,7 @@ class Eventor(object):
         defaults = dict([(name, expandvars(value, os.environ)) for name, value in Eventor.config_defaults.items()])
         #self.__config = MergedChainedDict(rootconfig, os.environ, defaults, submerge=True) 
         self.__config = MergedChainedDict(rootconfig, defaults, submerge=True) 
-
+        self.debug = self.__config['debug']
         # HOSTS configuration mapping of host tags to host names
         hosts_root_name = os.environ.get('EVENTOR_CONFIG_HOSTS_TAG', 'HOSTS')
         self.hosts = rootconfig.get(hosts_root_name, {})
@@ -1680,8 +1680,6 @@ class Eventor(object):
         '''
         #remote_read, remote_write = get_pipe() 
         #pipe_read, pipe_write = mp.Pipe()
-        
-        self.debug = self.__config['debug']
             
         kwargs = list()
         for imports in self.imports:
