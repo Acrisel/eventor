@@ -1711,15 +1711,24 @@ class Eventor(object):
         cmd = "{} act {} {}".format(agentpy, ' '.join(args), " ".join(kw))
         module_logger.debug('Agent command: {}: {}.'.format(host, cmd))
         sshname = "{}.sshagent.log".format(self.__logger_params['name'])
-        sshagent = SSHPipe(host, cmd, name=sshname, logger=module_logger) # get_logger=logger_process_lambda(self.__logger_info), ) #logger=module_logger) #=module_logger)
-        sshagent.start(wait=0.2)
+        
+        try:
+            sshagent = SSHPipe(host, cmd, name=sshname, logger=module_logger) # get_logger=logger_process_lambda(self.__logger_info), ) #logger=module_logger) #=module_logger)
+            sshagent.start(wait=0.2)
+        except Exception as e:
+            module_logger.exception(e)
+            response = sshagent.response()
+            module_logger.critical("EventorAgent failed to start: {}; response: {}.".format(host, response)) 
+            return None
+            
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
         #agent = mp.Process(target=local_agent, args=(host, 'eventor_agent.py', pipe_read, pipe_write, self.__logger_info, parentq, ), kwargs={"args": args, 'kwargs': kwargs}, daemon=True)    
         #agent.start()
         
         module_logger.debug('Agent process started: {}:{}.'.format(host, sshagent.pid)) 
         if not sshagent.is_alive():
-            module_logger.critical('Agent process terminated unexpectedly: {}'.format(host,))
+            response = sshagent.response()
+            module_logger.critical('Agent process terminated unexpectedly: {}; response: {}'.format(host, response))
             sshagent.join()
             return None
         # this is parent 
