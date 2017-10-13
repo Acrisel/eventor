@@ -279,7 +279,11 @@ def run(args, ):
     module_logger.addHandler(queue_handler)
     #remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
     #module_logger.addHandler(remote_logger_handler)
-    logger_remote_listener = logger_remote_handler(remote_logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host,) # logdir=handler_kwargs['logdir'])
+    try:
+        logger_remote_listener = logger_remote_handler(remote_logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host,) # logdir=handler_kwargs['logdir'])
+    except Exception as e:
+        module_logger.exception(e)
+        raise
     
     if imports is not None:
         do_imports(imports)
