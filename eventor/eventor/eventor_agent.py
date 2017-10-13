@@ -7,9 +7,6 @@ Created on Aug 30, 2017
 
 from eventor.engine import Eventor
 # needed by pickle loads BEGIN ---<
-from eventor.etypes import MemEventor
-import acris
-import collections
 # >--- END
 import pickle
 #import dill

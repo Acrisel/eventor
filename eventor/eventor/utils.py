@@ -4,7 +4,7 @@ Created on Oct 19, 2016
 @author: arnon
 '''
 
-from acris import Sequence
+from acrilib import Sequence
 from logging.handlers import QueueListener
 import inspect
 import datetime

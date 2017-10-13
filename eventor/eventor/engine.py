@@ -53,7 +53,7 @@ setproctitle=None
 #module_logger=logging.getLogger(__name__)
 module_logger=None #logging.getLogger(__file__)
 
-from acris import traced_method
+from acrilib import traced_method
 from eventor.utils import decorate_all, print_method
 
 #traced=traced_method(None, True)

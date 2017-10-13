@@ -5,7 +5,7 @@ Created on Nov 23, 2016
 '''
 
 from enum import Enum
-from acris import threaded
+from acrilib import threaded
 
 class EventorError(Exception):
     pass

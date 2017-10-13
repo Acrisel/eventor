@@ -5,7 +5,7 @@ Created on Sep 8, 2017
 '''
 
 import collections
-import acris  
+from acrilib import Mediator
 from acris import virtual_resource_pool as rp
 
 class StepResource(rp.Resource): pass
@@ -38,7 +38,7 @@ class Container(object):
         #self.ev = eventor
         if initial:
             logger.debug('Container: initiating container at first call.')
-            self.iter = acris.Mediator(self.loop())
+            self.iter = Mediator(self.loop())
             todos = 1
             #self.initiating_sequence=__eventor.get_task_sequence()
         else:

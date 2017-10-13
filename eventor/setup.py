@@ -91,6 +91,7 @@ setup_info={'name': NAME,
  'scripts' : scripts,
  'install_requires': [
      'SQLAlchemy>=1.1.5',
+     'acrilib>=1.0.2',
      'acris>=2.0.2',
      'acrilog>=1.1.4',
      'setproctitle>=1.1',
