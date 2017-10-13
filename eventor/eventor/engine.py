@@ -5,7 +5,7 @@ Created on Nov 23, 2016
 '''
 
 import logging
-from acris import Sequence, MergedChainedDict
+from acrilib import Sequence, MergedChainedDict
 from acrilog import NwLogger as Logger
 from acris import virtual_resource_pool as vrp
 import multiprocessing as mp
