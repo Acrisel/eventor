@@ -253,8 +253,13 @@ def run(args, ):
     
     logger_info = logger.logger_info()
     module_logger = Logger.get_logger(logger_info=logger_info, name=logger_name)
+    remote_logger_queue = mp.Queue()
+    queue_handler = logging.handlers.QueueHandler(remote_logger_queue)
+    module_logger.addHandler(queue_handler)
     
     module_logger.debug("Starting agent: {}".format(args))
+    
+    # In case of debug, store arguments.
     if args.debug:
         file = new_recvoer_args_file(file)
         try:
@@ -271,9 +276,6 @@ def run(args, ):
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
     module_logger.debug('Module logger:\n{}'.format(log_info))
     
-    remote_logger_queue = mp.Queue()
-    queue_handler = logging.handlers.QueueHandler(remote_logger_queue)
-    module_logger.addHandler(queue_handler)
     #remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
     #module_logger.addHandler(remote_logger_handler)
     try:
@@ -288,7 +290,7 @@ def run(args, ):
         do_imports(imports)
         
     if pipe:
-        module_logger.debug("Fetching workload. from pipe")
+        module_logger.debug("Fetching workload. from pipe.")
         try:
             msgsize_raw = sys.stdin.buffer.read(4)
             msgsize = struct.unpack(">L", msgsize_raw)
