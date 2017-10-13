@@ -264,11 +264,11 @@ def run(args, ):
             with open(file, 'wb') as f:
                 pickle.dump(args, f)
         except Exception as e:
-            module_logger.critical("Failed to store args.")
             module_logger.exception(e)
-            print('TERM')
-            print(e, file=sys.stderr)
+            module_logger.debug("Failed to store args.")
+            close_run(logger=logger, msg="TERM", err=e)
             return
+        
         module_logger.debug("Stored agent args: {}".format(file))
     
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
@@ -283,7 +283,9 @@ def run(args, ):
         logger_remote_listener = logger_remote_handler(remote_logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host,) # logdir=handler_kwargs['logdir'])
     except Exception as e:
         module_logger.exception(e)
-        raise
+        module_logger.debug("Failed to to create remote logger on: {}.".format(ssh_host))
+        close_run(logger=logger, msg="TERM", err=e)
+        return
     
     if imports is not None:
         do_imports(imports)
@@ -455,7 +457,7 @@ def run(args, ):
     #logger.stop()
     #listener.stop()
     
-def close_run(listener, logger, msg=None, err=None):
+def close_run(listener=None, logger=None, msg=None, err=None):
     global module_logger
     module_logger.debug("Closing stdin.")
     
@@ -464,8 +466,8 @@ def close_run(listener, logger, msg=None, err=None):
     if err is not None:
         print(err, file=sys.stderr)
     
-    logger.stop()
-    listener.stop()
+    if logger: logger.stop()
+    if listener: listener.stop()
     
 def recover(args):
     file = args.file
@@ -486,3 +488,5 @@ if __name__ == '__main__':
         run(args)
     else:
         recover(args)
+
+        
