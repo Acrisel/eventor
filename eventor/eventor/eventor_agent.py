@@ -294,13 +294,10 @@ def run(args, ):
         module_logger.debug("Fetching workload. from pipe")
         try:
             msgsize_raw = sys.stdin.buffer.read(4)
-            #msgsize_raw = sys.stdin.read(4)
             msgsize = struct.unpack(">L", msgsize_raw)
         except Exception as e:
             module_logger.critical("Failed to read size of workload.")
             module_logger.exception(e)
-            #print('TERM')
-            #print(e, file=sys.stderr)
             close_run(logger_remote_listener, logger, msg='TERM', err=e)
             return
 
@@ -310,9 +307,6 @@ def run(args, ):
         except Exception as e:
             module_logger.critical("Failed to pickle loads workload.")
             module_logger.exception(e)
-            # signal to parant via stdout
-            #print('TERM')
-            #print(e, file=sys.stderr)
             close_run(logger_remote_listener, logger, msg='TERM', err=e)
             return
 
@@ -388,16 +382,11 @@ def run(args, ):
         agent = mp.Process(target=start_eventor, args=(child_q, logger_info,), kwargs=kwargs, daemon=False)
         agent.start()
     except Exception as e:
-        #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
         module_logger.critical("Failed to start Eventor process.")
         module_logger.exception(e)
-        # signal to parant via stdout
-        #print('TERM')
-        #print(e, file=sys.stderr)
         close_run(logger_remote_listener, logger, msg='TERM', err=e)
         return
 
-    #module_logger = MpLogger.get_logger(logger_info, logger_info['name'])
     module_logger.debug("Eventor subprocess pid: {}".format(agent.pid))
 
     # wait for remote parent or from child Eventor
