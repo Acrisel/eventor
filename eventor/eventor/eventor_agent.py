@@ -43,8 +43,8 @@ level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(host)s ][ %(processName)-1
 RECOVER_ARGS_DIR = '/tmp'
 RECOVER_ARGS_FILE = 'eventor_agent_args'
 
-def new_recvoer_args_file(file=None):
-    file = "{}.".format(file) if file else ""
+def new_recvoer_args_file(name=None):
+    file = "{}.".format(name) if name else ""
     file = "{}{}.{}.dat".format(file, RECOVER_ARGS_FILE, os.getpid())
     file = os.path.join(RECOVER_ARGS_DIR, file)
     return file
@@ -231,7 +231,7 @@ def run(args, ):
     '''
     global module_logger
 
-    log_info, imports, host, ssh_host, file, pipe = args.log_info, args.imports, args.host, args.ssh_host, args.file, args.pipe
+    log_info, imports, host, ssh_host, pipe, file = args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file
     
     log_info_recv = yaml.load(log_info) #[1:-1])
 
@@ -255,9 +255,9 @@ def run(args, ):
     
     module_logger.debug("Starting agent: {}".format(args))
     if args.debug:
-        args_file = new_recvoer_args_file(file)
+        file = new_recvoer_args_file(file)
         try:
-            with open(args_file, 'wb') as f:
+            with open(file, 'wb') as f:
                 pickle.dump(args, f)
         except Exception as e:
             module_logger.critical("Failed to store args.")
@@ -265,7 +265,7 @@ def run(args, ):
             print('TERM')
             print(e, file=sys.stderr)
             return
-        module_logger.debug("Stored agent args: {}".format(args_file))
+        module_logger.debug("Stored agent args: {}".format(file))
     
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
     module_logger.debug('Module logger:\n{}'.format(log_info))

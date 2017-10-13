@@ -215,6 +215,7 @@ class Eventor(object):
     
     config_defaults = {
         'workdir':'/tmp', 
+        'debug':False,
         'LOGGING': {
            'logdir': '/var/log/eventor', 
            'datefmt':'%Y-%m-%d,%H:%M:%S.%f',        
@@ -296,8 +297,8 @@ class Eventor(object):
             config: configuration parameters to be used in operating eventor.
             can be file with YAML style configuration or a dictionary
                 parameters can include the following keys:
-                - logdir=/tmp, 
                 - workdir=/tmp, 
+                - debug=False
                 #- synchrous_run=False,
                 - task_construct=mp.Process, 
                 - stop_on_exception=True,
@@ -334,6 +335,7 @@ class Eventor(object):
                 - logging:
                     LOGGING:
                         logdir: /var/log/eventor
+                        logging_level: INFO
                         consolidate: False
                         console: True
                         file_prefix: None
@@ -1679,10 +1681,7 @@ class Eventor(object):
         #remote_read, remote_write = get_pipe() 
         #pipe_read, pipe_write = mp.Pipe()
         
-        if __debug__:
-            work = self.__config['workdir']
-            file = "{}_{}.dat".format(self.__logger_info['name'], self.run_id)
-            work_file = os.path.join(work, file)
+        self.debug = self.__config['debug']
             
         kwargs = list()
         for imports in self.imports:
@@ -1700,13 +1699,14 @@ class Eventor(object):
                        #('--log-level', self.__logger_info['logging_level']),
                        #('--log-encoding', self.__logger_info['handler_kwargs']['encoding']),
                        ])
-        if __debug__:
+        if self.debug:
             work = self.__config['workdir']
             file = "{}{}.dat".format(self.__logger_info['name'], "_{}".format(self.run_id) if self.run_id else '')
             work_file = os.path.join(work, file)
             kwargs.append(('--file', work_file))
             
-        args = ['--pipe', '--debug', ]
+        args = ['--pipe',]
+        if self.debug: args.append('--debug')
         agentpy = 'eventor_agent.py' 
         kw = ["{} {}".format(name, value) for name, value in kwargs]
         #args = (host, self.__logger_info['name'], self.__logger_info['logdir'], )
