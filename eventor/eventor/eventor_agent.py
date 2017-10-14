@@ -219,6 +219,17 @@ def logger_remote_handler(remote_logger_queue, log_info_recv, ssh_host,):
     listener.start()
     return listener
 
+class EventorAgentQueueHandler(logging.handlers.QueueHandler):
+    def __init__(self, queue):
+        super(EventorAgentQueueHandler, self).__init__(queue)
+        self.emitter = open("/var/log/eventor/eventor_agent_queue_handler_records.log", 'w')
+    
+    def emit(self, record):
+        self.emitter.write(repr(record.__dict__))
+        logging.handlers.QueueHandler.emit(self, record)
+        
+    def __del__(self):
+        self.emitter.close()
 
 def run(args, ):
     ''' Runs EventorAgent in remote host.
@@ -257,7 +268,9 @@ def run(args, ):
     logger_info = logger.logger_info()
     module_logger = Logger.get_logger(logger_info=logger_info, name='')
     remote_logger_queue = mp.Queue()
-    queue_handler = logging.handlers.QueueHandler(remote_logger_queue)
+    #queue_handler = logging.handlers.QueueHandler(remote_logger_queue)
+    queue_handler = EventorAgentQueueHandler(remote_logger_queue)
+    
     module_logger.addHandler(queue_handler)
     
     module_logger.debug("Starting agent: {}.".format(args))
