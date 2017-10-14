@@ -126,8 +126,8 @@ def do_imports(imports):
 
 def start_eventor(queue, logger_info, **kwargs):
     global module_logger
-    module_logger = Logger.get_logger(logger_info, logger_info['name'])
-    module_logger.debug('Starting EventorAgent:\n%s' % pprint.pformat(kwargs, indent=4))
+    module_logger = Logger.get_logger(logger_info,) # logger_info['name'])
+    module_logger.debug('Starting EventorAgent:\n{}'.format(pprint.pformat(kwargs, indent=4)))
     try:
         eventor = Eventor(**kwargs)
     except Exception as e:
@@ -210,7 +210,7 @@ def check_agent_process(agent,):
 def logger_remote_handler(remote_logger_queue, log_info_recv, ssh_host,):
     #log_info_recv['name'] = '{}_eventor_sshagent'.format(log_info_recv['name'])
     try:
-        remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host,) # logger=module_logger, logdir=logdir)
+        remote_logger_handler = NwLoggerClientHandler(logger_info=log_info_recv, ssh_host=ssh_host,) # logger=module_logger, logdir=logdir)
     except Exception as e:
         raise EventorAgentError("Failed to create NwLoggerClientHandler on: {}; {}".format(ssh_host), repr(e))
         
@@ -237,7 +237,7 @@ def run(args, ):
     log_info_recv = yaml.load(log_info) #[1:-1])
 
     # TODO: pass other logging attributes
-    logger_name = log_info_recv['name']
+    #logger_name = log_info_recv['name']
     #logging_level = log_info_recv['logging_level']
     #logdir = log_info['logdir']
     #datefmt = log_info['datefmt']
@@ -248,7 +248,10 @@ def run(args, ):
     del logger_info_local['port']
     del logger_info_local['handler_kwargs']
 
-    logger = Logger(console=False, **logger_info_local, **handler_kwargs)
+    logger_kwargs = {}
+    logger_kwargs.update(logger_info_local)
+    logger_kwargs.update(handler_kwargs)
+    logger = Logger(console=False, **logger_kwargs)
     logger.start()
     
     logger_info = logger.logger_info()
@@ -257,7 +260,7 @@ def run(args, ):
     queue_handler = logging.handlers.QueueHandler(remote_logger_queue)
     module_logger.addHandler(queue_handler)
     
-    module_logger.debug("Starting agent: {}".format(args))
+    module_logger.debug("Starting agent: {}.".format(args))
     
     # In case of debug, store arguments.
     if args.debug:
