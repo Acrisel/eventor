@@ -259,6 +259,7 @@ def run(args, ):
     remote_logger_queue = mp.Queue()
     queue_handler = logging.handlers.QueueHandler(remote_logger_queue)
     module_logger.addHandler(queue_handler)
+    module_logger.propagate = True
     
     module_logger.debug("Starting agent: {}.".format(args))
     
