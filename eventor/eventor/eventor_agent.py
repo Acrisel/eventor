@@ -223,9 +223,11 @@ class EventorAgentQueueHandler(logging.handlers.QueueHandler):
     def __init__(self, queue):
         super(EventorAgentQueueHandler, self).__init__(queue)
         self.emitter = open("/var/log/eventor/eventor_agent_queue_handler_records.log", 'w')
-    
+        self.count = 0
+        
     def emit(self, record):
-        self.emitter.write(repr(record.__dict__))
+        self.count += 1
+        self.emitter.write("{}: \n".format(repr(record.__dict__)))
         logging.handlers.QueueHandler.emit(self, record)
         
     def __del__(self):
