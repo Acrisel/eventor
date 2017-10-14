@@ -255,7 +255,7 @@ def run(args, ):
     logger.start()
     
     logger_info = logger.logger_info()
-    module_logger = Logger.get_logger(logger_info=logger_info,) # name=logger_name)
+    module_logger = Logger.get_logger(logger_info=logger_info, name='')
     remote_logger_queue = mp.Queue()
     queue_handler = logging.handlers.QueueHandler(remote_logger_queue)
     module_logger.addHandler(queue_handler)
