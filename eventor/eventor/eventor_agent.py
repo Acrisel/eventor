@@ -265,14 +265,15 @@ def run(args, ):
     logger_kwargs.update(logger_info_local)
     logger_kwargs.update(handler_kwargs)
     remote_logger_queue = mp.Queue()
-    queue_handler = EventorAgentQueueHandler(remote_logger_queue)
+    queue_handler = logging.handlers.QueueHandler(remote_logger_queue)
+    #queue_handler = EventorAgentQueueHandler(remote_logger_queue)
     logger = Logger(console=False, handlers=[queue_handler], **logger_kwargs)
     logger.start()
     
     logger_info = logger.logger_info()
     module_logger = Logger.get_logger(logger_info=logger_info, name='')
     
-    #queue_handler = logging.handlers.QueueHandler(remote_logger_queue)
+    
     
     #module_logger.addHandler(queue_handler)
     
