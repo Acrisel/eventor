@@ -302,7 +302,7 @@ def run(args, ):
     #remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
     #module_logger.addHandler(remote_logger_handler)
     try:
-        logger_remote_listener = logger_remote_handler(logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host,) # logdir=handler_kwargs['logdir'])
+        dipatcher_to_remote_logger = logger_remote_handler(logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host,) # logdir=handler_kwargs['logdir'])
     except Exception as e:
         module_logger.exception(e)
         module_logger.debug("Failed to to create remote logger on: {}.".format(ssh_host))
@@ -318,7 +318,7 @@ def run(args, ):
         memory, e = pull_from_pipe()
         if e:
             module_logger.critical("Failed to get Eventor memory from pipe.")
-            close_run(logger_remote_listener, logger, msg='TERM', err=e)
+            close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
             return  
         
         # store memory into file
@@ -333,7 +333,7 @@ def run(args, ):
                 # signal to parant via stdout
                 #print('TERM')
                 #print(e, file=sys.stderr)
-                close_run(logger_remote_listener, logger, msg='TERM', err=e)
+                close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
                 return
     else:
         module_logger.debug("Fetching workload from file.")
@@ -346,7 +346,7 @@ def run(args, ):
             # signal to parant via stdout
             #print('TERM')
             #print(e, file=sys.stderr)
-            close_run(logger_remote_listener, logger, msg='TERM', err=e)
+            close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
             return
 
     module_logger.debug("Memory received:\n{}".format(pprint.pformat(memory, indent=4, )))
@@ -364,7 +364,7 @@ def run(args, ):
         # signal to parant via stdout
         #print('TERM')
         #print(e, file=sys.stderr)
-        close_run(logger_remote_listener, logger, msg='TERM', err=e)
+        close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
         return
 
     module_logger.debug("Starting Eventor subprocess on remote host.") #:\n%s" % pprint.pformat(kwargs, indent=4))
@@ -383,7 +383,7 @@ def run(args, ):
         # signal to parent via stdout
         #print('TERM')
         #print(e, file=sys.stderr)
-        close_run(logger_remote_listener, logger, msg='TERM', err=e)
+        close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
         return
     '''
     
@@ -397,7 +397,7 @@ def run(args, ):
     except Exception as e:
         module_logger.critical("Failed to start Eventor process.")
         module_logger.exception(e)
-        close_run(logger_remote_listener, logger, msg='TERM', err=e)
+        close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
         return
 
     module_logger.debug("Eventor subprocess pid: {}".format(agent.pid))
@@ -405,7 +405,7 @@ def run(args, ):
     # wait for remote parent or from child Eventor
     if not check_agent_process(agent):
         module_logger.debug("Agent process is dead, exiting. pid: {}".format(agent.pid))
-        close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
+        close_run(dipatcher_to_remote_logger, logger, ) #msg='TERM', err=error)
         return
     
     module_logger.debug("Starting EventorAgent select loop.")
@@ -441,7 +441,7 @@ def run(args, ):
     #        if not check_agent_process(agent):
     #            # since agent is gone - nothing to do.
     #            module_logger.debug("Empty queue, agent process is dead, exiting. pid: {}".format(agent.pid))
-    #            close_run(logger_remote_listener, logger, ) # msg='TERM', err=error)
+    #            close_run(dipatcher_to_remote_logger, logger, ) # msg='TERM', err=error)
     #            return
     #    if not msg: continue
     msg, error = result
@@ -452,7 +452,7 @@ def run(args, ):
         agent.join()
         #listener.join()
         #module_logger.debug("Eventor process joint after DONE.")
-        close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
+        close_run(dipatcher_to_remote_logger, logger, ) #msg='TERM', err=error)
         #break
     elif msg == 'TERM':
         # TODO: need to change message from parent to STOP - not TERM
@@ -464,7 +464,7 @@ def run(args, ):
         #listener.join()
         #print('TERM')
         #print(error, file=sys.stderr)
-        close_run(logger_remote_listener, logger, msg='TERM', err=error)
+        close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=error)
         # TODO(Arnon): how to terminate listener that is listening
         #break
     elif msg in ['STOP', 'FINISH']:
@@ -477,7 +477,7 @@ def run(args, ):
         #listener.join()
         #module_logger.debug("Eventor process joint after {}.".format(msg))
         #print('DONE')
-        close_run(logger_remote_listener, logger, msg='DONE', err=error)
+        close_run(dipatcher_to_remote_logger, logger, msg='DONE', err=error)
         #break
 
     module_logger.debug("EventorAgent is completed.")
@@ -487,14 +487,16 @@ def run(args, ):
     
 def close_run(listener=None, logger=None, msg=None, err=None):
     global module_logger
-    module_logger.debug("Closing stdin.")
     
     if msg is not None:
         print(msg)
     if err is not None:
         print(err, file=sys.stderr)
-    
+        
+    module_logger.debug("Closing EventorAgent logger.")
     if logger: logger.stop()
+    
+    module_logger.debug("Closing EventorAgent dipatcher_to_remote_logger.")
     if listener: listener.stop()
     
 def recover(args):
