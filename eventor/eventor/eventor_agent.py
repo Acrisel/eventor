@@ -408,11 +408,12 @@ def run(args, ):
         close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
         return
     
+    module_logger.debug("Starting EventorAgent select loop.")
     while True:
-        selected = select.select([child_q._reader, sys.stdin],[],[])
-        childq_ind, stdin_ind = selected[0]
-        module_logger.debug("Returned from select: {}.".format(repr([childq_ind, stdin_ind])))
+        rselected, _, _ = select.select([child_q._reader, sys.stdin],[],[])
+        module_logger.debug("Returned from select: {}.".format(repr(rselected)))
         
+        childq_ind, stdin_ind = rselected
         if stdin_ind:
             result = pull_from_pipe()
             module_logger.debug("Received from select remote parent: {}.".format(result))
@@ -423,7 +424,7 @@ def run(args, ):
             # module_logger.debug("Sending STOP to local Eventor and joining.".format(result))
             # eventor_listener_q.put('STOP')
             # agent.join()
-        else: # childq_ind
+        elif childq_ind:
             result = child_q.get(timeout=0.5)
             module_logger.debug("Received from select local Eventor: {}.".format(result))
             if result is not None:
