@@ -212,7 +212,7 @@ def check_agent_process(agent,):
     return True
 
 
-def logger_remote_handler(remote_logger_queue, log_info_recv, ssh_host,):
+def logger_remote_handler(logger_queue, log_info_recv, ssh_host,):
     #log_info_recv['name'] = '{}_eventor_sshagent'.format(log_info_recv['name'])
     try:
         remote_logger_handler = NwLoggerClientHandler(logger_info=log_info_recv, ssh_host=ssh_host,) # logger=module_logger, logdir=logdir)
@@ -220,7 +220,7 @@ def logger_remote_handler(remote_logger_queue, log_info_recv, ssh_host,):
         raise EventorAgentError("Failed to create NwLoggerClientHandler on: {}; {}".format(ssh_host), repr(e))
         
     #module_logger.addHandler(remote_logger_handler)
-    listener = logging.handlers.QueueListener(remote_logger_queue, remote_logger_handler)
+    listener = logging.handlers.QueueListener(logger_queue, remote_logger_handler)
     listener.start()
     return listener
 
@@ -269,8 +269,8 @@ def run(args, ):
     logger_kwargs = {}
     logger_kwargs.update(logger_info_local)
     logger_kwargs.update(handler_kwargs)
-    remote_logger_queue = mp.Queue()
-    queue_handler = logging.handlers.QueueHandler(remote_logger_queue)
+    logger_queue = mp.Queue()
+    queue_handler = logging.handlers.QueueHandler(logger_queue)
     #queue_handler = EventorAgentQueueHandler(remote_logger_queue)
     logger = Logger(console=False, handlers=[queue_handler], **logger_kwargs)
     logger.start()
@@ -302,7 +302,7 @@ def run(args, ):
     #remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
     #module_logger.addHandler(remote_logger_handler)
     try:
-        logger_remote_listener = logger_remote_handler(remote_logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host,) # logdir=handler_kwargs['logdir'])
+        logger_remote_listener = logger_remote_handler(logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host,) # logdir=handler_kwargs['logdir'])
     except Exception as e:
         module_logger.exception(e)
         module_logger.debug("Failed to to create remote logger on: {}.".format(ssh_host))
