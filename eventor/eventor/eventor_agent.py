@@ -409,7 +409,8 @@ def run(args, ):
         return
     
     module_logger.debug("Starting EventorAgent select loop.")
-    while True:
+    loop_is_active = True
+    while loop_is_active:
         rselected, _, _ = select.select([child_q._reader, sys.stdin],[],[])
         module_logger.debug("Returned from select: {}.".format(repr(rselected)))
         
@@ -420,7 +421,7 @@ def run(args, ):
                 module_logger.debug("Received from select remote parent: {}.".format(result))
                 if result: 
                     # received FINISH, STOP, or QUIT message from parent
-                    break
+                    loop_is_active = False
                 # module_logger.debug("Sending STOP to local Eventor and joining.".format(result))
                 # eventor_listener_q.put('STOP')
                 # agent.join()
@@ -429,7 +430,7 @@ def run(args, ):
                 module_logger.debug("Received from select local Eventor: {}.".format(result))
                 if result:
                     agent.join()
-                    break
+                    loop_is_active = False
         
     #module_logger.debug("Starting loop, waiting for message from agent.")
     #while True:
