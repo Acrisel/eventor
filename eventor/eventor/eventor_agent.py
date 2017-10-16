@@ -23,6 +23,7 @@ from queue import Empty
 import yaml
 from copy import copy
 import os
+import select
 
 module_logger = None
 
@@ -409,14 +410,13 @@ def run(args, ):
         close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
         return
     
-    import select
-    
     while True:
         ([childq_ind, stdin_ind],[],[]) = select.select([child_q._reader, sys.stdin],[],[])
+        module_logger.debug("Returned from select: {}.".format(repr([childq_ind, stdin_ind])))
         
         if stdin_ind:
             result = pull_from_pipe()
-            module_logger.debug("Received from remote parent: {}.".format(result))
+            module_logger.debug("Received from select remote parent: {}.".format(result))
             if result is not None:
                 msg, error = result
                 break
@@ -425,7 +425,7 @@ def run(args, ):
             # agent.join()
         else: # childq_ind
             result = child_q.get(timeout=0.5)
-            module_logger.debug("Received from local eventor: {}.".format(result))
+            module_logger.debug("Received from select local eventor: {}.".format(result))
             if result is not None:
                 msg, error = result
                 agent.join()
