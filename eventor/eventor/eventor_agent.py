@@ -146,43 +146,47 @@ def start_eventor(queue, logger_info, **kwargs):
         queue.put(('DONE', ''))
 
 
-def pipe_listener(queue,):
+def pull_from_pipe(queue=None,):
     ''' Pipe listener wait for one message.  Once receive (DONE or TERM) it ends.
     '''
     global module_logger
+    
+    def set_result(msg, e):
+        if queue is not None:
+            queue.put((msg, e))
+            return
+        else:
+            return (msg, e)
+            
     # in this case, whiting for possible termination message from server
     try:
         msgsize_raw = sys.stdin.buffer.read(4)
     except Exception as e:
         module_logger.critical('Failed to read STDIN.')
         module_logger.exception(e)
-        queue.put(('TERM', e))
-        return
+        return set_result('TERM', e)
     try:
         msgsize = struct.unpack(">L", msgsize_raw)
     except Exception as e:
         module_logger.critical('Failed pickle loads message size from STDIN; received: %s' % hex(msgsize_raw))
         module_logger.exception(e)
-        queue.put(('TERM', e))
-        return
+        return set_result('TERM', e)
     try:
         msg_pack = sys.stdin.buffer.read(msgsize[0])
     except Exception as e:
         module_logger.critical('Failed to read STDIN.')
         module_logger.exception(e)
-        queue.put(('TERM', e))
-        return
+        return set_result('TERM', e)
     try:
         msg = pickle.loads(msg_pack)
     except Exception as e:
         module_logger.critical('Failed pickle loads message from STDIN.')
         module_logger.exception(e)
-        queue.put(('TERM', e))
-        return
+        return set_result('TERM', e)
 
     module_logger.debug('Received message from remote parent: {}; passing to main process.'.format(msg))
 
-    queue.put((msg, ''))
+    return set_result(msg, '')
 
 def imports_from_cmd(imports_str):
     imports = dict()
@@ -311,24 +315,13 @@ def run(args, ):
         
     if pipe:
         module_logger.debug("Fetching workload. from pipe.")
-        try:
-            msgsize_raw = sys.stdin.buffer.read(4)
-            msgsize = struct.unpack(">L", msgsize_raw)
-        except Exception as e:
-            module_logger.critical("Failed to read size of workload.")
-            module_logger.exception(e)
+        
+        memory, e = pull_from_pipe()
+        if e:
+            module_logger.critical("Failed to get Eventor memory from pipe.")
             close_run(logger_remote_listener, logger, msg='TERM', err=e)
-            return
-
-        try:
-            mem_pack = sys.stdin.buffer.read(msgsize[0])
-            memory = pickle.loads(mem_pack)
-        except Exception as e:
-            module_logger.critical("Failed to pickle loads workload.")
-            module_logger.exception(e)
-            close_run(logger_remote_listener, logger, msg='TERM', err=e)
-            return
-
+            return  
+        
         # store memory into file
         if file:
             module_logger.debug("Storing workload to {}.".format(file))
@@ -379,20 +372,22 @@ def run(args, ):
 
     child_q = mp.Queue()
 
+    '''
     module_logger.debug("Starting control pipe listener.")
     # we set thread to Daemon so it would be killed when agent is gone
     try:
-        listener = Thread(target=pipe_listener, args=(child_q,), daemon=True)
-        listener.start()
+        pipe_listener = Thread(target=pull_from_pipe, args=(child_q,), daemon=True)
+        pipe_listener.start()
     except Exception as e:
-        module_logger.critical("Failed to queue listener thread.")
+        module_logger.critical("Failed to queue pipe listener thread.")
         module_logger.exception(e)
         # signal to parent via stdout
         #print('TERM')
         #print(e, file=sys.stderr)
-        close_run(listener, logger, msg='TERM', err=e)
+        close_run(logger_remote_listener, logger, msg='TERM', err=e)
         return
-
+    '''
+    
     eventor_listener_q = mp.Queue()
 
     kwargs['listener_q'] = eventor_listener_q
@@ -413,55 +408,78 @@ def run(args, ):
         module_logger.debug("Agent process is dead, exiting. pid: {}".format(agent.pid))
         close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
         return
-
-    module_logger.debug("Starting loop, waiting for message from agent.")
+    
+    import select
+    
     while True:
-        try:
-            msg = child_q.get(timeout=0.5)
-        except Empty:
-            msg = None
-            if not check_agent_process(agent):
-                # since agent is gone - nothing to do.
-                module_logger.debug("Empty queue, agent process is dead, exiting. pid: {}".format(agent.pid))
-                close_run(logger_remote_listener, logger, ) # msg='TERM', err=error)
-                return
-        if not msg: continue
-        msg, error = msg
-        module_logger.debug("Pulled message from control queue: {}; {}.".format(msg, error,))
-        if msg == 'DONE':
-            # msg from child - eventor agent is done
-            module_logger.debug("Joining with Eventor process.")
-            agent.join()
-            listener.join()
-            module_logger.debug("Eventor process joint after DONE.")
-            close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
-            break
-        elif msg == 'TERM':
-            # TODO: need to change message from parent to STOP - not TERM
-            # got message to quit, need to kill primo process and be done
-            # Well since process is daemon, it will be killed when parent is done
-            eventor_listener_q.put('STOP')
-            agent.join()
-            listener.join()
-            #print('TERM')
-            #print(error, file=sys.stderr)
-            close_run(logger_remote_listener, logger, msg='TERM', err=error)
-            # TODO(Arnon): how to terminate listener that is listening
-            break
-        elif msg in ['STOP', 'FINISH']:
-            # TODO: need to change message from parent to STOP - not TERM
-            # got message to quit, need to kill primo process and be done
-            # Well since process is daemon, it will be killed when parent is done
-            eventor_listener_q.put('STOP')
-            module_logger.debug("Joining with Eventor process.")
-            agent.join()
-            listener.join()
-            module_logger.debug("Eventor process joint after {}.".format(msg))
-            #print('DONE')
-            close_run(logger_remote_listener, logger, msg='DONE', err=None)
-            break
+        ([childq_ind, stdin_ind],[],[]) = select.select([child_q._reader, sys.stdin],[],[])
+        
+        if stdin_ind:
+            result = pull_from_pipe()
+            module_logger.debug("Received from remote parent: {}.".format(result))
+            if result is not None:
+                msg, error = result
+                break
+            # module_logger.debug("Sending STOP to local Eventor and joining.".format(result))
+            # eventor_listener_q.put('STOP')
+            # agent.join()
+        else: # childq_ind
+            result = child_q.get(timeout=0.5)
+            module_logger.debug("Received from local eventor: {}.".format(result))
+            if result is not None:
+                msg, error = result
+                agent.join()
+                break
+        
+    #module_logger.debug("Starting loop, waiting for message from agent.")
+    #while True:
+    #    try:
+    #        msg = child_q.get(timeout=0.5)
+    #    except Empty:
+    #        msg = None
+    #        if not check_agent_process(agent):
+    #            # since agent is gone - nothing to do.
+    #            module_logger.debug("Empty queue, agent process is dead, exiting. pid: {}".format(agent.pid))
+    #            close_run(logger_remote_listener, logger, ) # msg='TERM', err=error)
+    #            return
+    #    if not msg: continue
+    msg, error = msg
+    module_logger.debug("Pulled message from control queue: message: {}; error: {}.".format(msg, error,))
+    if msg == 'DONE':
+        # msg from child - eventor agent is done
+        module_logger.debug("Joining with Eventor process after: {}.".format(msg))
+        agent.join()
+        #listener.join()
+        #module_logger.debug("Eventor process joint after DONE.")
+        close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
+        break
+    elif msg == 'TERM':
+        # TODO: need to change message from parent to STOP - not TERM
+        # got message to quit, need to kill primo process and be done
+        # Well since process is daemon, it will be killed when parent is done
+        eventor_listener_q.put('STOP')
+        module_logger.debug("Joining with Eventor process after: {}.".format(msg))
+        agent.join()
+        #listener.join()
+        #print('TERM')
+        #print(error, file=sys.stderr)
+        close_run(logger_remote_listener, logger, msg='TERM', err=error)
+        # TODO(Arnon): how to terminate listener that is listening
+        break
+    elif msg in ['STOP', 'FINISH']:
+        # TODO: need to change message from parent to STOP - not TERM
+        # got message to quit, need to kill primo process and be done
+        # Well since process is daemon, it will be killed when parent is done
+        eventor_listener_q.put('STOP')
+        module_logger.debug("Joining with Eventor process after: {}.".format(msg))
+        agent.join()
+        #listener.join()
+        #module_logger.debug("Eventor process joint after {}.".format(msg))
+        #print('DONE')
+        close_run(logger_remote_listener, logger, msg='DONE', err=None)
+        break
 
-    #module_logger.debug("Closing stdin.")
+    module_logger.debug("EventorAgent is completed.")
     #sys.stdin.close()
     #logger.stop()
     #listener.stop()
