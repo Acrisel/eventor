@@ -452,7 +452,7 @@ def run(args, ):
         #listener.join()
         #module_logger.debug("Eventor process joint after DONE.")
         close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
-        break
+        #break
     elif msg == 'TERM':
         # TODO: need to change message from parent to STOP - not TERM
         # got message to quit, need to kill primo process and be done
@@ -465,7 +465,7 @@ def run(args, ):
         #print(error, file=sys.stderr)
         close_run(logger_remote_listener, logger, msg='TERM', err=error)
         # TODO(Arnon): how to terminate listener that is listening
-        break
+        #break
     elif msg in ['STOP', 'FINISH']:
         # TODO: need to change message from parent to STOP - not TERM
         # got message to quit, need to kill primo process and be done
@@ -477,7 +477,7 @@ def run(args, ):
         #module_logger.debug("Eventor process joint after {}.".format(msg))
         #print('DONE')
         close_run(logger_remote_listener, logger, msg='DONE', err=None)
-        break
+        #break
 
     module_logger.debug("EventorAgent is completed.")
     #sys.stdin.close()
