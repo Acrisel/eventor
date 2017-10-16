@@ -41,14 +41,12 @@ import sshutil
 from eventor.expandvars import expandvars
 from acrilog.utils import get_hostname, get_ip_address, hostname_resolves
 
-'''
-try: 
-    from setproctitle import setproctitle
-except: 
-    setproctitle=None
-'''
+
+#try: 
+#    from setproctitle import setproctitle
+#except: 
+#    setproctitle = None
 setproctitle=None
-#from eventor.loop_event import LoopEvent
 
 #module_logger=logging.getLogger(__name__)
 module_logger=None #logging.getLogger(__file__)
@@ -88,7 +86,7 @@ class ResourceAllocationCallback(object):
         self.q.put(resources)
 
 
-def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=True, logger_info=None, eventor=None, config=None):
+def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=True, logger_info=None, eventor=None, config=None, ):
     ''' 
     Args:
         func: object with action method with the following signature:
@@ -100,6 +98,7 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
     # only if in separate process, need to initiate logger
     if use_process:
         module_logger = Logger.get_logger(logger_info=logger_info, name="{}.{}_{}".format(logger_info['name'], step.name, task.sequence))
+        
     #else:
     #    module_logger = Logger.get_logger(logger_info=logger_info, name="%s" %(logger_info['name'],))
     
@@ -1016,10 +1015,10 @@ class Eventor(object):
                         if hasattr(proc, exitcode):
                             exitcode = " (exitcode=%s)" % proc.exitcode
                         module_logger.debug('[ Task {}/{} ] Joining exit code: {}.'.format(task.step_id, task.sequence, exitcode))
-                        if proc.is_alive():
-                            proc.join()
-                        #while proc.is_alive():
-                        #    proc.join(0.05)
+                        #if proc.is_alive():
+                            #proc.join()
+                        while proc.is_alive():
+                            proc.join(0.05)
                         module_logger.debug('[ Task {}/{} ] Joined.'.format(task.step_id, task.sequence, ))
                     # TODO(Arnon): find why delete causing issue with Example 180
                     #del self.__task_proc[task.id_]  
@@ -1200,7 +1199,8 @@ class Eventor(object):
                     'adminq': adminq, 
                     'use_process': use_process, 
                     'logger_info': self.__logger_info,
-                    'config': self.__config,}
+                    'config': self.__config,
+                    }
             if max_concurrent < 0 or step.concurrent < max_concurrent: # no-limit
                 try:
                     self.__update_task_status(task, TaskStatus.active)
@@ -1849,6 +1849,7 @@ class Eventor(object):
         
         self.__agents = dict()
         
+        signal.signal(signal.SIGHUP, self.__exit_gracefully)
         signal.signal(signal.SIGINT, self.__exit_gracefully)
         signal.signal(signal.SIGTERM, self.__exit_gracefully)
         
