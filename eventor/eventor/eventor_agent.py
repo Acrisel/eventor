@@ -413,23 +413,24 @@ def run(args, ):
         rselected, _, _ = select.select([child_q._reader, sys.stdin],[],[])
         module_logger.debug("Returned from select: {}.".format(repr(rselected)))
         
-        childq_ind, stdin_ind = rselected
-        if stdin_ind:
-            result = pull_from_pipe()
-            module_logger.debug("Received from select remote parent: {}.".format(result))
-            if not result:
-                # This means pipe is closed.  Something happend to parent.  
-                result = ('STOP', 'Pipe form parent is closed unexpectedly.')
-            break
-            # module_logger.debug("Sending STOP to local Eventor and joining.".format(result))
-            # eventor_listener_q.put('STOP')
-            # agent.join()
-        elif childq_ind:
-            result = child_q.get(timeout=0.5)
-            module_logger.debug("Received from select local Eventor: {}.".format(result))
-            if result is not None:
-                agent.join()
+        for ioitem in rselected:
+            #childq_ind, stdin_ind = rselected
+            if ioitem == sys.stdin:
+                result = pull_from_pipe()
+                module_logger.debug("Received from select remote parent: {}.".format(result))
+                if not result:
+                    # This means pipe is closed.  Something happend to parent.  
+                    result = ('STOP', 'Pipe form parent is closed unexpectedly.')
                 break
+                # module_logger.debug("Sending STOP to local Eventor and joining.".format(result))
+                # eventor_listener_q.put('STOP')
+                # agent.join()
+            elif ioitem == child_q._reader:
+                result = child_q.get(timeout=0.5)
+                module_logger.debug("Received from select local Eventor: {}.".format(result))
+                if result is not None:
+                    agent.join()
+                    break
         
     #module_logger.debug("Starting loop, waiting for message from agent.")
     #while True:
