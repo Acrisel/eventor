@@ -418,17 +418,16 @@ def run(args, ):
             if ioitem == sys.stdin:
                 result = pull_from_pipe()
                 module_logger.debug("Received from select remote parent: {}.".format(result))
-                if not result:
-                    # This means pipe is closed.  Something happend to parent.  
-                    result = ('STOP', 'Pipe form parent is closed unexpectedly.')
-                break
+                if result: 
+                    # received FINISH, STOP, or QUIT message from parent
+                    break
                 # module_logger.debug("Sending STOP to local Eventor and joining.".format(result))
                 # eventor_listener_q.put('STOP')
                 # agent.join()
             elif ioitem == child_q._reader:
                 result = child_q.get(timeout=0.5)
                 module_logger.debug("Received from select local Eventor: {}.".format(result))
-                if result is not None:
+                if result:
                     agent.join()
                     break
         
