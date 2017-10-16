@@ -474,13 +474,13 @@ def run(args, ):
         eventor_listener_q.put('STOP')
         module_logger.debug("Joining with Eventor process after: {}.".format(msg))
         agent.join()
+        result = child_q.get(timeout=0.5)
         #listener.join()
-        #module_logger.debug("Eventor process joint after {}.".format(msg))
+        module_logger.debug("Eventor process joint result: {}.".format(result))
         #print('DONE')
         close_run(dipatcher_to_remote_logger, logger, msg='DONE', err=error)
         #break
 
-    module_logger.debug("EventorAgent is completed.")
     #sys.stdin.close()
     #logger.stop()
     #listener.stop()
@@ -493,11 +493,14 @@ def close_run(listener=None, logger=None, msg=None, err=None):
     if err is not None:
         print(err, file=sys.stderr)
         
+    module_logger.debug("Closing EventorAgent dipatcher_to_remote_logger.")
+    if listener: listener.stop()
+
     module_logger.debug("Closing EventorAgent logger.")
     if logger: logger.stop()
     
-    module_logger.debug("Closing EventorAgent dipatcher_to_remote_logger.")
-    if listener: listener.stop()
+    
+    #module_logger.debug("EventorAgent is completed.")
     
 def recover(args):
     file = args.file
