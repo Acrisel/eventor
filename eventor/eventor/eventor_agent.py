@@ -410,10 +410,11 @@ def run(args, ):
 
     # wait for remote parent or from child Eventor
     if not check_agent_process(agent):
-        module_logger.debug("Agent process is dead, exiting.".format(agent.pid))
+        module_logger.debug("Agent process is dead, exiting. pid: {}".format(agent.pid))
         close_run(logger_remote_listener, logger, ) #msg='TERM', err=error)
         return
 
+    module_logger.debug("Starting loop, waiting for message from agent.")
     while True:
         try:
             msg = child_q.get(timeout=0.5)
@@ -421,12 +422,12 @@ def run(args, ):
             msg = None
             if not check_agent_process(agent):
                 # since agent is gone - nothing to do.
-                module_logger.debug("Empty queue, agent process is dead, exiting.".format(agent.pid))
+                module_logger.debug("Empty queue, agent process is dead, exiting. pid: {}".format(agent.pid))
                 close_run(logger_remote_listener, logger, ) # msg='TERM', err=error)
                 return
         if not msg: continue
         msg, error = msg
-        module_logger.debug("Pulled message from control queue: {}; {}.".format(msg,error,))
+        module_logger.debug("Pulled message from control queue: {}; {}.".format(msg, error,))
         if msg == 'DONE':
             # msg from child - eventor agent is done
             module_logger.debug("Joining with Eventor process.")
