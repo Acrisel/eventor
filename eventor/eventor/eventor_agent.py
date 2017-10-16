@@ -276,9 +276,7 @@ def run(args, ):
     logger.start()
     
     logger_info = logger.logger_info()
-    module_logger = Logger.get_logger(logger_info=logger_info, name='EventorAgent')
-    
-    
+    module_logger = Logger.get_logger(logger_info=logger_info,) # name='EventorAgent')
     
     #module_logger.addHandler(queue_handler)
     
@@ -352,7 +350,7 @@ def run(args, ):
             return
 
     module_logger.debug("Memory received:\n{}".format(pprint.pformat(memory, indent=4, )))
-    logger_info = logger.logger_info()
+    #logger_info = logger.logger_info()
 
     try:
         kwargs = memory.kwargs.copy()
@@ -411,7 +409,8 @@ def run(args, ):
         return
     
     while True:
-        ([childq_ind, stdin_ind],[],[]) = select.select([child_q._reader, sys.stdin],[],[])
+        selected = select.select([child_q._reader, sys.stdin],[],[])
+        childq_ind, stdin_ind = selected[0]
         module_logger.debug("Returned from select: {}.".format(repr([childq_ind, stdin_ind])))
         
         if stdin_ind:
