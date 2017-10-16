@@ -276,7 +276,7 @@ def run(args, ):
     logger.start()
     
     logger_info = logger.logger_info()
-    module_logger = Logger.get_logger(logger_info=logger_info, name='')
+    module_logger = Logger.get_logger(logger_info=logger_info, name='EventorAgent')
     
     
     
@@ -417,17 +417,17 @@ def run(args, ):
         if stdin_ind:
             result = pull_from_pipe()
             module_logger.debug("Received from select remote parent: {}.".format(result))
-            if result is not None:
-                msg, error = result
-                break
+            if not result:
+                # This means pipe is closed.  Something happend to parent.  
+                result = ('STOP', 'Pipe form parent is closed unexpectedly.')
+            break
             # module_logger.debug("Sending STOP to local Eventor and joining.".format(result))
             # eventor_listener_q.put('STOP')
             # agent.join()
         else: # childq_ind
             result = child_q.get(timeout=0.5)
-            module_logger.debug("Received from select local eventor: {}.".format(result))
+            module_logger.debug("Received from select local Eventor: {}.".format(result))
             if result is not None:
-                msg, error = result
                 agent.join()
                 break
         
@@ -443,7 +443,7 @@ def run(args, ):
     #            close_run(logger_remote_listener, logger, ) # msg='TERM', err=error)
     #            return
     #    if not msg: continue
-    msg, error = msg
+    msg, error = result
     module_logger.debug("Pulled message from control queue: message: {}; error: {}.".format(msg, error,))
     if msg == 'DONE':
         # msg from child - eventor agent is done
@@ -476,7 +476,7 @@ def run(args, ):
         #listener.join()
         #module_logger.debug("Eventor process joint after {}.".format(msg))
         #print('DONE')
-        close_run(logger_remote_listener, logger, msg='DONE', err=None)
+        close_run(logger_remote_listener, logger, msg='DONE', err=error)
         #break
 
     module_logger.debug("EventorAgent is completed.")
