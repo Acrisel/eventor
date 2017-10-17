@@ -63,7 +63,6 @@ def prog(progname):
     return progname
 
 def construct_and_run(): 
-    #db = 'sqfile00'
     db = 'pgdb2'
     config=os.path.abspath('runly.conf')
     ev = evr.Eventor(name=os.path.basename(__file__), config=config, store=db, import_module=__file__)

@@ -6,10 +6,7 @@ Created on Aug 30, 2017
 '''
 
 from eventor.engine import Eventor
-# needed by pickle loads BEGIN ---<
-# >--- END
 import pickle
-#import dill
 import sys
 import struct
 import importlib.util
@@ -32,11 +29,6 @@ class EventorAgentError(Exception): pass
 level_formats = {logging.DEBUG:"[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
                 'default':   "[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]",
                 }
-
-#class EventorAgent(Eventor):
-#    def __init__(self, memory=None, *args, **kwargs):
-#        super().__init__(*args, **kwargs)
-#        super().set_memory(memory)
 
 RECOVER_ARGS_DIR = '/tmp'
 RECOVER_ARGS_FILE = 'eventor_agent_args'
@@ -213,13 +205,11 @@ def check_agent_process(agent,):
 
 
 def logger_remote_handler(logger_queue, log_info_recv, ssh_host,):
-    #log_info_recv['name'] = '{}_eventor_sshagent'.format(log_info_recv['name'])
     try:
         remote_logger_handler = NwLoggerClientHandler(logger_info=log_info_recv, ssh_host=ssh_host,) # logger=module_logger, logdir=logdir)
     except Exception as e:
         raise EventorAgentError("Failed to create NwLoggerClientHandler on: {}; {}".format(ssh_host), repr(e))
         
-    #module_logger.addHandler(remote_logger_handler)
     listener = logging.handlers.QueueListener(logger_queue, remote_logger_handler)
     listener.start()
     return listener
@@ -252,16 +242,8 @@ def run(args, ):
 
     log_info, imports, host, ssh_host, pipe, file = args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file
     
-    log_info_recv = yaml.load(log_info) #[1:-1])
-
-    # TODO: pass other logging attributes
-    #logger_name = log_info_recv['name']
-    #logging_level = log_info_recv['logging_level']
-    #logdir = log_info['logdir']
-    #datefmt = log_info['datefmt']
+    log_info_recv = yaml.load(log_info) 
     handler_kwargs = log_info_recv['handler_kwargs']
-    
-
     logger_info_local = copy(log_info_recv)
     del logger_info_local['port']
     del logger_info_local['handler_kwargs']
@@ -271,14 +253,11 @@ def run(args, ):
     logger_kwargs.update(handler_kwargs)
     logger_queue = mp.Queue()
     queue_handler = logging.handlers.QueueHandler(logger_queue)
-    #queue_handler = EventorAgentQueueHandler(remote_logger_queue)
     logger = Logger(console=False, handlers=[queue_handler], **logger_kwargs)
     logger.start()
     
     logger_info = logger.logger_info()
-    module_logger = Logger.get_logger(logger_info=logger_info,) # name='EventorAgent')
-    
-    #module_logger.addHandler(queue_handler)
+    module_logger = Logger.get_logger(logger_info=logger_info,) 
     
     module_logger.debug("Starting agent: {}.".format(args))
     
@@ -299,8 +278,6 @@ def run(args, ):
     module_logger.debug('Local logger:\n{}'.format(logger_info_local))
     module_logger.debug('Module logger:\n{}'.format(log_info))
     
-    #remote_logger_handler = NwLoggerClientHandler(log_info_recv, ssh_host=ssh_host, logger=module_logger, logdir=handler_kwargs['logdir'])
-    #module_logger.addHandler(remote_logger_handler)
     try:
         dipatcher_to_remote_logger = logger_remote_handler(logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host,) # logdir=handler_kwargs['logdir'])
     except Exception as e:
@@ -330,9 +307,6 @@ def run(args, ):
             except Exception as e:
                 module_logger.critical("Failed to pickle dump workload to {}.".format(file))
                 module_logger.exception(e)
-                # signal to parant via stdout
-                #print('TERM')
-                #print(e, file=sys.stderr)
                 close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
                 return
     else:
@@ -343,14 +317,10 @@ def run(args, ):
         except Exception as e:
             module_logger.critical("Failed to pickle load workload from {}.".format(file))
             module_logger.exception(e)
-            # signal to parant via stdout
-            #print('TERM')
-            #print(e, file=sys.stderr)
             close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
             return
 
     module_logger.debug("Memory received:\n{}".format(pprint.pformat(memory, indent=4, )))
-    #logger_info = logger.logger_info()
 
     try:
         kwargs = memory.kwargs.copy()
@@ -361,34 +331,13 @@ def run(args, ):
     except Exception as e:
         module_logger.critical("Failed get kwargs from received memory.")
         module_logger.exception(e)
-        # signal to parant via stdout
-        #print('TERM')
-        #print(e, file=sys.stderr)
         close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
         return
 
     module_logger.debug("Starting Eventor subprocess on remote host.") #:\n%s" % pprint.pformat(kwargs, indent=4))
 
     child_q = mp.Queue()
-
-    '''
-    module_logger.debug("Starting control pipe listener.")
-    # we set thread to Daemon so it would be killed when agent is gone
-    try:
-        pipe_listener = Thread(target=pull_from_pipe, args=(child_q,), daemon=True)
-        pipe_listener.start()
-    except Exception as e:
-        module_logger.critical("Failed to queue pipe listener thread.")
-        module_logger.exception(e)
-        # signal to parent via stdout
-        #print('TERM')
-        #print(e, file=sys.stderr)
-        close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
-        return
-    '''
-    
     eventor_listener_q = mp.Queue()
-
     kwargs['listener_q'] = eventor_listener_q
 
     try:
@@ -415,16 +364,12 @@ def run(args, ):
         module_logger.debug("Returned from select: {}.".format(repr(rselected)))
         
         for ioitem in rselected:
-            #childq_ind, stdin_ind = rselected
             if ioitem == sys.stdin:
                 result = pull_from_pipe()
                 module_logger.debug("Received from select remote parent: {}.".format(result))
                 if result: 
                     # received FINISH, STOP, or QUIT message from parent
                     loop_is_active = False
-                # module_logger.debug("Sending STOP to local Eventor and joining.".format(result))
-                # eventor_listener_q.put('STOP')
-                # agent.join()
             elif ioitem == child_q._reader:
                 result = child_q.get(timeout=0.5)
                 module_logger.debug("Received from select local Eventor: {}.".format(result))
@@ -432,28 +377,13 @@ def run(args, ):
                     agent.join()
                     loop_is_active = False
         
-    #module_logger.debug("Starting loop, waiting for message from agent.")
-    #while True:
-    #    try:
-    #        msg = child_q.get(timeout=0.5)
-    #    except Empty:
-    #        msg = None
-    #        if not check_agent_process(agent):
-    #            # since agent is gone - nothing to do.
-    #            module_logger.debug("Empty queue, agent process is dead, exiting. pid: {}".format(agent.pid))
-    #            close_run(dipatcher_to_remote_logger, logger, ) # msg='TERM', err=error)
-    #            return
-    #    if not msg: continue
     msg, error = result
     module_logger.debug("Pulled message from control queue: message: {}; error: {}.".format(msg, error,))
     if msg == 'DONE':
         # msg from child - eventor agent is done
         module_logger.debug("Joining with Eventor process after: {}.".format(msg))
         agent.join()
-        #listener.join()
-        #module_logger.debug("Eventor process joint after DONE.")
-        close_run(dipatcher_to_remote_logger, logger, ) #msg='TERM', err=error)
-        #break
+        close_run(dipatcher_to_remote_logger, logger, ) 
     elif msg == 'TERM':
         # TODO: need to change message from parent to STOP - not TERM
         # got message to quit, need to kill primo process and be done
@@ -461,12 +391,8 @@ def run(args, ):
         eventor_listener_q.put('STOP')
         module_logger.debug("Joining with Eventor process after: {}.".format(msg))
         agent.join()
-        #listener.join()
-        #print('TERM')
-        #print(error, file=sys.stderr)
         close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=error)
         # TODO(Arnon): how to terminate listener that is listening
-        #break
     elif msg in ['STOP', 'FINISH']:
         # TODO: need to change message from parent to STOP - not TERM
         # got message to quit, need to kill primo process and be done
@@ -475,15 +401,8 @@ def run(args, ):
         module_logger.debug("Joining with Eventor process after: {}.".format(msg))
         agent.join()
         result = child_q.get(timeout=0.5)
-        #listener.join()
         module_logger.debug("Eventor process joint result: {}.".format(result))
-        #print('DONE')
         close_run(dipatcher_to_remote_logger, logger, msg='DONE', err=error)
-        #break
-
-    #sys.stdin.close()
-    #logger.stop()
-    #listener.stop()
     
 def close_run(listener=None, logger=None, msg=None, err=None):
     global module_logger
@@ -499,8 +418,6 @@ def close_run(listener=None, logger=None, msg=None, err=None):
     module_logger.debug("Closing EventorAgent logger.")
     if logger: logger.stop()
     
-    
-    #module_logger.debug("EventorAgent is completed.")
     
 def recover(args):
     file = args.file

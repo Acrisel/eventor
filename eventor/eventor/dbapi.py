@@ -18,13 +18,12 @@ from eventor.eventor_types import DbMode, Invoke
 from eventor.utils import decorate_all, print_method, calling_module
 from eventor.sqladburl import SQLAlchemyConf
 
-module_logger=logging.getLogger(__name__)
-
+module_logger = logging.getLogger(__name__)
 
 class DbApiError(Exception): pass
     
         
-def get_sqlalchemy_conf(modulefile, userstore, config, root=None, echo=False):
+def get_sqlalchemy_conf(modulefile, userstore, config, root=None, echo=False, logger=None):
     '''
         If userstore is provided:
             If it is a database key in config:
@@ -40,25 +39,28 @@ def get_sqlalchemy_conf(modulefile, userstore, config, root=None, echo=False):
         else:
             use memory
     '''
+    global module_logger
+    if logger:
+        module_logger = module_logger
     
     if not root:
         root=os.environ.get('EVENTOR_DB_CONFIG_TAG', 'DATABASES')
         
-    database=userstore if userstore else 'default'
+    database = userstore if userstore else 'default'
     try:
-        sqldb=SQLAlchemyConf(conf=config, root=root, database=database, quiet=False, echo=echo)
+        sqldb = SQLAlchemyConf(conf=config, root=root, database=database, quiet=False, echo=echo)
     except Exception:
-        if userstore==':memory:':
-            conf={'DB': {'adhoc': {'dialect': 'sqlite', 'query': {'cache':'shared'}}}}
+        if userstore == ':memory:':
+            conf = {'DB': {'adhoc': {'dialect': 'sqlite', 'query': {'cache':'shared'}}}}
         elif userstore:
-            conf={'DB': {'adhoc': {'dialect': 'sqlite', 'database':userstore,}}} # 'query': {'cache':'shared'}}}}
+            conf = {'DB': {'adhoc': {'dialect': 'sqlite', 'database':userstore,}}} # 'query': {'cache':'shared'}}}}
         elif modulefile:
-            conf={'DB': {'adhoc': {'dialect': 'sqlite', 'database':modulefile,}}} # 'query': {'cache':'shared'}}}}
+            conf = {'DB': {'adhoc': {'dialect': 'sqlite', 'database':modulefile,}}} # 'query': {'cache':'shared'}}}}
         else:
-            conf={'DB': {'adhoc': {'dialect': 'sqlite', 'query': {'cache':'shared'}}}}
+            conf = {'DB': {'adhoc': {'dialect': 'sqlite', 'query': {'cache':'shared'}}}}
             
         module_logger.debug("DBAPI: Using adhoc DB config: %s" %(repr(conf)))
-        sqldb=SQLAlchemyConf(conf=conf, root='DB', database='adhoc',quiet=True, echo=echo)
+        sqldb = SQLAlchemyConf(conf=conf, root='DB', database='adhoc', quiet=True, echo=echo)
     else:
         module_logger.debug("DBAPI: Using DB config: %s" %(repr(config)))
     module_logger.debug("DBAPI: SQLAlchemyConf: %s" % (repr(sqldb),))
@@ -126,7 +128,7 @@ class DbApi(object):
     def open(self, mode=DbMode.write, create=True): 
         self.db_transaction_lock = threading.Lock()       
         if mode == DbMode.write and create:
-            module_logger.debug("DBAPI: DbMode write: creating schema.")
+            module_logger.debug("DBAPI: DbMode write: creating schema and tables.")
             self.create_db() 
             
     def close(self):
@@ -149,12 +151,12 @@ class DbApi(object):
         elif self.__sqlalchemy.dbconf['dialect'] == 'sqlite':
             # in this case we need to remove database
             if not self.shared_db:
-                database=self.__sqlalchemy.dbconf['database']
-                if os.path.isfile(database):
-                    module_logger.debug("DBAPI: Not in shared_db mode: removing database file: %s" % (database))
-                    os.remove(database)
+                database = self.__sqlalchemy.dbconf.get('database')
+                if database is not None:
+                    if os.path.isfile(database):
+                        module_logger.debug("DBAPI: Not in shared_db mode: removing database file: %s" % (database))
+                        os.remove(database)
 
-        
     def create_db(self, ):
         #self.__create_engine(runfile)
         self.create_schema()

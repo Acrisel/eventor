@@ -32,9 +32,9 @@ def info_table(base):
         __tablename__ = 'Info'
         
         id_ = Column(Integer, Sequence('info_id_seq', metadata=base.metadata), primary_key=True)
-        run_id=Column(String, nullable=False)
-        name=Column(String, nullable=False)
-        value=Column(String, nullable=True)
+        run_id = Column(String, nullable=False)
+        name = Column(String, nullable=False)
+        value = Column(String, nullable=True)
         
         __table_args__ = (
                 UniqueConstraint('run_id', 'name'),

@@ -57,7 +57,7 @@ import time
 
 logger=logging.getLogger(__name__)
 
-import examples.run_types as rtypes
+import eventor_examples.run_types as rtypes
 
 '''
 def prog(progname):

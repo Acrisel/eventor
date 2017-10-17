@@ -63,6 +63,8 @@ def prog(progname):
     time.sleep(30)
     return progname
 
+config = os.path.abspath('runly.conf')
+super().__init__(name=__class__.__name__, config=config, store='pgdb2',)
 ev=evr.Eventor(logging_level=logging.INFO)
 
 ev1s=ev.add_event('run_step1')

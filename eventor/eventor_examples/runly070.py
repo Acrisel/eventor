@@ -26,67 +26,20 @@ import collections
 import queue
 from enum import Enum
 from acris import virtual_resource_pool as rp
-import examples.run_types as runtyles
+from acrilib import LoggerAddHostFilter
+import eventor_examples.run_types as runtyles
 
-logger=logging.getLogger(__name__)
 
-class IterGen(object):
-    def __init__(self, l):
-        self.l=l
-        
-    def __call__(self):
-        return (x for x in self.l)
+logger = logging.getLogger(__name__)
+logger.addFilter(LoggerAddHostFilter())
+
 
 def prog(progname):
     logger.info("doing what %s is doing" % progname)
     return progname
+       
 
-
-'''
-class Container(object):
-    def __init__(self, ev, progname, loop=[1,], max_concurrent=1, iter_triggers=(), end_triggers=()):
-        self.ev=ev
-        self.progname=progname
-        self.iter_triggers=iter_triggers
-        self.end_triggers=end_triggers
-        if isinstance(loop, collections.Iterable):
-            loop=IterGen(loop)
-        self.loop=loop
-        self.loop_index=0
-        self.max_concurrent=max_concurrent
-        self.concurrent_count=0
-        #self.initiating_sequence=None
-        
-    def __call__(self, do='next', ): 
-        #print('max_concurrent', config['max_concurrent'])
-        if do=='init':
-            self.iter=self.loop()
-            todos=1
-            #self.initiating_sequence=self.ev.get_task_sequence()
-        else:
-            todos=self.ev.count_todos() 
-            self.concurrent_count-=1
-        
-        if todos == 1 or do == 'init' and self.concurrent_count < self.max_concurrent:
-            try:
-                item=next(self.iter)
-            except StopIteration:
-                item=None
-                
-            if item:
-                self.loop_index+=1
-                self.concurrent_count+=1
-                for trigger in self.iter_triggers:
-                    self.ev.trigger_event(trigger, self.loop_index)
-                    #self.ev.remote_trigger_event(trigger, self.loop_index,)
-            else:
-                for trigger in self.end_triggers:
-                    self.ev.trigger_event(trigger, self.loop_index)
-            
-        return True
-'''           
-
-ev = evr.Eventor( logging_level=logging.INFO, ) #config={'sleep_between_loops': 1}) # store=':memory:',
+ev = evr.Eventor() #config={'sleep_between_loops': 1}) # store=':memory:',
 
 ev0first = ev.add_event('s0_start')
 ev0next = ev.add_event('s0_next')
@@ -128,7 +81,6 @@ ev.add_assoc(ev00next, s00next)
 ev.add_assoc(ev00end, s00end)
 ev.add_assoc(ev1s, s1)
 ev.add_assoc(ev2s, s2)
-#ev.add_assoc(ev00end, s0next)
 ev.add_assoc(ev3s, s3)
 
 ev.trigger_event(ev0first)

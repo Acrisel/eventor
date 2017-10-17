@@ -52,18 +52,13 @@ API DOC:
 """
 
 import eventor as evr
-import logging
-import examples.program as prog
+import eventor_examples.program as prog
 import os
 
 
 def construct_and_run():
-    #logger = logging.getLogger(__name__)
-    
-    #logger.setLevel(logging.DEBUG)
-    
-    #ev=evr.Eventor(filename=':memory:')
-    ev=evr.Eventor(name=os.path.basename(__file__),)
+    config = os.path.abspath('runly.conf')
+    ev=evr.Eventor(name=os.path.basename(__file__), config=config, store='') #store=':memory:')
     
     ev1s = ev.add_event('run_step1')
     ev1d = ev.add_event('done_step1')
