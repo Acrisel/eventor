@@ -425,8 +425,8 @@ def recover(args):
         file = last_recvoer_args_file()
     if file is not None:
         with open(file, 'rb') as f:
-            args = pickle.load(f)
-        run(args)
+            saved_args = pickle.load(f)
+        run(saved_args)
     else:
         raise EventorAgentError("Trying to run in recovery, but no recovery file found.")
 
