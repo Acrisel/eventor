@@ -6,7 +6,7 @@ Created on Nov 23, 2016
 
 import logging
 from acrilib import Sequence, MergedChainedDict
-from acrilog import NwLogger as Logger
+from acrilog import SSHLogger as Logger
 from acris import virtual_resource_pool as vrp
 import multiprocessing as mp
 from threading import Thread
@@ -27,16 +27,20 @@ from eventor.event import Event
 from eventor.delay import Delay
 from eventor.assoc import Assoc
 from eventor.dbapi import DbApi
-from eventor.utils import calling_module, traces, rest_sequences, store_from_module, get_delay_id, port_is_open, logger_process_lambda
-from eventor.eventor_types import Invoke, EventorError, TaskStatus, step_to_task_status, task_to_step_status, LoopControl, StepStatus, StepReplay, RunMode, DbMode
+from eventor.utils import calling_module, traces, rest_sequences
+from eventor.utils import store_from_module, get_delay_id, port_is_open
+# from eventor.utils import logger_process_lambda
+from eventor.eventor_types import Invoke, EventorError, TaskStatus, LoopControl
+from eventor.eventor_types import step_to_task_status, task_to_step_status
+from eventor.eventor_types import StepStatus, StepReplay, RunMode, DbMode
 from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
 from eventor.conf_handler import getrootconf
 from eventor.etypes import MemEventor
-from sshutil.sshpipe import SSHPipe #, read_ssh_config
+from sshutil.sshpipe import SSHPipe  # read_ssh_config
 import sshutil
-from eventor.expandvars import expandvars
-from acrilog.utils import get_hostname, get_ip_address, hostname_resolves
+from acrilib import get_hostname, get_ip_address, traced_method, expandmap
+from eventor.utils import decorate_all, print_method
 
 
 #try: 
@@ -47,12 +51,11 @@ setproctitle=None
 
 module_logger=None #logging.getLogger(__file__)
 
-from acrilib import traced_method
-from eventor.utils import decorate_all, print_method
-
 #traced=traced_method(None, True)
 
 RUN_ID_SEPARATOR='-'
+
+
 def get_unique_run_id():
     ip = get_ip_address()
     ips = ''.join(ip.split('.'))
@@ -65,10 +68,9 @@ def get_unique_run_id():
 class TaskAdminMsgType(Enum):
     result = 1
     update = 2
-    
-    
+
+
 RemoteAgent = namedtuple("remoteHost", "proc stdin stdout")
-    
 TaskAdminMsg = namedtuple('TaskAdminMsg', ['msg_type', 'value', ])
 TriggerRequest = namedtuple('TriggerRequest', ['type', 'value'])
 
@@ -76,27 +78,27 @@ TriggerRequest = namedtuple('TriggerRequest', ['type', 'value'])
 class ResourceAllocationCallback(object):
     def __init__(self, notify_queue):
         self.q = notify_queue
-        
-    def __call__(self,resources=None):
+
+    def __call__(self, resources=None):
         self.q.put(resources)
 
 
-def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=True, logger_info=None, eventor=None, config=None, ):
-    ''' 
+def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=True, logger_info=None, eventor=None, config=None):
+    '''
     Args:
         func: object with action method with the following signature:
             action(self, action, unit, group, sequencer)    
         action: object with taskid, unit, group: id of the unit to pass
         sqid: sequencer id to pass to action '''
     global module_logger
-    
+
     # only if in separate process, need to initiate logger
     if use_process:
         module_logger = Logger.get_logger(logger_info=logger_info, name="{}.{}_{}".format(logger_info['name'], step.name, task.sequence))
-        
-    #else:
+
+    # else:
     #    module_logger = Logger.get_logger(logger_info=logger_info, name="%s" %(logger_info['name'],))
-    
+
     task.pid = os.getpid()
     envvar_prefix = config.get('envvar_prefix', 'EVENTOR_')
     os.environ['{}STEP_NAME'.format(envvar_prefix)] = str(step.name)
@@ -115,9 +117,9 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
         module_logger.critical('[ Task {}/{} ] Failed to update pid; aborting'.format(step.name, task.sequence))
         module_logger.exception(e)
         raise
-        
+
     module_logger.info('[ Task {}/{} ] Attempting to run'.format(step.name, task.sequence))
-    
+
     try:
         # todo: need to pass task resources.
         result = step(seq_path=task.sequence, logger=module_logger, eventor=eventor)
@@ -129,10 +131,10 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
     else:
         task.result = result
         task.status = TaskStatus.success
-        
+
     result = TaskAdminMsg(msg_type=TaskAdminMsgType.result, value=task) 
     module_logger.info('[ Task {}/{} ] Completed, status: {}'.format(step.name, task.sequence, str(task.status), ))
-    adminq.put( result )
+    adminq.put(result)
     return True
 
 
@@ -140,13 +142,14 @@ class EventorState(Enum):
     active = 1
     shutdown = 2
     #exit = 3
-    
-    
+
+
 class RpCallback(object):
     def __init__(self, notify_queue, task_id=''):
         self.q = notify_queue
         self.task_id = task_id
-    def __call__(self,ready=False):
+        
+    def __call__(self, ready=False):
         self.q.put( self.task_id )
 
 
@@ -162,6 +165,7 @@ class Memtask(object):
 # This is to keep program artifacts as they are given for __repr__ purpoces     
 ProgramArtifacts = namedtuple('ProgramArtifacts', "events steps assocs")
 
+
 def get_proc_constructor(task_construct,):
     if task_construct == 'process':
         task_constructor = mp.Process  
@@ -173,6 +177,7 @@ def get_proc_constructor(task_construct,):
         task_constructor = None
     return task_constructor
 
+
 def make_imports(import_file, import_module):
     imports = None
     import_module = import_module if import_module is not None else []
@@ -181,47 +186,46 @@ def make_imports(import_file, import_module):
         imports = "%s:%s" % (import_file, ':'.join(import_module))
     return imports
 
-    
+
 class Eventor(object):
     """Eventor manages events and steps that needs to be taken when raised.
-    
+
     Eventor provides programming interface to create events, steps and associations among them.
     It provides means to raise events, and a service that would perform steps according to those events. 
-        
+
     Attributes: 
         controlq: mp queue is used to control endless eventor loop
-    
+
     Methods:
         add_event: adds event into the system
         add_step: adds step into the system
         add_assoc: associates event with step
         run: run eventor processing; eventor will return when no work is left to be done.
-    
+
     """
-    
+
     config_defaults = {
-        'workdir':'/tmp', 
-        'debug':False,
+        'workdir': '/tmp',
+        'debug': False,
         'task_construct': 'process',  # or 'thread'
         'envvar_prefix': 'EVENTOR_',
-        'max_concurrent': -1, 
+        'max_concurrent': -1,
         'stop_on_exception': True,
         'sleep_between_loops': 0.25,
-        'sequence_arg_name': None, # 'eventor_task_sequence'
+        'sequence_arg_name': None,  # 'eventor_task_sequence'
         'day_to_keep_db': 5,
-        'remote_method' : 'ssh',
+        'remote_method': 'ssh',
         'pass_logger_to_task': False,
         'shared_db': False,
         'ssh_config': os.path.expanduser('~/.ssh/config'),
         'ssh_host': get_hostname(),
         'ssh_port': 22,
-        'DATABASES' : {'dialect': 'sqlite', 'query': {'cache': 'shared'}},
+        'DATABASES': {'dialect': 'sqlite', 'query': {'cache': 'shared'}},
         'LOGGING': {
-           'logdir': '/var/log/eventor', 
-           'datefmt':'%Y-%m-%d,%H:%M:%S.%f',        
-           'logging_level': logging.INFO,
-           'logdir': '/var/log/eventor',
-           'level_formats': {
+            'logdir': os.path.expanduser('~/log/eventor'),
+            'datefmt': '%Y-%m-%d,%H:%M:%S.%f',
+            'logging_level': logging.INFO,
+            'level_formats': {
                 logging.DEBUG: "[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]",
                 'default': "[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]",
                 },
@@ -232,30 +236,31 @@ class Eventor(object):
             'file_mode': 'a',
             'maxBytes': 0,
             'backupCount': 0,
-            'encoding': 'utf8' ,
+            'encoding': 'utf8',
             'delay': False,
             'when': 'h',
-            'interval': 1 ,
-            'utc': False ,
-            'atTime': 86400, # number of seconds in a day
+            'interval': 1,
+            'utc': False,
+            'atTime': 86400,  # number of seconds in a day
         },
-    }  
-    
+    }
+
     # TODO(Arnon): build db cleanup subprocess using day_to_keep_db
-    
-    recovery_defaults={StepStatus.ready: StepReplay.rerun, 
-                       StepStatus.allocate: StepReplay.rerun, 
-                       StepStatus.fueled: StepReplay.rerun, 
-                       StepStatus.active: StepReplay.rerun, 
-                       StepStatus.failure: StepReplay.rerun, 
-                       StepStatus.success: StepReplay.skip,}  
-    
-    
-    # TODO: SSH HOST as server to send logging to.
-         
+
+    recovery_defaults = {
+        StepStatus.ready: StepReplay.rerun,
+        StepStatus.allocate: StepReplay.rerun,
+        StepStatus.fueled: StepReplay.rerun,
+        StepStatus.active: StepReplay.rerun,
+        StepStatus.failure: StepReplay.rerun,
+        StepStatus.success: StepReplay.skip, }
+
+
+    #  TODO (Arnon): SSH HOST as server to send logging to.
+
     def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], run_id='', config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None,listener_q=None):
         """initializes steps object
-        
+
         Args:
             name (str): human readable identifying Eventor among other eventors
             store (path): file in which Eventor data would be stored and managed for reply/restart 
@@ -292,7 +297,7 @@ class Eventor(object):
                     it will try to fetch store or name as code for database.
                     if both not provided, will try default database code.
                     if not found, will treat store and name as above.
-                
+
                     DATABASES:
                         default: 
                             dialect:  postgresql
@@ -303,18 +308,18 @@ class Eventor(object):
                             port:     5433
                             database: postgres
                             schema:   eventor
-                    
+
                         playfile:
                             dialect: sqlite
                             file: /var/database/alchemy/schema.db  
-                            
+
                 - hosts: mapping of tag -> hostname/ip.
                     tag can then be used in add_step() instead of full qualifying name.
-                                                                  
+
                     HOSTS:
                         mainhost: 192.168.1.71
                         process:  192.168.1.70
-                        
+
                 - logging:
                     LOGGING:
                         logdir: /var/log/eventor
@@ -334,25 +339,25 @@ class Eventor(object):
                         atTime: 86400, # number of seconds in a day
         Returns:
             new object
-            
+
         Raises:
             N/A
         """
         global module_logger
-        
+
         # store input arguments
         eventor_kwargs = locals()
         del eventor_kwargs['self']
-        
+
         self.name = name.replace('.', '_')
         self.remotes = remotes
-        
+
         if import_file is not None and import_module is None:
             raise EventorError("Import_file is provided but not import_module.")
-        # TODO(Arnon): implement calling module 
+        # TODO (Arnon): implement calling module 
         imports = make_imports(import_file, import_module)
         self.imports = [imports] if imports else []
-        
+
         config_root_name = os.environ.get('EVENTOR_CONFIG_TAG', eventor_config_tag)
         if isinstance(config, str):
             frame = inspect.stack()[1]
@@ -360,9 +365,10 @@ class Eventor(object):
             config_path = os.path.join(os.path.dirname(module), config)
             if os.path.isfile(config_path):
                 config = config
-                
-        rootconfig = getrootconf(conf=config, root=config_root_name)
-        defaults = dict([(name, expandvars(value, os.environ)) for name, value in Eventor.config_defaults.items()])
+
+        rootconfig = getrootconf(conf=config, root=config_root_name, case_sensative=False)
+        defaults = expandmap(Eventor.config_defaults)
+        # defaults = dict([(name, expandvars(value, os.environ)) for name, value in Eventor.config_defaults.items()])
         self.__config = MergedChainedDict(rootconfig, defaults, submerge=True) 
         self.debug = self.__config['debug']
         # HOSTS configuration mapping of host tags to host names
@@ -376,14 +382,14 @@ class Eventor(object):
         self.ssh_config = self.__config.get('ssh_config',)
         self.ssh_port = self.__config.get('ssh_port', 22)
         self.ssh_host = self.__config.get('ssh_host', self.host)
-        
+
         self.__memory = MemEventor() if memory is None else memory
         self.__is_server = memory is None
         if self.__is_server:
             self.__memory.kwargs.update(eventor_kwargs)
-        
+
         self.__tasks = dict() 
-        
+
         self.shared_db = shared_db = self.__config.get('shared_db', False)
         self.run_id = run_id if run_id is not None else ''
         if shared_db and not self.run_id:
@@ -393,49 +399,55 @@ class Eventor(object):
             self.run_id = get_unique_run_id()
             self.__memory.kwargs['run_id'] = self.run_id
 
-        
         self.__set_logger(memory)
-            
-        # TODO(Arnon): in case of Sequent, depth is 3 and not 2 as default.  Need to find way to drive calling module.
-        self.__calling_module = calling_module()
-        self.store = store
 
-        self.__task_proc = dict()
-        self.__state = EventorState.active
-        self.__run_mode = run_mode
-        self.__recovery_run = recovery_run
-        self._session_cycle_loop = False
-        
-        module_logger.info("Process PID: {}; run_id: {}.".format(os.getpid(), repr(self.run_id),)) 
-        module_logger.debug("Process is server: {}.".format(self.__is_server)) 
-        module_logger.debug("Logger info: {}.".format(self.__logger_info)) 
-        rest_sequences()   
-        self.__setup_db_connection(create=self.__is_server)
-        
-        self.__program_artifacts = ProgramArtifacts(dict(), dict(), list())
-        
-        self.__listener_q = listener_q
-        
+        # TODO(Arnon): in case of Sequent, depth is 3 and not 2 as default.
+        #     Need to find way to drive calling module.
+
+        # Since SSHLogger started, need to close if exception occurs.
+        try:
+            self.__calling_module = calling_module()
+            self.store = store
+
+            self.__task_proc = dict()
+            self.__state = EventorState.active
+            self.__run_mode = run_mode
+            self.__recovery_run = recovery_run
+            self._session_cycle_loop = False
+
+            module_logger.info("Process PID: {}; run_id: {}.".format(os.getpid(), repr(self.run_id),)) 
+            module_logger.debug("Process is server: {}.".format(self.__is_server))
+            module_logger.debug("Logger info: {}.".format(self.__logger_info))
+            rest_sequences()
+            self.__setup_db_connection(create=self.__is_server)
+
+            self.__program_artifacts = ProgramArtifacts(dict(), dict(), list())
+
+            self.__listener_q = listener_q
+        except Exception:
+            self.close()
+            raise
+
     def __set_logger(self, memory):
         global module_logger
-        
+
         logging_config = self.__config.get('LOGGING')
-        
+
         # TODO(Arnon): get to logging configuration (as in Database)
         # TODO(Arnon): drive encoding from parameter
         # TODO(Arnon): log name needs to be driven by calling 
         logger_name = "{}{}".format(self.name,"-{}".format(self.run_id.replace("@","-")) if self.run_id else '')
-        
+
         if self.__is_server:
             self.__logger_params = {
-                'name':logger_name, 
+                'name': logger_name,
                 }
             self.__logger_params.update(logging_config)
             self.__logger = Logger(**self.__logger_params)
             self.__logger.start()
             self.__logger_info = self.__logger.logger_info()
             module_logger = Logger.get_logger(logger_info=self.__logger_info, name=logger_name)
-            module_logger.debug('Logger listens on port {}.'.format(self.__logger.port))
+            # module_logger.debug('Logger listens on port {}.'.format(self.__logger.port))
         else:
             # agent needs two log handlers. One is logging back into the server. The other is local log service.
             # Logger.get_logger will add logger handler that would start 
@@ -444,16 +456,18 @@ class Eventor(object):
             self.__logger_info['name'] = logger_name
             self.__logger = None
 
-        
     def __get_dbapi(self, create=True):
         filename = store_from_module(self.__calling_module)
         db_mode = DbMode.write if self.__run_mode == RunMode.restart else DbMode.append
-        self.db = DbApi(config=self.__config, modulefile=filename, shared_db=self.shared_db, run_id=self.run_id, userstore=self.store, mode=db_mode, create=create, echo=False, logger=module_logger) #self.debug)
-         
+        try:
+            self.db = DbApi(config=self.__config, modulefile=filename, shared_db=self.shared_db, run_id=self.run_id, userstore=self.store, mode=db_mode, create=create, echo=False, logger=module_logger) #self.debug)
+        except Exception as e:
+            raise
+
     def get_logger(self):
         global module_logger
         return module_logger
-    
+
     def add_remote(self, remotes):
         module_logger.debug('Adding remote: {}.'.format(remotes)) 
         if isinstance(remotes, str):
@@ -462,30 +476,30 @@ class Eventor(object):
             self.remotes.extend(remotes)
         else:
             raise EventorError('Expecting remotes of type str or list, but got: {}'.format(type(remotes).__name__))
-           
+
     def __setup_db_connection(self, create=True):
         global module_logger
-        
+
         self.__get_dbapi(create=create)
         if self.__run_mode == RunMode.restart and self.__is_server:
             self.__write_info()
         else:
             self.__read_info(run_mode=self.__run_mode, recovery_run=self.__recovery_run)
-        
+
     def __repr__(self):
         steps = '\n'.join([ repr(step) for step in self.__memory.steps.values()])
         events = '\n'.join([ repr(event) for event in self.__memory.events.values()])
         assocs = '\n'.join([ repr(assoc) for assoc in self.__memory.assocs.values()])
         result = "Steps( name( {} ) events( {} ) steps( {} ) assocs( {} )  )".format(self.name, events, steps, assocs)
         return result
-        
+
     def __str__(self):
         steps = '\n    '.join([ str(step) for step in self.__memory.steps.values()])
         events = '\n    '.join([ str(event) for event in self.__memory.events.values()])
         assocs = '\n    '.join([ str(assoc) for assoc in self.__memory.assocs.values()])
         result = "Steps( name( {} )\n    events( \n    {}\n   )\n    steps( \n    {}\n   )\n    assocs( \n    {}\n   )  )".format(self.name, events, steps, assocs)
         return result
-    
+
     def program_repr(self):
         prog = list()
         for name, value in self.__program_artifacts.events.items():
@@ -499,7 +513,7 @@ class Eventor(object):
                 args.append("%s=%s" %(title, repr(arg)))
             text = "%s = add_step(%s, %s)" % (name, repr(name), ', '.join(args))
             prog.append(text)
-            
+
         signature = ['event', 'assocs', 'delay']
         for values in self.__program_artifacts.assocs:
             items = dict(zip(signature, values))
@@ -508,13 +522,13 @@ class Eventor(object):
             text = "add_assoc(%s)" % (args)
             prog.append(text)
         return '\n'.join(prog)
-        
+
     def _name(self, seq_path):
         result='/'
         if self.name:
             result = "{}{}".format(self.name, "/{}".format(seq_path) if seq_path else '')
         return result
-        
+
     def __write_info(self, run_file=None):
         self.__recovery = 0
         info={'app_version': __version__,
@@ -525,7 +539,7 @@ class Eventor(object):
         self.db.write_info(**info)
         self.__previous_tasks=None
         self.__previous_delays=None
-    
+
     def __read_info(self, run_mode=None, recovery_run=None):
         self.__info = self.db.read_info()
         recovery = recovery_run
@@ -540,7 +554,7 @@ class Eventor(object):
         #self.previous_triggers=self.db.get_trigger_map(recovery=recovery)
         self.__previous_tasks = self.db.get_task_map(recovery=previous_recovery)
         self.__previous_delays = self.db.get_delay_map(recovery=previous_recovery)
-            
+
     def __convert_trigger_at_complete(self, triggers):
         at_compete = triggers.get(StepStatus.complete)
         if at_compete:
@@ -552,7 +566,7 @@ class Eventor(object):
             triggers[StepStatus.failure] = at_fail
             triggers[StepStatus.success] = at_success
         return triggers
-          
+
     def __convert_recovery_at_complete(self, recovery):
         at_compete=recovery.get(StepStatus.complete)
         if at_compete is not None:
@@ -565,16 +579,16 @@ class Eventor(object):
 
     def add_event(self, name, expr=None):
         """add a event to Eventor object
-        
+
         Args:
             name: (string) unique identifier provided by caller
             expr: 
-            
+
         returns:
             new event that was added to Eventor; this event can be used further in assoc method
         """
         self.__program_artifacts.events[name] = expr
-        
+
         try:
             event = self.__memory.events[name]
         except:
@@ -582,23 +596,23 @@ class Eventor(object):
         else:
             if expr == event.expr:
                 return event
-            
+
         event = Event(name, expr=expr)
         self.__memory.events[event.id_] = event
         module_logger.debug('add_event: %s' %( repr(event), ))
         return event
-    
+
     def get_step(self, name):
         return self.__memory.steps.get(name, None)
-    
+
     def add_step(self, name, func=None, args=(), kwargs={}, triggers={}, host=None, acquires=None, releases=None, recovery={}, config={}, import_file=None, import_module=None):
         """add a step to steps object
-    
+
         config parameters can include the following keys:
             - stop_on_exception=True
             - sequence_arg_name=None : when set, corresponding name will be used as keyword argument to passed sequence to step
             #- pass_resources=False: when set, eventor_task_resources keyword argument will be passed to step
-            
+
         Args:
             name: (string) unique identifier
             func: (callable) if provided, will be called when step is activated; otherwise its nope step.
@@ -613,15 +627,15 @@ class Eventor(object):
             recovery: instructions on how to deal with 
                 default: {TaskStatus.failure: StepReplay.rerun, 
                           TaskStatus.success: StepReplay.skip}
-            
+
         returns:
             new step that was added to Eventor; this step can be used further in assoc method
-            
+
         raises:
             EventorError: if func is not callable
         """
         self.__program_artifacts.steps[name] = (func.__name__ if func is not None else 'None', args, kwargs, triggers, host, acquires, releases, recovery, config, import_file, import_module)
-        
+
         if import_file is not None and import_module is None:
             raise EventorError("Import_file is provided but not import_module.")
         # TODO(Arnon): implement calling module 
@@ -636,12 +650,12 @@ class Eventor(object):
         else:
             module_logger.debug('add_step: already found in memory: skipping {}'.format( repr(step), ))
             return step
-        
+
         triggers = self.__convert_trigger_at_complete(triggers)
         recovery = self.__convert_recovery_at_complete(recovery)
         recovery = MergedChainedDict(recovery, Eventor.recovery_defaults)
         recovery = dict([(step_to_task_status(status), replay) for status, replay in recovery.items()])
-        
+
         config = MergedChainedDict(config, self.__config, os.environ,)
         # try to see if provided host is mapped in configuration
         host = host if self.hosts.get(host, host) is not None else self.host
@@ -681,20 +695,20 @@ class Eventor(object):
         
         Delay supports ':memory:' store only if Eventor is called with negative max_loops (default).
         This otherwise, the information pertaining the delay may not be maintained. 
-        
+
         Args:
             event: an event object return from add_event()
             assocs: list of either step or event objects returned from add_step() or add_event() respectively
             delay: seconds to wait before activating assocs once event had been triggered.
-            
+
         returns:
             N/A
-            
+
         raises:
             EnventorError: if event is not of event type or obj is not instance of Event or Step
         """
         self.__program_artifacts.assocs.append((event, assocs, delay))
-        
+
         if delay > 0:
             # since we have to delay, we need to create a Delay hidden task in 
             # between event and assocs.
@@ -705,43 +719,43 @@ class Eventor(object):
             self.add_assoc(delay_event, *assocs)
             module_logger.debug("Adding delayed assoc:\n    {}: {}.\n    {}: {}.".format(event, delay_step, delay_event, repr(assocs)))
             self.__memory.delays[delay_id] = Delay(delay_id=delay_id, func=None, seconds=delay, event=delay_event)
-            
-        else:    
+
+        else:
             try:
                 objs = self.__memory.assocs[event.id_]
             except KeyError:
                 objs = list()
                 self.__memory.assocs[event.id_]=objs
-    
+
             for obj in assocs:
                 assoc = Assoc(event, obj)
                 objs.append(assoc)
                 module_logger.debug('add_assoc: {}'.format( repr(assoc), ))
-    
+
     def trigger_event(self, event, sequence=0, db=None):
         """Activates event 
-        
+
             Activate event by registering it in trigger table. 
-            
+
             If Sequence is provided, it will be used as trigger sequence for this event.
             This is done to allow multiple triggers for the same event.
-            
+
             If sequence is not provided, one will assigned to this trigger.  
-            
+
             Sequence creates association with derived steps or events associated with the event triggered.
-        
+
             Args:
                 event: (Event) object returned from add_event()
                 sequence: (str) object uniquely identifying this trigger among other triggers of the same event
-                
+
             Returns:
                 N/A
-            
+
             Raises:
                 EventorError
-                
+
         """
-        
+
         if not db:
             db = self.db
         try:
@@ -751,37 +765,37 @@ class Eventor(object):
             module_logger.exception(e)
             added = False
         return added
-        
+
     def remote_trigger_event(self, event, sequence=0,):
         trigger_request = TriggerRequest(type='event', value=(event, sequence))
         self.__requestq.put(trigger_request)
-        
+
     def trigger_step(self, step, sequence, ):
         """Activates step 
-        
+
             Activate step by registering it in task table are 'ready'.  Task loop will pick it up for processing. 
-        
+
             Args:
                 step: (Step) object returned from add_step()
                 sequence: (str) object uniquely identifying this trigger among other triggers of the same event
-                
+
             Returns:
                 N/A
-            
+
             Raises:
                 EventorError
-                
+
         """
-        
+
         task = step.trigger_if_not_exists(self.db, sequence, status=TaskStatus.ready, recovery=self.__recovery)
         if task:
             self.__triggers_at_task_change(task)
         return task is not None
-    
+
     def __loop_trigger_request(self):
         ''' Loop trigger table for triggers not acted upon.
         '''
-        
+
         # loop continuously until queue is empty.
         result = False 
         while True:   
@@ -798,14 +812,14 @@ class Eventor(object):
           
     def __assoc_loop(self, event, sequence):
         ''' Fetches event associations and trigger them.
-        
+
         If association is an event:
             trigger the event
-            
-        If association is a step:  
+
+        If association is a step:
             register task
             trigger event - task running.
-            
+
         '''
         assoc_events=list()
         assoc_steps=list()
@@ -813,9 +827,9 @@ class Eventor(object):
             assocs=self.__memory.assocs[event.id_]
         except KeyError:
             assocs=[]
-            
+
         for assoc in assocs:
-            assoc_obj=assoc.assoc_obj
+            assoc_obj = assoc.assoc_obj
             if isinstance(assoc_obj, Event):
                 # trigger event
                 module_logger.debug('[ Event {}/{} ] Processing event association to event: {}.'.format(event.id_, sequence, repr(assoc_obj)))
@@ -826,12 +840,12 @@ class Eventor(object):
                 module_logger.debug('[ Event {}/{} ] Processing event association to step: {}.'.format(event.id_, sequence, repr(assoc_obj)))
                 self.trigger_step(assoc_obj, sequence)
                 assoc_steps.append(sequence)
-                
+
             else:
                 msg = "[ Event {}/{} ] Unknown assoc object in association: {}.".format(event.id_, sequence, repr(assoc))
                 module_logger.debug(msg)
                 raise EventorError(msg)
-        
+
         return list(set(assoc_events)), list(set(assoc_steps))
 
     def __loop_event(self):
@@ -844,7 +858,7 @@ class Eventor(object):
         # requests not picked up in current loop, will be picked by the next.
         triggers=self.db.get_trigger_iter(recovery=self.__recovery)
         trigger_db=dict()
-        
+
         event_seqs=list()
         step_seqs=list()
 
@@ -855,7 +869,7 @@ class Eventor(object):
             except KeyError:
                 trigger_map = dict()
                 trigger_db[trigger.sequence] = trigger_map
-            
+
             #print('trigger %s[%s]' % (trigger.event_id, trigger.iteration) )  
             trigger_map[trigger.event_id] = True
 
@@ -864,27 +878,27 @@ class Eventor(object):
                 event_seqs.extend(assoc_events)
                 step_seqs.extend(assoc_steps)
                 self.db.acted_trigger(trigger)
-                                  
+
         for sequence, trigger_map in trigger_db.items():
             for event in self.__memory.events.values():
                 if not event.expr: continue
-                
+
                 try:
                     result=eval(event.expr, globals(), trigger_map)
                 except:
                     result=False
-                    
+
                 module_logger.debug("[ Event {}/{} ] Eval expr: {} = {}\n    {}".format(event.id_, sequence,event.expr, result, trigger_map))
-                
+
                 if result==True: # and self.act:
                     # TODO: do we need to raise event.
-                    added=self.trigger_event(event, sequence,)  
+                    added=self.trigger_event(event, sequence,)
                     if added:  
                         module_logger.debug('[ Event %s/%s] Triggered event (%s ):\n    {}' % (event.id_, sequence, repr(event))) 
                         event_seqs.append(sequence)
-                        
-        return list(set(event_seqs)), list(set(step_seqs))                  
-    
+
+        return list(set(event_seqs)), list(set(step_seqs))
+
     def __log_error(self, task, stop_on_exception):
         logutil=module_logger.error if stop_on_exception else module_logger.warning
         err_exception, pickle_trace=task.result
@@ -1097,10 +1111,10 @@ class Eventor(object):
         step_recovery = StepReplay.rerun
         if previous_task:
             step_recovery = step.recovery[previous_task.status]
-        
+
         if step_recovery == StepReplay.rerun:
             # on rerun, act as before - just run the task  
-            
+
             max_concurrent = step.config['max_concurrent']
             task_construct = step.config['task_construct']
             adminq = self.__get_admin_queue(task_construct=task_construct)
@@ -1123,23 +1137,23 @@ class Eventor(object):
                     self.__state = EventorState.shutdown
                     return None
                 triggered = self.__triggers_at_task_change(task)
-                
+
                 module_logger.debug('[ Task {}/{} ] Going to construct ({}) and run task:\n    {}'.format(task.step_id, task.sequence, task_construct, repr(task), )) 
-                
+
                 # TODO(Arnon): make configuration flag to pass Eventor on invoke.
                 if task_construct == 'invoke':
                     # If Invoke, we also pass eventor to task.
                     # Since Invoke, contects remains in current process,
                     # Therefore task can use eventor to add events and tasks. 
                     kwds['eventor'] = self
-                    
+
                 # prepare to pickle
                 if use_process:
                     self.db.close()
                     self.db = None
                     logger_ = self.__logger
                     self.__logger = None
-                    
+
                     # test pickle of kwargs to process
                     if __debug__:
                         for name, value in kwds.items():
@@ -1161,7 +1175,7 @@ class Eventor(object):
                                 # TODO(Arnon): if there are already processes running, finish will fail since it is not joining/killing those processes
                                 return
                     # end test of kwargs
-                
+
                 task_constructor = get_proc_constructor(task_construct)
                 if task_constructor is None:
                     module_logger.critical('[ Task {}/{} ] Failed to get task constructor for {}'.format(task.step_id, task.sequence, task_construct,)) 
@@ -1818,12 +1832,13 @@ class Eventor(object):
         else:
             result = None
             for _ in range(max_loops):
-                #module_logger.debug('Starting loop cycle')
+                # module_logger.debug('Starting loop cycle')
                 result = self.loop_cycle()
             human_result = "success" if result else 'failure'
-            total_todo, _ = self.count_todos(with_delayeds=True) 
-            module_logger.info('Processing finished with: {} (outstanding tasks: {})'.format(human_result, total_todo))
-          
+            total_todo, _ = self.count_todos(with_delayeds=True)
+            module_logger.info('Processing finished with: {} (outstanding tasks: {})'
+                               .format(human_result, total_todo))
+
         # wait for agents, if this is not already one  
         if self.__is_server:
             for host, agent in list(self.__agents.items()):
@@ -1834,12 +1849,15 @@ class Eventor(object):
         elif self.__listener_q is not None:
             self.__listener_q.put('FINISH')
             listener_th.join()
-            
+
         if self.__logger is not None:
             self.__logger.stop()
             self.__logger = None
         return result
     
+    def __del__(self):
+        self.close()
+
     def close(self):
         ''' closes open artifacts like MPlogger etc.
         '''

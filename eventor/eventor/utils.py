@@ -181,7 +181,8 @@ def get_free_port():
     s.close()
     return host, port
 
-from acrilog import NwLogger
+''' Left here for reference only
+from acrilog import SSHLogger
 def logger_process_lambda(logger_info):
     logger_info = deepcopy(logger_info)
     def internal(name=None):
@@ -190,7 +191,7 @@ def logger_process_lambda(logger_info):
         logger = NwLogger.get_logger(logger_info)
         return logger
     return internal
-
+'''
 
 if __name__ == '__main__':
 

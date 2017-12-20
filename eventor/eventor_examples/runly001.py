@@ -54,14 +54,15 @@ import eventor as evr
 import logging
 import os
 
+logger = logging.getLogger(__name__)
 
-logger=logging.getLogger(__name__)
 
 def prog(progname):
     logger.info("doing what %s is doing" % progname)
-    logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
+    logger.info("EVENTOR_STEP_SEQUENCE: {}".format(
+        os.getenv("EVENTOR_STEP_SEQUENCE")))
     return progname
-    
+
 
 class MyEnventor(evr.Eventor):
     def __init__(self, ):
@@ -69,27 +70,29 @@ class MyEnventor(evr.Eventor):
         config = os.path.abspath('runly.conf')
         super().__init__(name=__class__.__name__, config=config, store=db,)
 
-    def construct_and_run(self):         
+    def construct_and_run(self):
         ev1s = self.add_event('run_step1')
         ev2s = self.add_event('run_step2')
         ev3s = self.add_event('run_step3')
-        
-        s1 = self.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
-        s2 = self.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
+
+        s1 = self.add_step('s1', func=prog, kwargs={'progname': 'prog1'},
+                           triggers={evr.StepStatus.success: (ev2s,), })
+        s2 = self.add_step('s2', func=prog, kwargs={'progname': 'prog2'},
+                           triggers={evr.StepStatus.success: (ev3s,), })
         s3 = self.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
-        
+
         self.add_assoc(ev1s, s1)
         self.add_assoc(ev2s, s2)
         self.add_assoc(ev3s, s3)
-    
+
         self.trigger_event(ev1s, 1)
         self.run()
         self.close()
-    
+
+
 if __name__ == '__main__':
     import multiprocessing as mp
     mp.freeze_support()
     mp.set_start_method('spawn')
     myeventor = MyEnventor()
     myeventor.construct_and_run()
-

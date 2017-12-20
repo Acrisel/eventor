@@ -29,17 +29,17 @@ class TaskStatus(Enum):
 class StepStatus(Enum):
     ''' Programmer Step interface 
     '''
-    ready=1
-    allocate=2
-    fueled=3
-    active=4
-    success=5
-    failure=6
-    complete=7 # finished successfully or with failure
+    ready = 1
+    allocate = 2
+    fueled = 3
+    active = 4
+    success = 5
+    failure = 6
+    complete = 7 # finished successfully or with failure
     
 def task_to_step_status(status):
-    value=status.value
-    result=StepStatus(value)
+    value = status.value
+    result = StepStatus(value)
     return result
 
 def step_to_task_status(status):  
