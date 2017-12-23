@@ -35,7 +35,7 @@ from eventor.eventor_types import step_to_task_status, task_to_step_status
 from eventor.eventor_types import StepStatus, StepReplay, RunMode, DbMode
 from eventor.VERSION import __version__, __db_version__
 from eventor.dbschema import Task
-from eventor.conf_handler import getrootconf
+from eventor.conf_handler import merge_configs
 from eventor.etypes import MemEventor
 from sshutil.sshpipe import SSHPipe  # read_ssh_config
 import sshutil
@@ -216,7 +216,8 @@ class Eventor(object):
         'day_to_keep_db': 5,
         'remote_method': 'ssh',
         'pass_logger_to_task': False,
-        'shared_db': False,
+        # TODO: (arnon) need to solve dbapi overide of logging when using shared_db False
+        'shared_db': True, # False,
         'ssh_config': os.path.expanduser('~/.ssh/config'),
         'ssh_host': get_hostname(),
         'ssh_port': 22,
@@ -258,7 +259,7 @@ class Eventor(object):
 
     #  TODO (Arnon): SSH HOST as server to send logging to.
 
-    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], run_id='', config={}, eventor_config_tag='EVENTOR', memory=None, import_module=None, import_file=None,listener_q=None):
+    def __init__(self, name='', store='', run_mode=RunMode.restart, recovery_run=None, host=None, remotes=[], run_id='', config={}, config_tag=None, memory=None, import_module=None, import_file=None,listener_q=None):
         """initializes steps object
 
         Args:
@@ -358,7 +359,14 @@ class Eventor(object):
         imports = make_imports(import_file, import_module)
         self.imports = [imports] if imports else []
 
-        config_root_name = os.environ.get('EVENTOR_CONFIG_TAG', eventor_config_tag)
+        # fetches configuration according to config_tag.
+        # _config_tag will be set by 'EVENTOR_CONFIG_TAG' environment variable, if not provided.
+        self.__config = merge_configs(config, Eventor.config_defaults, config_tag, envvar_config_tag='EVENTOR_CONFIG_TAG', )
+
+        '''
+        if config_tag is None:
+            config_tag = os.environ.get('EVENTOR_CONFIG_TAG', '')
+
         if isinstance(config, str):
             frame = inspect.stack()[1]
             module = inspect.getsourcefile(frame[0])
@@ -366,19 +374,23 @@ class Eventor(object):
             if os.path.isfile(config_path):
                 config = config
 
-        rootconfig = getrootconf(conf=config, root=config_root_name, case_sensative=False)
+        rootconfig = getrootconf(conf=config, root=config_tag, case_sensative=False)
         defaults = expandmap(Eventor.config_defaults)
         # defaults = dict([(name, expandvars(value, os.environ)) for name, value in Eventor.config_defaults.items()])
         self.__config = MergedChainedDict(rootconfig, defaults, submerge=True) 
+        '''
+        
         self.debug = self.__config['debug']
         # HOSTS configuration mapping of host tags to host names
         hosts_root_name = os.environ.get('EVENTOR_CONFIG_HOSTS_TAG', 'HOSTS')
-        self.hosts = rootconfig.get(hosts_root_name, {})
+        # self.hosts = rootconfig.get(hosts_root_name, {})
+        self.hosts = self.__config.get(hosts_root_name, {})
         if host is None:
             self.host = get_hostname()
         else:
             # try to see if provided host is mapped in configuration
             self.host = self.hosts.get(host, host)
+
         self.ssh_config = self.__config.get('ssh_config',)
         self.ssh_port = self.__config.get('ssh_port', 22)
         self.ssh_host = self.__config.get('ssh_host', self.host)
@@ -390,9 +402,13 @@ class Eventor(object):
 
         self.__tasks = dict() 
 
+
+        # TODO: (arnon) Issue with shared_db=False due to SQLite overide logging parameters.
         self.shared_db = shared_db = self.__config.get('shared_db', False)
+        self.shared_db = True
+
         self.run_id = run_id if run_id is not None else ''
-        if shared_db and not self.run_id:
+        if self.shared_db and not self.run_id:
             if run_mode != RunMode.restart:
                 raise EventorError("When shared_db is set in restart, run_id must be provided.")
             # in this case we need to produce unique run_id on this cluster
@@ -428,6 +444,12 @@ class Eventor(object):
             self.close()
             raise
 
+    def _pdebug(self, msg):
+        if getattr(self, 'pdebug', False):
+            return
+        with open("/tmp/eventor.info.{}.txt".format(os.getpid()), 'a') as info:
+            info.write(msg + '\n')
+
     def __set_logger(self, memory):
         global module_logger
 
@@ -438,6 +460,8 @@ class Eventor(object):
         # TODO(Arnon): log name needs to be driven by calling 
         logger_name = "{}{}".format(self.name,"-{}".format(self.run_id.replace("@","-")) if self.run_id else '')
 
+        self._pdebug("server" if self.__is_server else "client")
+
         if self.__is_server:
             self.__logger_params = {
                 'name': logger_name,
@@ -446,11 +470,16 @@ class Eventor(object):
             self.__logger = Logger(**self.__logger_params)
             self.__logger.start()
             self.__logger_info = self.__logger.logger_info()
+            self._pdebug("logger: {}".format(logger_name))
+            self._pdebug("logger: {}".format(self.__logger_info))
             module_logger = Logger.get_logger(logger_info=self.__logger_info, name=logger_name)
             # module_logger.debug('Logger listens on port {}.'.format(self.__logger.port))
         else:
             # agent needs two log handlers. One is logging back into the server. The other is local log service.
             # Logger.get_logger will add logger handler that would start 
+            
+            self._pdebug("logger: {}".format(logger_name))
+            self._pdebug("logger: {}".format(self.memory.logger_info))
             module_logger = Logger.get_logger(logger_info=memory.logger_info, name=logger_name)
             self.__logger_info = memory.logger_info
             self.__logger_info['name'] = logger_name
@@ -1160,7 +1189,7 @@ class Eventor(object):
                             try:
                                 pickle.dumps(value)
                             except Exception as e:
-                                module_logger.critical("Cannot pickle kwarg {} of type {}.".format(name, type(value).__name__))
+                                module_logger.critical("Cannot pickle kwarg {} of type {}, object name: {}.".format(name, type(value).__name__, getattr(value, 'name', 'N/A')))
                                 module_logger.exception(e) 
                                 if hasattr(value, '__dict__'):
                                     for subname, subvalue in value.__dict__.items():
@@ -1861,10 +1890,11 @@ class Eventor(object):
     def close(self):
         ''' closes open artifacts like MPlogger etc.
         '''
-        if self.__logger is not None: 
-            try:
-                self.__logger.stop()
-            except AttributeError:
-                pass
+        if hasattr(self, '__logger'):
+            if self.__logger is not None: 
+                try:
+                    self.__logger.stop()
+                except AttributeError:
+                    pass
 
         

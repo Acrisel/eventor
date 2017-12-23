@@ -29,10 +29,12 @@ logger = logging.getLogger(__name__)
 
 logger.setLevel(logging.DEBUG)
 
+
 def square(x):
-    y = x*x
+    y = x * x
     logger.info("Square of %s is %s" % (x, y))
     return y
+
 
 def square_root(x):
     print("Square root of %s" % (x,))
@@ -40,36 +42,42 @@ def square_root(x):
     logger.info("Square root of %s is %s" % (x, y))
     return y
 
-def divide(x,y):
-    z=x/y
+
+def divide(x, y):
+    z = x / y
     logger.info("dividing %s by %s is %s" % (x, y, z))
     return z
 
+
 def build_flow(run_mode=evr.RunMode.restart, run_id=None, param=9):
     global logger
-    ev = evr.Eventor(run_mode=run_mode, run_id=run_id, shared_db=True, logging_level=logging.DEBUG)
-    print('Building param: %s' %(param,))
-    
+    ev = evr.Eventor(run_mode=run_mode, run_id=run_id,
+                     config={'EVENTOR': {'shared_db': True,
+                                         'LOGGING': {'logging_level': logging.DEBUG}}})
+    print('Building param: %s' % (param, ))
+
     ev1s = ev.add_event('run_step1')
     ev1d = ev.add_event('done_step1')
     ev2s = ev.add_event('run_step2')
     ev2d = ev.add_event('done_step2')
-    ev3s = ev.add_event('run_step3', expr=(ev1d, ev2d)) 
-    
-    s1 = ev.add_step('s1', func=square, kwargs={'x': 3}, 
-                   triggers={evr.StepStatus.success: (ev1d, ev2s,)},) 
-    s2 = ev.add_step('s2', square_root, args=[param,], triggers={evr.StepStatus.success: (ev2d,), },
-                   recovery={evr.StepStatus.failure: evr.StepReplay.rerun, 
-                             evr.StepStatus.success: evr.StepReplay.skip})
+    ev3s = ev.add_event('run_step3', expr=(ev1d, ev2d))
+
+    s1 = ev.add_step('s1', func=square, kwargs={'x': 3},
+                     triggers={evr.StepStatus.success: (ev1d, ev2s, )}, )
+    s2 = ev.add_step('s2', square_root, args=[param, ],
+                     triggers={evr.StepStatus.success: (ev2d, ), },
+                     recovery={evr.StepStatus.failure: evr.StepReplay.rerun,
+                               evr.StepStatus.success: evr.StepReplay.skip})
     s3 = ev.add_step('s3', divide, kwargs={'x': 9, 'y': 3},)
-    
+
     ev.add_assoc(ev1s, s1)
     ev.add_assoc(ev2s, s2)
     ev.add_assoc(ev3s, s3)
-    ev.trigger_event(ev1s, 3) 
-      
-    #logger = ev.get_logger() 
+    ev.trigger_event(ev1s, 3)
+
+    # logger = ev.get_logger()
     return ev
+
 
 def fail():
     global logger
@@ -81,21 +89,23 @@ def fail():
     print('fail result=%s' % result)
     return run_id
 
+
 def recover(recover=True, run_id=None):
     global logger
     # rerun in recovery
     run_mode = evr.RunMode.restart
-    if recover: run_mode = evr.RunMode.recover
+    if recover:
+        run_mode = evr.RunMode.recover
     ev = build_flow(run_mode=run_mode, param=9, run_id=run_id)
     result = ev.run()
     ev.close()
     print('success result=%s' % result)
 
-if __name__ == '__main__':  
+
+if __name__ == '__main__':
     import multiprocessing as mp
-    mp.freeze_support()  
+    mp.freeze_support()
     mp.set_start_method('spawn')
     run_id = fail()
     recover(run_id=run_id)
-    #recover(recover=False)
-    
+    # recover(recover=False)

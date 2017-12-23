@@ -113,35 +113,37 @@ class DbApi(object):
         else: 
             self.session=self.__sqlalchemy.get_session(force=True, autocommit=False)
         self.open(mode=mode, create=create) 
-    
+
     def set_thread_synchronization(self, value=True):
-        self.thread_sync=value
-        
+        self.thread_sync = value
+
     def lock(self):
         if self.thread_sync:
             self.db_transaction_lock.acquire()
-            
+
     def release(self):
         if self.thread_sync:
             self.db_transaction_lock.release()
-    
-    def open(self, mode=DbMode.write, create=True): 
-        self.db_transaction_lock = threading.Lock()       
+
+    def open(self, mode=DbMode.write, create=True):
+        self.db_transaction_lock = threading.Lock()
         if mode == DbMode.write and create:
             module_logger.debug("DBAPI: DbMode write: creating schema and tables.")
-            self.create_db() 
-            
+            self.create_db()
+
     def close(self):
         self.session.close()
         self.db_transaction_lock = None
-    
+
     def create_schema(self):
         metadata = self.metadata
         schemas = set()
         for table in metadata.tables.values():
             if table.schema is not None:
                 schemas.add(table.schema)
-        
+
+        # TODO: (arnon) with self.shared_db False, logging filter is being override. 
+        #    once solved, can allow self.sharec_db True
         if len(schemas) > 0:
             for schema in schemas:
                 if not self.shared_db:
@@ -158,36 +160,36 @@ class DbApi(object):
                         os.remove(database)
 
     def create_db(self, ):
-        #self.__create_engine(runfile)
+        # self.__create_engine(runfile)
         self.create_schema()
         self.metadata.create_all()
         self.session.commit()
-        
+
     def commit_db(self):
         self.session.flush()
         self.session.commit()
-        
+
     def rollback_db(self):
         self.session.rollback()
-           
+
     def write_info(self, **info):
         self.lock()
         for name, value in info.items():
-            db_info=self.Info(run_id=self.run_id, name=name, value=value)
+            db_info = self.Info(run_id=self.run_id, name=name, value=value)
             self.session.add(db_info)
         self.commit_db()
         self.release()
-        
+
     def read_info(self, ):
         self.lock()
         rows = self.session.query(self.Info).filter(self.Info.run_id==self.run_id).all()
         self.session.commit()
         self.release()
-        info=dict()
+        info = dict()
         for row in rows:
             info[row.name]=row.value
         return info
-        
+
     def update_info(self, **info):
         self.lock()
         for name, value in info.items():

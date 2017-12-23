@@ -10,6 +10,8 @@ import logging
 from collections import Mapping, Iterable
 from acrilib import expandmap
 from copy import copy
+import inspect
+from acrilib import MergedChainedDict
 
 logger = logging.getLogger(__file__)
 
@@ -39,7 +41,7 @@ def getconfdict(conf=None, key='', expand=True, expand_map=None, case_sensative=
     '''
     result = expandmap(conf, expand_map=expand_map)
 
-    if key is not None:
+    if key:
         for k in key.split('.'):
             try:
                 result = result.get(k, result.get(k.lower(), {}))
@@ -84,10 +86,14 @@ type_map = {
 
 
 def getrootconf(conf=None, root=None, expand=True, expand_map=None, case_sensative=True):
-    ''' Translate configuration into sqlalchemy url
+    ''' Fetch configuration and expands its values.
 
     Args:
+        root: dot (.) separator string of keys defining hierarchical lookup key for root dict.
         conf: dictionary, text, filename
+
+    Process:
+        if root is provided, looks for root hierarchical key.
     '''
 
     type_ = type(conf).__name__
@@ -103,6 +109,24 @@ def getrootconf(conf=None, root=None, expand=True, expand_map=None, case_sensati
     rootconf = func(conf=conf, key=root, expand=expand, expand_map=expand_map, case_sensative=case_sensative)
 
     return rootconf
+
+
+def merge_configs(config, defaults, config_tag, envvar_config_tag='EVENTOR_CONFIG_TAG', ):
+        if config_tag is None:
+            config_tag = os.environ.get(envvar_config_tag, '')
+
+        if isinstance(config, str):
+            frame = inspect.stack()[1]
+            module = inspect.getsourcefile(frame[0])
+            config_path = os.path.join(os.path.dirname(module), config)
+            if os.path.isfile(config_path):
+                config = config
+
+        rootconfig = getrootconf(conf=config, root=config_tag, case_sensative=False)
+        defaults = expandmap(defaults)
+        # defaults = dict([(name, expandvars(value, os.environ)) for name, value in Eventor.config_defaults.items()])
+        _config = MergedChainedDict(rootconfig, defaults, submerge=True) 
+        return _config
 
 
 if __name__ == '__main__':
