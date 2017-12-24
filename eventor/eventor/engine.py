@@ -663,7 +663,15 @@ class Eventor(object):
         raises:
             EventorError: if func is not callable
         """
-        self.__program_artifacts.steps[name] = (func.__name__ if func is not None else 'None', args, kwargs, triggers, host, acquires, releases, recovery, config, import_file, import_module)
+        try:
+            artifact_name = func.__name__
+        except AttributeError:
+            try:
+                artifact_name = type(func).__name__
+            except Exception:
+                artifact_name = name
+        
+        self.__program_artifacts.steps[name] = (artifact_name, args, kwargs, triggers, host, acquires, releases, recovery, config, import_file, import_module)
 
         if import_file is not None and import_module is None:
             raise EventorError("Import_file is provided but not import_module.")
