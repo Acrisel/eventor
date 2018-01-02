@@ -76,7 +76,7 @@ Example Output
         [ 2016-11-30 10:07:52,689 ][ INFO ][ Step completed s3[1], status: success, result 'prog3' ][ main.task_wrapper ]
         [ 2016-11-30 10:07:53,700 ][ INFO ][ Processing finished with: success ][ main.loop_session_start ]
 
-    Note: actual logging includs *hostname* and and *procname*, e.g., "[ mbp02 ][ MainProcess ]". These information was omitted from logging herein.
+    Note: actual logging includes *hostname* and and *procname*, e.g., "[ mbp02 ][ MainProcess ]". These information was omitted from logging herein.
 
 Example Highlights
 ------------------
@@ -92,7 +92,7 @@ Example Highlights
 
     *trigger_event* (line 26) marks event **evs1**; when triggers, event is associated with sequence.  This would allow multiple invocation.
 
-    *ev()* (line 27) invoke eventor process that would looks for triggers and tasks to act upon.  It ends when there is nothing to do.
+    *ev()* (line 27) invoke Eventor process that would looks for triggers and tasks to act upon.  It ends when there is nothing to do.
 
 Program Run File
 ================
@@ -108,7 +108,7 @@ Eventor Class Initiator
 
     .. code-block:: python
 
-        Eventor(name='', store='', run_mode=RunMode.restart, recovery_run=None, run_id='', config={})
+        Eventor(name='', store='', run_mode=RUM_RESTART, recovery_run=None, run_id='', config={})
 
 Args
 ````
@@ -117,9 +117,9 @@ Args
 
     *store*: Eventor mechanism is built to work with SQLAlchemy. If store is provided, Eventor first check if store is a tag within config under **EVENTOR.DATABASE** (or whatever the environment variables *EVENTOR_CONFIG_TAG* and *EVENTOR_DB_CONFIG_TAG* points to) section. If the tag exists, it will pick its configuration as database configuration. If store is empty, Eventor will try to look for *default* database configuration. Otherwise, *store* will be considered as a path to file that would store runnable (sqlite) information; If not provided, calling module path and name will be used with '.db' extension instead of '.py'.
 
-    *run_mode*: can be either *RunMode.restart* (default) or *RunMode.recover*; in restart, new instance or the run will be created. In recovery, if *shared_db* is set, run_id or the recovered program must be provided.
+    *run_mode*: can be either *RUN_RESTART* (default) or *RUN_RECOVER*; in restart, new instance or the run will be created. In recovery, if *shared_db* is set, run_id or the recovered program must be provided.
 
-    *recovery_run*: if *RunMode.recover* is used, *recovery_run* will indicate specific instance of previously recovery run that would be executed.If not provided, latest run would be used.
+    *recovery_run*: if *RUN_RECOVER* is used, *recovery_run* will indicate specific instance of previously recovery run that would be executed.If not provided, latest run would be used.
 
     *run_id*: unique ID for the program run (excluding recovery_run).  It is mandatory in *shared_db* mode, and if not provided, will be generated.
 
@@ -129,7 +129,7 @@ Args
         | Name                | Default       | Description                                      |
         |                     | Value         |                                                  |
         +=====================+===============+==================================================+
-        | workdir             | /tmp          | place to create necessry artifacts (not in use)  |
+        | workdir             | /tmp          | place to create necessary artifacts (not in use) |
         +---------------------+---------------+--------------------------------------------------+
         | logdir              | /tmp          | place to create debug and error log files        |
         +---------------------+---------------+--------------------------------------------------+
@@ -150,12 +150,12 @@ Args
         |                     |               | multiple programs will use the same database     |
         |                     |               | tables.                                          |
         +---------------------+---------------+--------------------------------------------------+
-        | envvar_prefix       | EVENTOR_      | set prefix for naming environment variable       |
-        |                     |               | defined for each step:                           |
-        |                     |               |    STEP_NAME, STEP_SEQUENCE, and STEP_RECOVERY   |
+        | envvar_prefix       | EVENTOR_      | | set prefix for naming environment variable     |
+        |                     |               | | defined for each step:                         |
+        |                     |               | |    STEP_NAME, STEP_SEQUENCE, and STEP_RECOVERY |
         +---------------------+---------------+--------------------------------------------------+
         | ssh_config          | ~/.ssh/config | SSH configuration file to use with SSH remote    |
-        |                     |               |    Invokation of steps.                          |
+        |                     |               |    Invocation of steps.                          |
         +---------------------+---------------+--------------------------------------------------+
         | ssh_host            |               | SSH host configuration name prime host.          |
         +---------------------+---------------+--------------------------------------------------+
@@ -187,7 +187,7 @@ Configuration file example
 
                 sqfile1:
                     dialect: sqlite
-                    database: /var/acrisel/sand/eventor/eventor/eventor/examples/runly.db
+                    database: /tmp/runly.db
 
                 pgdb1:
                     dialect:  postgresql
@@ -203,8 +203,10 @@ Configuration file example
                 logging_level: 10
                 logdir: /var/log/eventor
                 level_formats:
-                    10: '[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]'
-                    default: '[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ][ %(message)s ]'
+                    10: ('[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ][ %(levelname)-7s ]'
+                         '[ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]')
+                    default: ('[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ]'
+                              '[ %(levelname)-7s ][ %(message)s ]')
                 consolidate: False
                 console: True
                 file_prefix: ''
@@ -237,7 +239,7 @@ Args
 
     *name*: string unique id for event
 
-    *expr*: logical expression 'sqlalchemy' style to automatically raise this expresion.
+    *expr*: logical expression 'sqlalchemy' style to automatically raise this expression.
         syntax:
 
         .. code ::
@@ -271,23 +273,23 @@ Args
 
     *args*: tuple of values that will be passed to *func* at calling
 
-    *kwargs*: keywords arguments that will be pust to *func* at calling
+    *kwargs*: keywords arguments that will be passed to *func* at calling
 
     *triggers*: mapping of step statuses to set of events to be triggered as in the following table:
 
-        +--------------------+-------------------------------------------+
-        | status             | description                               |
-        +====================+===========================================+
-        | StepState.ready    | set when task is ready to run (triggered) |
-        +--------------------+-------------------------------------------+
-        | StepState.active   | set when task is running                  |
-        +--------------------+-------------------------------------------+
-        | StepState.success  | set when task is successful               |
-        +--------------------+-------------------------------------------+
-        | StepState.failure  | set when task fails                       |
-        +--------------------+-------------------------------------------+
-        | StepState.complete | stands for success or failure of task     |
-        +--------------------+-------------------------------------------+
+        +---------------+-------------------------------------------+
+        | status        | description                               |
+        +===============+===========================================+
+        | STEP_READY    | set when task is ready to run (triggered) |
+        +---------------+-------------------------------------------+
+        | STEP_ACTIVE   | set when task is running                  |
+        +---------------+-------------------------------------------+
+        | STEP_SUCCESS  | set when task is successful               |
+        +---------------+-------------------------------------------+
+        | STEP_FAILURE  | set when task fails                       |
+        +---------------+-------------------------------------------+
+        | STEP_COMPLETE | stands for success or failure of task     |
+        +---------------+-------------------------------------------+
 
     *acquires*: list of tuples of resource pool and amount of resources to acquire before starting.
 
@@ -295,17 +297,17 @@ Args
 
     *recovery*: mapping of state status to how step should be handled in recovery:
 
-        +----------------------+------------------+------------------------------------------------------+
-        | status               | default          | description                                          |
-        +======================+==================+======================================================+
-        | StateStatus.ready    | StepReplay.rerun | if in recovery and previous status is ready, rerun   |
-        +----------------------+------------------+------------------------------------------------------+
-        | StateStatus.active   | StepReplay.rerun | if in recovery and previous status is active, rerun  |
-        +----------------------+------------------+------------------------------------------------------+
-        | StateStatus.failure  | StepReplay.rerun | if in recovery and previous status is failure, rerun |
-        +----------------------+------------------+------------------------------------------------------+
-        | StateStatus.success  | StepReplay.skip  | if in recovery and previous status is success, skip  |
-        +----------------------+------------------+------------------------------------------------------+
+        +---------------+------------------+------------------------------------------------------+
+        | status        | default          | description                                          |
+        +===============+==================+======================================================+
+        | STEP_READY    | StepReplay.rerun | if in recovery and previous status is ready, rerun   |
+        +---------------+------------------+------------------------------------------------------+
+        | STEP_ACTIVE   | StepReplay.rerun | if in recovery and previous status is active, rerun  |
+        +---------------+------------------+------------------------------------------------------+
+        | STEP_FAILURE  | StepReplay.rerun | if in recovery and previous status is failure, rerun |
+        +---------------+------------------+------------------------------------------------------+
+        | STEP_SUCCESS  | StepReplay.skip  | if in recovery and previous status is success, skip  |
+        +---------------+------------------+------------------------------------------------------+
 
     *config*: keywords mapping overrides for step configuration.
 
@@ -446,12 +448,12 @@ Recovery Example
             return y
 
 
-        def divide(x,y):
+        def divide(x, y):
             z = x/y
             logger.info("dividing %s by %s is %s" % (x, y, z))
             return z
 
-        def build_flow(run_mode=evr.RunMode.restart, param=9):
+        def build_flow(run_mode=evr.RUN_RESTART, param=9):
             ev = evr.Eventor(run_mode=run_mode,)
 
             ev1s = ev.add_event('run_step1')
@@ -461,10 +463,11 @@ Recovery Example
             ev3s = ev.add_event('run_step3', expr=(ev1d, ev2d))
 
             s1 = ev.add_step('s1', func=square, kwargs={'x': 3},
-                           triggers={evr.StepStatus.success: (ev1d, ev2s,)},)
-            s2 = ev.add_step('s2', square_root, kwargs={'x': param}, triggers={evr.StepStatus.success: (ev2d,), },
-                           recovery={evr.StepStatus.failure: evr.StepReplay.rerun,
-                                     evr.StepStatus.success: evr.StepReplay.skip})
+                           triggers={evr.STEP_SUCCESS: (ev1d, ev2s,)},)
+            s2 = ev.add_step('s2', square_root, kwargs={'x': param},
+                             triggers={evr.STEP_SUCCESS: (ev2d,), },
+                             recovery={evr.STEP_FAILURE: evr.STEP_RERUN,
+                                       evr.STEP_SUCCESS: evr.STEP_SKIP})
             s3 = ev.add_step('s3', divide, kwargs={'x': 9, 'y': 3},)
 
             ev.add_assoc(ev1s, s1)
@@ -481,7 +484,7 @@ Recovery Example
             ev.close()
 
             # rerun in recovery
-            ev = build_eventor(evr.RunMode.recover, param=9)
+            ev = build_eventor(evr.RUN_RECOVER, param=9)
             ev.run()
             ev.close()
 
@@ -527,7 +530,7 @@ Example Output
 Example Highlights
 ------------------
 
-    The function *build_flow* (code line 24) build an eventor flow using three functions defined in advance.
+    The function *build_flow* (code line 24) build an Eventor flow using three functions defined in advance.
     Since no specific store is provided in Eventor instantiation, a default runner store is assigned (code line 25).
     In this build, step *s2* (lines 30-35) is being set with recovery directives.
 
@@ -579,8 +582,8 @@ Delay Example
             ev2s = ev.add_event('run_step2')
             ev3s = ev.add_event('run_step3')
 
-            s1 = ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),})
-            s2 = ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
+            s1 = ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.STEP_SUCCESS: (ev2s,),})
+            s2 = ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.STEP_SUCCESS: (ev3s,), })
             s3 = ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
 
             ev.add_assoc(ev1s, s1, delay=0)
@@ -592,7 +595,7 @@ Delay Example
 
 
         def construct_and_run():
-            ev = build_flow(run_mode=evr.RunMode.restart)
+            ev = build_flow(run_mode=evr.RUN_RESTART)
             ev.run(max_loops=1)
             ev.close()
 
@@ -605,7 +608,7 @@ Delay Example
                 loop += 1
                 delay = 5 if loop % 4 != 0 else 15
                 time.sleep(delay)
-                ev = build_flow(run_mode=evr.RunMode.continue_)
+                ev = build_flow(run_mode=evr.RUN_CONTINUE)
                 ev.run(max_loops=1)
                 ev.close()
 

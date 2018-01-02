@@ -28,7 +28,7 @@ About
 :moduleauthor: Arnon Sela
 :date:         Oct 18, 2016
 :description:  use gradior dependencies and recovery
-   
+
 Outputs:
 -------------------
 N/A
@@ -36,7 +36,7 @@ N/A
 Dependencies:
 -------------------
 N/A
-      
+
 **History:**
 -------------------
 
@@ -53,32 +53,33 @@ API DOC:
 import eventor as evr
 import logging
 import os
-
-
-logger=logging.getLogger(__file__)
-
 import eventor_examples.run_types as rtypes
 
-def construct_and_run(): 
-    #db = 'sqfile00'
+logger = logging.getLogger(__file__)
+
+
+def construct_and_run():
+    # db = 'sqfile00'
     db = 'pgdb2'
-    config=os.path.abspath('runly.conf')
+    config = os.path.abspath('runly.conf')
     # because OSX adds /var -> /private/var
     if config.startswith('/private'):
         config = config[8:]
     # TODO: assume import_module is __file__ if not provided
-    ev = evr.Eventor(name=os.path.basename(__file__), config=config, store=db,) 
-    
+    ev = evr.Eventor(name=os.path.basename(__file__), config=config, store=db)
+
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')
     ev3s = ev.add_event('run_step3')
-    
+
     host = 'ubuntud01_eventor'
-    #host = 'ubuntud01'
-    s1 = ev.add_step('s1', func=rtypes.prog, kwargs={'progname': 'prog1',}, triggers={evr.StepStatus.success: (ev2s,),}) 
-    s2 = ev.add_step('s2', func=rtypes.prog, kwargs={'progname': 'prog2',}, host=host, triggers={evr.StepStatus.success: (ev3s,), })
-    s3 = ev.add_step('s3', func=rtypes.prog, kwargs={'progname': 'prog3',},)
-    
+    # host = 'ubuntud01'
+    s1 = ev.add_step('s1', func=rtypes.prog, kwargs={'progname': 'prog1'},
+                     triggers={evr.STEP_SUCCESS: (ev2s,)})
+    s2 = ev.add_step('s2', func=rtypes.prog, kwargs={'progname': 'prog2'}, host=host,
+                     triggers={evr.STEP_SUCCESS: (ev3s,)})
+    s3 = ev.add_step('s3', func=rtypes.prog, kwargs={'progname': 'prog3'})
+
     ev.add_assoc(ev1s, s1)
     ev.add_assoc(ev2s, s2)
     ev.add_assoc(ev3s, s3)
@@ -86,10 +87,10 @@ def construct_and_run():
     ev.trigger_event(ev1s, '1')
     ev.run()
     ev.close()
-    
+
+
 if __name__ == '__main__':
     import multiprocessing as mp
     mp.freeze_support()
     mp.set_start_method('spawn')
     construct_and_run()
-

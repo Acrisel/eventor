@@ -57,8 +57,14 @@ logger = logging.getLogger(__name__)
 
 logger.setLevel(logging.INFO)
 
-ev = evr.Eventor(run_mode=evr.RunMode.restart, config={'EVENTOR': {'shared_db': False, 'LOGGING': {'logging_level': logging.DEBUG}}}, config_tag='EVENTOR')
-#ev = evr.Eventor(run_mode=evr.EVR_RESTART, config={'shared_db': True, 'LOGGING': {'logging_level': logging.INFO}})
+ev = evr.Eventor(run_mode=evr.EVR_RESTART,
+                 config_tag='EVENTOR',
+                 config={'EVENTOR':
+                         {'shared_db': False,
+                          'LOGGING':
+                          {'logging_level': logging.DEBUG}}})
+
+# ev = evr.Eventor(run_mode=evr.EVR_RESTART, config={'shared_db': True, 'LOGGING': {'logging_level': logging.INFO}})
 
 ev1s = ev.add_event('run_step1')
 ev1d = ev.add_event('done_step1')
@@ -67,10 +73,10 @@ ev2d = ev.add_event('done_step2')
 ev3s = ev.add_event('run_step3', expr=(ev1d, ev2d))
 
 s1 = ev.add_step('s1', func=prog.step1_create_data, kwargs={'outfile': 'source.txt'},
-                 triggers={evr.STP_COMPLETE: (ev1d, ev2s,)},
-                 recovery={evr.STP_FAILURE: evr.STP_RERUN,
-                           evr.STP_SUCCESS: evr.STP_SKIP})
-s2 = ev.add_step('s2', prog.step2_multiple_data, triggers={evr.STP_COMPLETE: (ev2d, ), })
+                 triggers={evr.STEP_COMPLETE: (ev1d, ev2s,)},
+                 recovery={evr.STEP_FAILURE: evr.STEP_RERUN,
+                           evr.STEP_SUCCESS: evr.STEP_SKIP})
+s2 = ev.add_step('s2', prog.step2_multiple_data, triggers={evr.STEP_COMPLETE: (ev2d, ), })
 s3 = ev.add_step('s3', prog.step3,)
 
 ev.add_assoc(ev1s, s1)

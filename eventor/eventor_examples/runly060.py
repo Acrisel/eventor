@@ -28,7 +28,7 @@ About
 :moduleauthor: Arnon Sela
 :date:         Oct 18, 2016
 :description:  use gradior dependencies and recovery
-   
+
 Outputs:
 -------------------
 N/A
@@ -36,7 +36,7 @@ N/A
 Dependencies:
 -------------------
 N/A
-      
+
 **History:**
 -------------------
 
@@ -47,7 +47,7 @@ N/A
 
 
 API DOC:
-===============     
+===============
 """
 
 import eventor as evr
@@ -55,27 +55,37 @@ import logging
 import os
 from acris import virtual_resource_pool as vrp
 
-logger=logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
-class StepResource(vrp.Resource): pass
+
+class StepResource(vrp.Resource):
+    pass
+
 
 def prog(progname):
     logger.info("doing what %s is doing" % progname)
     logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
     return progname
 
-rp1=vrp.ResourcePool('rp1', resource_cls=StepResource, policy={'resource_limit': 2, }).load()
 
-#ev=evr.Eventor(store=':memory:', logging_level=logging.INFO)
-ev=evr.Eventor(logging_level=logging.DEBUG)
+rp1 = vrp.ResourcePool('rp1', resource_cls=StepResource, policy={'resource_limit': 2, }).load()
 
-ev1s=ev.add_event('run_step1')
-ev2s=ev.add_event('run_step2')
-ev3s=ev.add_event('run_step3')
+# ev=evr.Eventor(store=':memory:', logging_level=logging.INFO)
+config = os.path.abspath('runly.conf')
+ev = evr.Eventor(name=os.path.basename(__file__), config=config)
 
-s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}, acquires=[(rp1, 1),]) 
-s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), }, acquires=[(rp1, 1),])
-s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'}, acquires=[(rp1, 1),])
+ev1s = ev.add_event('run_step1')
+ev2s = ev.add_event('run_step2')
+ev3s = ev.add_event('run_step3')
+
+s1 = ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'},
+                 triggers={evr.STEP_SUCCESS: (ev2s,)},
+                 acquires=[(rp1, 1)])
+s2 = ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'},
+                 triggers={evr.STEP_SUCCESS: (ev3s,)},
+                 acquires=[(rp1, 1)])
+s3 = ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},
+                 acquires=[(rp1, 1)])
 
 ev.add_assoc(ev1s, s1)
 ev.add_assoc(ev2s, s2)

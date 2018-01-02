@@ -28,7 +28,7 @@ About
 :moduleauthor: Arnon Sela
 :date:         Oct 18, 2016
 :description:  use gradior dependencies and recovery
-   
+
 Outputs:
 -------------------
 N/A
@@ -36,7 +36,7 @@ N/A
 Dependencies:
 -------------------
 N/A
-      
+
 **History:**
 -------------------
 
@@ -47,17 +47,16 @@ N/A
 
 
 API DOC:
-===============     
+===============
 """
 
 import eventor as evr
 import logging
 import os
 import time
-
-logger=logging.getLogger(__name__)
-
 import eventor_examples.run_types as rtypes
+
+logger = logging.getLogger(__name__)
 
 '''
 def prog(progname):
@@ -66,47 +65,51 @@ def prog(progname):
     return progname
 '''
 
+
 def build_flow(run_mode):
-    ev = evr.Eventor(name=os.path.basename(__file__), run_mode=run_mode, logging_level=logging.DEBUG,)
-    
+    config = os.path.abspath('runly.conf')
+    ev = evr.Eventor(name=os.path.basename(__file__), config=config,)
+
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')
     ev3s = ev.add_event('run_step3')
-    
-    s1 = ev.add_step('s1', func=rtypes.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
-    s2 = ev.add_step('s2', func=rtypes.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), }, )
+
+    s1 = ev.add_step('s1', func=rtypes.prog, kwargs={'progname': 'prog1'},
+                     triggers={evr.STEP_SUCCESS: (ev2s,)})
+    s2 = ev.add_step('s2', func=rtypes.prog, kwargs={'progname': 'prog2'},
+                     triggers={evr.STEP_SUCCESS: (ev3s,)}, )
     s3 = ev.add_step('s3', func=rtypes.prog, kwargs={'progname': 'prog3'},)
-    
+
     ev.add_assoc(ev1s, s1, delay=0)
     ev.add_assoc(ev2s, s2, delay=10)
     ev.add_assoc(ev3s, s3, delay=10)
-    
+
     ev.trigger_event(ev1s, 1)
     return ev
 
 
 def construct_and_run_in_steps():
-    ev = build_flow(run_mode=evr.RunMode.restart)
+    ev = build_flow(run_mode=evr.RUN_RESTART)
     ev.run(max_loops=1)
     ev.close()
-    
+
     for loop in range(4):
-        delay = 5 if loop in [1,2] else 15
+        delay = 5 if loop in [1, 2] else 15
         time.sleep(delay)
-        ev = build_flow(run_mode=evr.RunMode.continue_)
+        ev = build_flow(run_mode=evr.RUN_CONTINUE)
         result = ev.run(max_loops=1)
         ev.close()
         print('Result: %s' % result)
+
 
 def construct_and_run():
     ev = build_flow(run_mode=evr.RunMode.restart)
     result = ev.run()
     print('Result: %s' % result)
 
+
 if __name__ == '__main__':
     import multiprocessing as mp
     mp.freeze_support()
     mp.set_start_method('spawn')
     construct_and_run()
-
-

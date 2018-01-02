@@ -59,11 +59,11 @@ class StepReplay(Enum):
     skip = 2
 
 
-class RunMode(Enum): 
+class RunMode(Enum):
     restart = 1
     recover = 2
-    continue_ = 3 
-    replay = 4
+    continue_ = 3
+    # replay = 4
 
 
 class DbMode(Enum):
@@ -96,10 +96,10 @@ class Invoke(object):
         self.is_alive_flag = False
         return result
 
-    #@threaded
+    # @threaded
     def join(self, timeout=None):
         return
 
-    #@threaded
+    # @threaded
     def is_alive(self):
         return self.is_alive_flag

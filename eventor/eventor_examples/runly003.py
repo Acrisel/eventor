@@ -55,7 +55,8 @@ import logging
 import os
 import time
 
-logger=logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+
 
 def prog(progname):
     logger.info("doing what %s is doing" % progname)
@@ -63,17 +64,19 @@ def prog(progname):
     time.sleep(30)
     return progname
 
+
 config = os.path.abspath('runly.conf')
-super().__init__(name=__class__.__name__, config=config, store='pgdb2',)
-ev=evr.Eventor(logging_level=logging.INFO)
+ev = evr.Eventor(config=config)
 
-ev1s=ev.add_event('run_step1')
-ev2s=ev.add_event('run_step2')
-ev3s=ev.add_event('run_step3')
+ev1s = ev.add_event('run_step1')
+ev2s = ev.add_event('run_step2')
+ev3s = ev.add_event('run_step3')
 
-s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
-s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
-s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
+s1 = ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'},
+                 triggers={evr.STEP_SUCCESS: (ev2s,)})
+s2 = ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'},
+                 triggers={evr.STEP_SUCCESS: (ev3s,)})
+s3 = ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
 
 ev.add_assoc(ev1s, s1)
 ev.add_assoc(ev2s, s2)

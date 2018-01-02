@@ -31,11 +31,14 @@ def find_meta(meta, file, error=True):
     except Exception as err:
         raise RuntimeError("Failed to read file") from err
 
-    sbase = (r"^__{meta}__[ ]*=[ ]*(({sq}(?P<text1>(.*\n*)*?){sq})|"
+    tbase = (r"^__{meta}__[ ]*=[ ]*(({sq}(?P<text1>(.*\n*)*?){sq})|"
              "({dq}(?P<text2>(.*\n*)*?){dq}))")
 
-    tripple = sbase.format(meta=meta, sq="'''", dq='"""')
-    re_meta_tripple = re.compile(tripple, re.M)
+    sbase = (r"^__{meta}__[ ]*=[ ]*(({sq}(?P<text1>([^\n])*?){sq})|"
+             "({dq}(?P<text2>([^\n])*?){dq}))")
+
+    triple = tbase.format(meta=meta, sq="'''", dq='"""')
+    re_meta_tripple = re.compile(triple, re.M)
     single = sbase.format(meta=meta, sq="'", dq='"')
     re_meta_single = re.compile(single, re.M)
     try:
@@ -43,6 +46,8 @@ def find_meta(meta, file, error=True):
     except Exception:
         meta_match = None
 
+    # This is separated from exception since search may
+    # result with None.
     if meta_match is None:
         try:
             meta_match = re_meta_single.search(text)
@@ -59,7 +64,7 @@ def find_meta(meta, file, error=True):
                            .format(meta=meta, file=file))
 
 
-def read_meta_or_file(meta, metafile=None, metahost=None, ):
+def read_meta_or_file(meta, metafile=None, metahost=None, error=True):
     ''' reads meta tag or file for text information.
 
     if meta exists, return it.  If not, and file exists,
@@ -75,6 +80,7 @@ def read_meta_or_file(meta, metafile=None, metahost=None, ):
     Returns:
         string of text found.
     '''
+    text = None
     if metahost:
         text = find_meta(meta, file=metahost, error=False)
         if text:
@@ -107,8 +113,14 @@ def read_meta_or_file(meta, metafile=None, metahost=None, ):
         metafile = os.path.join(folder, options[0])
 
     if metafile:
-        text = read(metafile)
+        if metafile.endswith('.py'):
+            text = find_meta(meta, file=metafile, error=False)
+        else:
+            text = read(metafile)
 
+    if not text and error:
+        raise RuntimeError("Provided meta not found or empty: {}"
+                           .format(meta))
     return text
 
 
@@ -192,6 +204,15 @@ def find_packages(location):
 
 def metahost(package):
     return os.path.join(package, '__init__.py')
+
+
+def metafile(package, meta):
+    metafile = os.path.join(package, '{}.py'.format(meta.upper()))
+    if not os.path.isfile(metafile):
+        metafile = os.path.join(package, '{}.py'.format(meta.lower()))
+        if not os.path.isfile(metafile):
+            metafile = None
+    return metafile
 
 
 def isexe(fpath):

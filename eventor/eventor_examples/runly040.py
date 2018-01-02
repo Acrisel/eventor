@@ -23,61 +23,69 @@
 import eventor as evr
 import logging
 import collections
-import threading
 
-logger=logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+
 
 class IterGen(object):
-    def __init__(self, l):
-        self.l=l
-        
+    def __init__(self, level):
+        self.level = level
+
     def __call__(self):
-        return (x for x in self.l)
+        return (x for x in self.level)
+
 
 def prog(progname):
     logger.info("doing what %s is doing" % progname)
     return progname
 
+
 class MetaProg(object):
-    def __init__(self, ev, progname, loop=[1,], triggers=()):
-        self.ev=ev
-        self.progname=progname
-        self.triggers=triggers
+    def __init__(self, ev, progname, loop=[1], triggers=()):
+        self.ev = ev
+        self.progname = progname
+        self.triggers = triggers
         if isinstance(loop, collections.Iterable):
-            loop=IterGen(loop)
-        self.loop=loop
-        self.loop_index=0
-        
-    def __call__(self, initial=False): 
+            loop = IterGen(loop)
+        self.loop = loop
+        self.loop_index = 0
+
+    def __call__(self, initial=False):
         if initial:
-            self.iter=self.loop()
-            
+            self.iter = self.loop()
+
         try:
-            item=next(self.iter)
+            item = next(self.iter)
         except StopIteration:
-            item=None
+            item = None
         if item:
-            self.loop_index+=1
+            self.loop_index += 1
             for trigger in self.triggers:
                 ev.remote_trigger_event(trigger, self.loop_index,)
         return True
-        
 
-ev=evr.Eventor( logging_level=logging.DEBUG) # store=':memory:',
 
-ev0first=ev.add_event('run_s0first')
-ev0next=ev.add_event('run_s0next')
-ev1s=ev.add_event('run_s1')
-ev2s=ev.add_event('run_s2')
-ev3s=ev.add_event('run_s3')
+ev = evr.Eventor(config={'EVENTOR': {'shared_db': True,
+                                     'LOGGING': {'logging_level': logging.DEBUG}}})
 
-metaprog=MetaProg(ev=ev, progname='', loop=[1,2,], triggers=(ev1s,))
-s0first=ev.add_step('s0first', func=metaprog, kwargs={'initial': True}, config={'task_construct': evr.Invoke})
-s0next=ev.add_step('s0next', func=metaprog, config={'task_construct': evr.Invoke})
+ev0first = ev.add_event('run_s0first')
+ev0next = ev.add_event('run_s0next')
+ev1s = ev.add_event('run_s1')
+ev2s = ev.add_event('run_s2')
+ev3s = ev.add_event('run_s3')
 
-s1=ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,),}) 
-s2=ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,), })
-s3=ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.success: (ev0next,), })
+metaprog = MetaProg(ev=ev, progname='', loop=[1, 2], triggers=(ev1s, ))
+s0first = ev.add_step('s0first', func=metaprog, kwargs={'initial': True},
+                      config={'task_construct': evr.Invoke})
+s0next = ev.add_step('s0next', func=metaprog,
+                     config={'task_construct': evr.Invoke})
+
+s1 = ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'},
+                 triggers={evr.STEP_SUCCESS: (ev2s, )})
+s2 = ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'},
+                 triggers={evr.STEP_SUCCESS: (ev3s, )})
+s3 = ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},
+                 triggers={evr.STEP_SUCCESS: (ev0next, )})
 
 ev.add_assoc(ev0first, s0first)
 ev.add_assoc(ev0next, s0next)
