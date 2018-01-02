@@ -57,14 +57,14 @@ logger = logging.getLogger(__name__)
 
 logger.setLevel(logging.INFO)
 
-ev = evr.Eventor(run_mode=evr.EVR_RESTART,
+ev = evr.Eventor(run_mode=evr.RUN_RESTART,
                  config_tag='EVENTOR',
                  config={'EVENTOR':
                          {'shared_db': False,
                           'LOGGING':
                           {'logging_level': logging.DEBUG}}})
 
-# ev = evr.Eventor(run_mode=evr.EVR_RESTART, config={'shared_db': True, 'LOGGING': {'logging_level': logging.INFO}})
+# ev = evr.Eventor(run_mode=evr.RUN_RESTART, config={'shared_db': True, 'LOGGING': {'logging_level': logging.INFO}})
 
 ev1s = ev.add_event('run_step1')
 ev1d = ev.add_event('done_step1')

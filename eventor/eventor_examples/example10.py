@@ -35,7 +35,7 @@ def build_flow(run_mode, run_id=None):
 
 
 def construct_and_run():
-    ev = build_flow(run_mode=evr.EVR_RESTART)
+    ev = build_flow(run_mode=evr.RUN_RESTART)
     run_id = ev.run_id
     ev.run(max_loops=1)
     ev.close()
@@ -49,7 +49,7 @@ def construct_and_run():
         loop += 1
         delay = 5 if loop % 4 != 0 else 15
         time.sleep(delay)
-        ev = build_flow(run_mode=evr.EVR_CONTINUE, run_id=run_id)
+        ev = build_flow(run_mode=evr.RUN_CONTINUE, run_id=run_id)
         ev.run(max_loops=1)
         ev.close()
 

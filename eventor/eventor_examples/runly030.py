@@ -49,7 +49,7 @@ def divide(x, y):
     return z
 
 
-def build_flow(run_mode=evr.EVR_RESTART, run_id=None, param=9):
+def build_flow(run_mode=evr.RUN_RESTART, run_id=None, param=9):
     global logger
     ev = evr.Eventor(run_mode=run_mode, run_id=run_id,
                      config={'EVENTOR': {'shared_db': True,
