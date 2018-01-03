@@ -149,8 +149,8 @@ class DbApi(object):
                 if not self.shared_db:
                     mlogger.debug("DBAPI: Not in shared_db mode: dropping before creating"
                                   " schema %s." % (schema))
-                    metadata.bind.execute("DROP SCHEMA IF EXISTS %s CASCADE." % schema)
-                metadata.bind.execute("CREATE SCHEMA IF NOT EXISTS %s." % schema)
+                    metadata.bind.execute("DROP SCHEMA IF EXISTS %s CASCADE" % schema)
+                metadata.bind.execute("CREATE SCHEMA IF NOT EXISTS %s" % schema)
         '''
         elif self.__sqlalchemy.dbconf['dialect'] == 'sqlite':
             # in this case we need to remove database

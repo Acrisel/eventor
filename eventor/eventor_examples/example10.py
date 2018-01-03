@@ -10,7 +10,6 @@ import time
 import eventor_examples.run_types as eprog
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 def build_flow(run_mode, run_id=None):
@@ -27,8 +26,8 @@ def build_flow(run_mode, run_id=None):
     s3 = ev.add_step('s3', func=eprog.prog, kwargs={'progname': 'prog3'},)
 
     ev.add_assoc(ev1s, s1, delay=0)
-    ev.add_assoc(ev2s, s2, delay=10)
-    ev.add_assoc(ev3s, s3, delay=10)
+    ev.add_assoc(ev2s, s2, delay=5)
+    ev.add_assoc(ev3s, s3, delay=5)
 
     ev.trigger_event(ev1s, 1)
     return ev
@@ -55,7 +54,4 @@ def construct_and_run():
 
 
 if __name__ == '__main__':
-    import multiprocessing as mp
-    mp.freeze_support()
-    mp.set_start_method('spawn')
     construct_and_run()

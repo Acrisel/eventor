@@ -68,6 +68,7 @@ def construct_and_run():
     db = 'pgdb2'
     config = os.path.abspath('runly.conf')
     ev = evr.Eventor(name=os.path.basename(__file__),
+                     config_tag='EVENTOR',
                      config=config, store=db, import_module=__file__)
 
     ev1s = ev.add_event('run_step1')
@@ -90,7 +91,4 @@ def construct_and_run():
 
 
 if __name__ == '__main__':
-    import multiprocessing as mp
-    mp.freeze_support()
-    mp.set_start_method('spawn')
     construct_and_run()

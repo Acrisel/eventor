@@ -56,9 +56,6 @@ Simple Example
 
 
         if __name__ == '__main__':
-            import multiprocessing as mp
-            mp.freeze_support()
-            mp.set_start_method('spawn')
             construct_and_run()
 
 Example Output
@@ -453,8 +450,8 @@ Recovery Example
             logger.info("dividing %s by %s is %s" % (x, y, z))
             return z
 
-        def build_flow(run_mode=evr.RUN_RESTART, param=9):
-            ev = evr.Eventor(run_mode=run_mode,)
+        def build_flow(run_mode=evr.RUN_RESTART, param=9, run_id=None):
+            ev = evr.Eventor(run_mode=run_mode, run_id=run_id)
 
             ev1s = ev.add_event('run_step1')
             ev1d = ev.add_event('done_step1')
@@ -480,19 +477,17 @@ Recovery Example
         def construct_and_run():
             # start regularly; it would fail in step 2
             ev = build_eventor(param=-9)
+            run_id = ev.run_id
             ev.run()
             ev.close()
 
             # rerun in recovery
-            ev = build_eventor(evr.RUN_RECOVER, param=9)
+            ev = build_eventor(evr.RUN_RECOVER, param=9, run_id=run_id)
             ev.run()
             ev.close()
 
 
         if __name__ == '__main__':
-            import multiprocessing as mp
-            mp.freeze_support()
-            mp.set_start_method('spawn')
             construct_and_run()
 
 Example Output
@@ -565,15 +560,15 @@ Delay Example
         import logging
         import os
         import time
-        from acrilib import LoggerAddHostFilter
 
         logger = logging.getLogger(__name__)
-        logger.addFilter(LoggerAddHostFilter())
+
 
         def prog(progname):
             logger.info("doing what %s is doing" % progname)
             logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
             return progname
+            
 
         def build_flow(run_mode):
             ev = evr.Eventor(run_mode=run_mode,)
@@ -582,8 +577,8 @@ Delay Example
             ev2s = ev.add_event('run_step2')
             ev3s = ev.add_event('run_step3')
 
-            s1 = ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.STEP_SUCCESS: (ev2s,),})
-            s2 = ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.STEP_SUCCESS: (ev3s,), })
+            s1 = ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.STEP_SUCCESS: (ev2s,)})
+            s2 = ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.STEP_SUCCESS: (ev3s,)})
             s3 = ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
 
             ev.add_assoc(ev1s, s1, delay=0)
@@ -596,27 +591,10 @@ Delay Example
 
         def construct_and_run():
             ev = build_flow(run_mode=evr.RUN_RESTART)
-            ev.run(max_loops=1)
+            ev.run()
             ev.close()
 
-            loop = 0
-            while True:
-                total_todos, _ = ev.count_todos()
-                if total_todos == 0:
-                    break
-
-                loop += 1
-                delay = 5 if loop % 4 != 0 else 15
-                time.sleep(delay)
-                ev = build_flow(run_mode=evr.RUN_CONTINUE)
-                ev.run(max_loops=1)
-                ev.close()
-
-
         if __name__ == '__main__':
-            import multiprocessing as mp
-            mp.freeze_support()
-            mp.set_start_method('spawn')
             construct_and_run()
 
 Example Output
@@ -629,14 +607,10 @@ Example Output
         [ 2017-08-16,16:31:29.277903 ][ Task-s1(1)  ][ INFO    ][ doing what prog1 is doing ]
         [ 2017-08-16,16:31:29.278114 ][ Task-s1(1)  ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]
         [ 2017-08-16,16:31:29.278360 ][ Task-s1(1)  ][ INFO    ][ [ Step s1/1 ] Completed, status: TaskStatus.success ]
-        [ 2017-08-16,16:31:29.500688 ][ MainProcess ][ INFO    ][ Processing finished with: success; outstanding tasks: 1 ]
-        [ 2017-08-16,16:31:35.074012 ][ MainProcess ][ INFO    ][ Processing finished with: success; outstanding tasks: 1 ]
         [ 2017-08-16,16:31:41.028196 ][ Task-s2(1)  ][ INFO    ][ [ Step s2/1 ] Trying to run ]
         [ 2017-08-16,16:31:41.029191 ][ Task-s2(1)  ][ INFO    ][ doing what prog2 is doing ]
         [ 2017-08-16,16:31:41.029429 ][ Task-s2(1)  ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]
         [ 2017-08-16,16:31:41.029697 ][ Task-s2(1)  ][ INFO    ][ [ Step s2/1 ] Completed, status: TaskStatus.success ]
-        [ 2017-08-16,16:31:41.240564 ][ MainProcess ][ INFO    ][ Processing finished with: success; outstanding tasks: 1 ]
-        [ 2017-08-16,16:31:46.989434 ][ MainProcess ][ INFO    ][ Processing finished with: success; outstanding tasks: 1 ]
         [ 2017-08-16,16:32:02.931265 ][ Task-s3(1)  ][ INFO    ][ [ Step s3/1 ] Trying to run ]
         [ 2017-08-16,16:32:02.932407 ][ Task-s3(1)  ][ INFO    ][ doing what prog3 is doing ]
         [ 2017-08-16,16:32:02.932661 ][ Task-s3(1)  ][ INFO    ][ EVENTOR_STEP_SEQUENCE: 1 ]

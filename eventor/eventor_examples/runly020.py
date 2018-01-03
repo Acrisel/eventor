@@ -53,7 +53,7 @@ import eventor as evr
 import logging
 import eventor_examples.program as prog
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 ev = evr.Eventor(run_mode=evr.RUN_RESTART,
                  config_tag='EVENTOR',

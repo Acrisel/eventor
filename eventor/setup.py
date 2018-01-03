@@ -91,7 +91,7 @@ if "install" in sys.argv:
             overlay_warning = True
             break
 
-scripts=['eventor/eventor_agent.py',]
+scripts = ['eventor/eventor_agent.py',]
 
 setup_info={'name': NAME,
  'version': VERSION,
@@ -108,7 +108,7 @@ setup_info={'name': NAME,
      'SQLAlchemy>=1.1.5',
      'acrilib>=1.0.2',
      'acris>=2.0.2',
-     'acrilog>=1.1.4',
+     'acrilog>=2.0.11',
      'setproctitle>=1.1',
      'pyyaml>=3.12',
      'namedlist>=1.7',

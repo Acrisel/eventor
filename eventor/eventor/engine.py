@@ -220,7 +220,7 @@ class Eventor(object):
         'remote_method': 'ssh',
         'pass_logger_to_task': False,
         # TODO: (arnon) need to solve dbapi overide of logging when using shared_db False
-        'shared_db': True,  # False,
+        'shared_db': False,
         'ssh_config': os.path.expanduser('~/.ssh/config'),
         'ssh_host': get_hostname(),
         'ssh_port': 22,
@@ -418,6 +418,7 @@ class Eventor(object):
         # self.shared_db = True
 
         self.run_id = run_id if run_id is not None else ''
+        assert isinstance(self.run_id, str), "run_id must be string; but found {}.".format(type(run_id).__name__)
         if self.shared_db and not self.run_id:
             if run_mode != RunMode.restart:
                 raise EventorError("When shared_db is set in restart, run_id must be provided.")

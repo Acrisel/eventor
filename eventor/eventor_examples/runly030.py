@@ -52,7 +52,7 @@ def divide(x, y):
 def build_flow(run_mode=evr.RUN_RESTART, run_id=None, param=9):
     global logger
     ev = evr.Eventor(run_mode=run_mode, run_id=run_id,
-                     config={'EVENTOR': {'shared_db': True,
+                     config={'EVENTOR': {'shared_db': False,
                                          'LOGGING': {'logging_level': logging.DEBUG}}})
     print('Building param: %s' % (param, ))
 
