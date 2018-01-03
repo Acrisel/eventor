@@ -1,4 +1,4 @@
-__version__ = '5.1.0'
+__version__ = '5.1.1'
 __db_version__ = '1.0.0'
 
 from eventor.engine import Eventor, get_unique_run_id

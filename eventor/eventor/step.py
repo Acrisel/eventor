@@ -5,13 +5,11 @@ Created on Oct 19, 2016
 '''
 import logging
 import pprint
-
 from eventor.eventor_types import EventorError, TaskStatus
-#from .utils import decorate_all, print_method_name
 
-module_logger = logging.getLogger(__name__)
+mlogger = logging.getLogger(__name__)
 
-#class Step(metaclass=decorate_all(print_method_name)):
+
 class Step(object):
     """A step in steps structure.
 
@@ -22,24 +20,24 @@ class Step(object):
         step can also return gradior.failed or gradior.active.
 
         If step generate exception, it is considered gradior.FAILED. The exception is
-        also registered and could be referenced.   
+        also registered and could be referenced.
     """
 
-    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, host=[], triggers={}, acquires=None, releases=None, recovery={}, config={},):
+    def __init__(self, name=None, func=None, func_args=[], func_kwargs={}, host=[], triggers={}, acquires=None, releases=None, recovery={}, config={}, logger=None):
         '''
         Constructor
         '''
-        global module_logger
+        global mlogger
 
         self.name = name
-        self.id_ = name #get_step_id()
+        self.id_ = name  # get_step_id()
         self.func = func
         self.func_args = func_args
         self.func_kwargs = func_kwargs
         self.triggers = triggers
         self.recovery = recovery
         self.config = config
-        #self.pass_sequence=pass_sequence
+        # self.pass_sequence=pass_sequence
         self.concurrent = 0
         self.acquires = acquires
         self.releases = releases if releases is not None else acquires
@@ -50,9 +48,9 @@ class Step(object):
 
         self.path = None
         self.iter_path = None
-        #if logger is not None:
-        #    module_logger = logger
-        
+        if logger is not None:
+            mlogger = logger
+
     def __repr__(self):
         if hasattr(self.func, '__name__'):
             fname = self.func.__name__
@@ -60,10 +58,13 @@ class Step(object):
             fname = self.func.__class__.__name__
 
         str_args = ", ".join([repr(arg) for arg in self.func_args])
-        if str_args: str_args += ', ' 
-        str_kwargs = ", ".join(["%s=%s" % (name, repr(value)) for name, value in  self.func_kwargs.items() if name != 'eventor'])
+        if str_args:
+            str_args += ', '
+        str_kwargs = ", ".join(["%s=%s" % (name, repr(value))
+                                for name, value in self.func_kwargs.items()
+                                if name != 'eventor'])
 
-        #triggers=', '.join([pprint.pformat(t) for t in self.triggers])
+        # triggers=', '.join([pprint.pformat(t) for t in self.triggers])
         triggers = pprint.pformat(self.triggers)
         return "Step( name({}), func( {}({}{}) ), triggers({}))".format(self.name, fname, str_args, str_kwargs, triggers)
 
@@ -71,26 +72,28 @@ class Step(object):
         return repr(self)
 
     def _name(self, seq_path):
-        result='/'
+        result = '/'
         if self.name:
-            result="%s/%s" %(self.name, seq_path)
+            result = "%s/%s" % (self.name, seq_path)
         return result
 
     def db_write(self, db):
         db.add_step(step_id=self.id_, name=self.name)
 
     def trigger_(self, db, sequence, host):
-        module_logger.debug('[ Step {}/{} ] Adding as task to DB'.format(self.name, sequence,))
+        mlogger.debug('[ Step {}/{} ] Adding as task to DB'.format(self.name, sequence,))
         db.add_task(event_id=self.id_, sequence=sequence, host=host, status=TaskStatus.ready)
 
     def trigger_if_not_exists(self, db, sequence, status, recovery=None):
-        module_logger.debug('[ Step {}/{} ] Adding, if not already exists, as task to DB'.format(self.name, sequence,))
-        added = db.add_task_if_not_exists(step_id=self.id_, sequence=sequence, host=self.host, status=status, recovery=recovery)
+        mlogger.debug('[ Step {}/{} ] Adding, if not already exists, as task to DB'.format(self.name, sequence))
+        added = db.add_task_if_not_exists(step_id=self.id_, sequence=sequence, host=self.host,
+                                          status=status, recovery=recovery)
         return added
 
     def __call__(self, seq_path=None, loop_value=None, logger=None, eventor=None):
-        if logger is not None: module_logger = logger
-        module_logger.debug('[ Step {} ] Starting: {}'.format(self._name(seq_path), repr(self) ))
+        if logger is not None:
+            mlogger = logger
+        mlogger.debug('[ Step {} ] Starting: {}'.format(self._name(seq_path), repr(self)))
         if self.func is not None:
             func = self.func
             func_args = self.func_args
@@ -100,21 +103,24 @@ class Step(object):
                 self.func_kwargs.update({sequence_arg_name: seq_path})
             pass_logger_to_task = self.config.get('pass_logger_to_task', False)
             if pass_logger_to_task:
-                self.func_kwargs.update({'logger': module_logger})
-            #if self.config['pass_resources']:
-            #    self.func_kwargs.update({'eventor_task_resoures': resources})
-            #stop_on_exception=self.config['stop_on_exception']
+                self.func_kwargs.update({'logger': mlogger})
+            # if self.config['pass_resources']:
+            #     self.func_kwargs.update({'eventor_task_resoures': resources})
+            # stop_on_exception=self.config['stop_on_exception']
             str_args = ", ".join([repr(arg) for arg in func_args])
-            if str_args: str_args += ', ' 
-            str_kwargs = ", ".join(["{}={}".format (name, repr(value)) for name, value in  func_kwargs.items()])
+            if str_args:
+                str_args += ', '
+            str_kwargs = ", ".join(["{}={}".format(name, repr(value))
+                                    for name, value in func_kwargs.items()])
             if eventor is not None:
                 func_kwargs['eventor'] = eventor
-            name = func.__name__ if hasattr(self.func, '__name__') else func.__class__.__name__ 
-            module_logger.debug('[ Step {} ] running {}({}{}).'.format(self._name(seq_path), name,  str_args, str_kwargs))
+            name = func.__name__ if hasattr(self.func, '__name__') else func.__class__.__name__
+            mlogger.debug('[ Step {} ] running {}({}{}).'.format(self._name(seq_path), name,
+                                                                 str_args, str_kwargs))
             result = func(*func_args, **func_kwargs)
         else:
             result = True
-        #if 'eventor' in func_kwargs:
-        #    del func_kwargs['eventor']
-        module_logger.debug('[ Step {} ] Completed: {}'.format(self._name(seq_path), repr(self) ))
+        # if 'eventor' in func_kwargs:
+        #     del func_kwargs['eventor']
+        mlogger.debug('[ Step {} ] Completed: {}'.format(self._name(seq_path), repr(self)))
         return result

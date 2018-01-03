@@ -106,7 +106,7 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
 
     if setproctitle is not None and use_process:
         run_id_s = "%s." % run_id if run_id else ''
-        setproctitle("eventor: {}{}.{}({})".format(run_id_s, step.name, task.id_, task.sequence))
+        setproctitle("Eventor: {}{}.{}({})".format(run_id_s, step.name, task.id_, task.sequence))
 
     # Update task with PID
     update = TaskAdminMsg(msg_type=TaskAdminMsgType.update, value=task)
@@ -230,11 +230,11 @@ class Eventor(object):
             'datefmt': '%Y-%m-%d,%H:%M:%S.%f',
             'logging_level': logging.INFO,
             'level_formats': {
-                logging.DEBUG: ("[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ]"
-                                "[ %(levelname)-7s ][ %(message)s ]"
+                logging.DEBUG: ("[ %(asctime)-15s ][ %(levelname)-7s ][ %(host)s ]"
+                                "[ %(processName)-11s ][ %(message)s ]"
                                 "[ %(module)s.%(funcName)s(%(lineno)d) ]"),
-                'default': ("[ %(asctime)-15s ][ %(host)s ][ %(processName)-11s ]"
-                            "[ %(levelname)-7s ][ %(message)s ]"),
+                'default': ("[ %(asctime)-15s ][ %(levelname)-7s ][ %(host)s ]"
+                            "[ %(processName)-11s ][ %(message)s ]"),
                 },
             'consolidate': False,
             'console': True,
@@ -415,7 +415,7 @@ class Eventor(object):
 
         # TODO: (arnon) Issue with shared_db=False due to SQLite overide logging parameters.
         self.shared_db = self.__config.get('shared_db', False)
-        self.shared_db = True
+        # self.shared_db = True
 
         self.run_id = run_id if run_id is not None else ''
         if self.shared_db and not self.run_id:
@@ -646,7 +646,7 @@ class Eventor(object):
             if expr == event.expr:
                 return event
 
-        event = Event(name, expr=expr)
+        event = Event(name, expr=expr, logger=mlogger)
         self.__memory.events[event.id_] = event
         mlogger.debug('add_event: {}'.format(repr(event)))
         return event
@@ -724,7 +724,7 @@ class Eventor(object):
         host = host if self.hosts.get(host, host) is not None else self.host
         step = Step(name=name, func=func, func_args=args, func_kwargs=kwargs, host=host,
                     acquires=acquires, releases=releases, config=config, triggers=triggers,
-                    recovery=recovery, )  # logger=mlogger)
+                    recovery=recovery, logger=mlogger)
         found = self.__memory.steps.get(step.id_)
         if found is not None:
             raise EventorError("Step with similar name already defined: {}".format(step.id_))
@@ -1955,7 +1955,7 @@ class Eventor(object):
         ''' loops events structures to execute raise events and execute tasks.
 
         Run, do two things:
-        1. if prime (nnot agent): start agent on all remote hosts (seek from Steps.)
+        1. if prime (not agent): start agent on all remote hosts (seek from Steps.)
         2. run local loops.
 
         Args:
@@ -2025,7 +2025,7 @@ class Eventor(object):
                 msg = 'FINISH'
                 mlogger.debug('Sending {} to child: {}'.format(msg, host))
                 agent.close(msg=msg)
-                mlogger.debug('Agent process finished: {}:{}; '.format(host, agent.pid,))
+                mlogger.debug('Agent process finished: {}:{}; '.format(host, agent.pid))
         elif self.__listener_q is not None:
             self.__listener_q.put('FINISH')
             listener_th.join()

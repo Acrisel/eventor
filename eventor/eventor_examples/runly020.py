@@ -55,16 +55,13 @@ import eventor_examples.program as prog
 
 logger = logging.getLogger(__name__)
 
-logger.setLevel(logging.INFO)
-
 ev = evr.Eventor(run_mode=evr.RUN_RESTART,
                  config_tag='EVENTOR',
                  config={'EVENTOR':
-                         {'shared_db': False,
+                         {'shared_db': False,  # will be override to True by Eventor.
                           'LOGGING':
-                          {'logging_level': logging.DEBUG}}})
+                          {'logging_level': logging.INFO}}})
 
-# ev = evr.Eventor(run_mode=evr.RUN_RESTART, config={'shared_db': True, 'LOGGING': {'logging_level': logging.INFO}})
 
 ev1s = ev.add_event('run_step1')
 ev1d = ev.add_event('done_step1')
