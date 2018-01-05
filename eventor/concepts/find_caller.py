@@ -6,15 +6,18 @@ Created on Sep 3, 2017
 
 import inspect
 
+
 class A(object):
     def do(self):
         frames = inspect.stack()
         frame = frames[1]
-        #caller = inspect.getframeinfo(caller_frame)
-        print(frame)
-        
+        # caller = inspect.getframeinfo(caller_frame)
+        print(frame.filename)
+
+
 def caller():
     a = A()
     a.do()
-    
+
+
 caller()

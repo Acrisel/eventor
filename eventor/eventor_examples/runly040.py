@@ -23,8 +23,9 @@
 import eventor as evr
 import logging
 import collections
+import os
 
-logger = logging.getLogger(__name__)
+appname = os.path.basename(__file__)
 
 
 class IterGen(object):
@@ -36,6 +37,7 @@ class IterGen(object):
 
 
 def prog(progname):
+    logger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
     logger.info("doing what %s is doing" % progname)
     return progname
 
@@ -65,7 +67,8 @@ class MetaProg(object):
         return True
 
 
-ev = evr.Eventor(config={'EVENTOR': {'shared_db': True,
+ev = evr.Eventor(name=appname,
+                 config={'EVENTOR': {'shared_db': True,
                                      'LOGGING': {'logging_level': logging.DEBUG}}})
 
 ev0first = ev.add_event('run_s0first')

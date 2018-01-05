@@ -21,18 +21,17 @@
 ##############################################################################
 
 import eventor as evr
-import logging
 import os
 import eventor_examples.run_types as rtypes
 
-logger = logging.getLogger(__name__)
+appname = os.path.basename(__file__)
 
 
 def construct_and_run():
     db = 'sqfile00'
     # db = 'pgdb2'
     config = os.path.abspath('runly.conf')
-    ev = evr.Eventor(name=os.path.basename(__file__), config=config, store=db)
+    ev = evr.Eventor(name=appname, config=config, store=db)
 
     ev0first = ev.add_event('s0_start')
     ev0next = ev.add_event('s0_next')
@@ -73,7 +72,6 @@ def construct_and_run():
     s2 = ev.add_step('s0.s00.s2', func=rtypes.prog,
                      kwargs={'progname': 'prog2'},
                      triggers={evr.STEP_SUCCESS: (ev2success, ), })
-
     s3 = ev.add_step('s0.s00.s3', func=rtypes.prog,
                      kwargs={'progname': 'prog3'},
                      triggers={evr.STEP_COMPLETE: (ev00next, ), })

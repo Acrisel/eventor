@@ -20,44 +20,17 @@
 #    along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 ##############################################################################
-"""
-
-About
-=========
-:synopsis:     example use of grapior
-:moduleauthor: Arnon Sela
-:date:         Oct 18, 2016
-:description:  use gradior dependencies and recovery
-
-Outputs:
--------------------
-N/A
-
-Dependencies:
--------------------
-N/A
-
-**History:**
--------------------
-
-:Author: Arnon Sela
-:Modification:
-   - Initial entry
-:Date: Oct 18, 2016
-
-
-API DOC:
-===============
-"""
 
 import eventor as evr
 import logging
 import os
 
-logger = logging.getLogger(__name__)
+appname = os.path.basename(__file__)
+logger = logging.getLogger(appname)
 
 
 def prog(progname):
+    logger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
     logger.info("doing what %s is doing" % progname)
     logger.info("EVENTOR_STEP_SEQUENCE: {}".format(
         os.getenv("EVENTOR_STEP_SEQUENCE")))
@@ -68,7 +41,7 @@ class MyEnventor(evr.Eventor):
     def __init__(self, ):
         db = 'pgdb2'
         config = os.path.abspath('runly.conf')
-        super().__init__(name=__class__.__name__, config=config, store=db,)
+        super().__init__(name=appname, config=config, store=db,)
 
     def construct_and_run(self):
         ev1s = self.add_event('run_step1')

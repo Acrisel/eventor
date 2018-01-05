@@ -91,9 +91,10 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
     global mlogger
 
     # only if in separate process, need to initiate logger
+    logger_name = ''
     if use_process:
-        mlogger = Logger.get_logger(logger_info=logger_info, name="{}.{}_{}"
-                                    .format(logger_info['name'], step.name, task.sequence))
+        logger_name = "{}.{}_{}".format(logger_info['name'], step.name, task.sequence)
+        mlogger = Logger.get_logger(logger_info=logger_info, name=logger_name)
 
     # else:
     #    mlogger = Logger.get_logger(logger_info=logger_info, name="%s" %(logger_info['name'],))
@@ -103,6 +104,7 @@ def task_wrapper(run_id=None, task=None, step=None, adminq=None, use_process=Tru
     os.environ['{}STEP_NAME'.format(envvar_prefix)] = str(step.name)
     os.environ['{}STEP_SEQUENCE'.format(envvar_prefix)] = str(task.sequence)
     os.environ['{}STEP_RECOVERY'.format(envvar_prefix)] = str(task.recovery)
+    os.environ['{}LOGGER_NAME'.format(envvar_prefix)] = str(logger_name)
 
     if setproctitle is not None and use_process:
         run_id_s = "%s." % run_id if run_id else ''
@@ -359,7 +361,10 @@ class Eventor(object):
         eventor_kwargs = locals()
         del eventor_kwargs['self']
 
-        self.name = name.replace('.', '_')
+        if not name:
+            name = calling_module()
+            name = os.path.basename(name)
+        self.name = name  # .replace('.', '_')
         self.remotes = remotes
 
         if import_file is not None and import_module is None:
@@ -1194,7 +1199,10 @@ class Eventor(object):
 
         if previous_task is not None:
             prev_delay = self.__previous_delays[task.sequence][task.step_id]
-            active = prev_delay.active
+            # in recovery, we continue with when delay was registered
+            # we set it as active regardless to its previous state.
+            # this will cause delay_loop to pick i up.
+            active = True  # prev_delay.active
             activated = prev_delay.activated
             mlogger.debug("Fetched delay from previous: active: {}, activated: {}"
                           .format(active, activated))
@@ -1696,6 +1704,8 @@ class Eventor(object):
             if loop:
                 loop = self.__check_control()
                 if loop:
+                    # min_delay may be negative in recovery mode.
+                    min_delay = max(0, min_delay)
                     sleep_time = sleep_loop if min_delay is None else min_delay
                     if sleep_loop != sleep_time:
                         mlogger.debug('Making a time delay sleep: {}'.format(sleep_time))

@@ -12,7 +12,7 @@ mlogger = logging.getLogger(__name__)
 
 
 def step1_create_data(outfile="source.txt"):
-    # global mlogger
+    mlogger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
     mlogger.info("starting writing into %s" % outfile)
     with open(outfile, mode='w') as ofile:
         for item in range(100):
@@ -22,7 +22,7 @@ def step1_create_data(outfile="source.txt"):
 
 
 def step2_multiple_data(infile="source.txt", outfile="multi.txt"):
-    # global mlogger
+    mlogger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
     mlogger.info("start processing from %s into %s" % (infile, outfile))
     with open(infile, mode='r') as ifile, open(outfile, mode='w') as ofile:
         for item in ifile:
@@ -32,14 +32,15 @@ def step2_multiple_data(infile="source.txt", outfile="multi.txt"):
 
 
 def step3():
-    # global mlogger
+    mlogger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
     mlogger.info("start processing step 3")
     time.sleep(5)
     mlogger.info("done processing step 3")
     return True
 
 
-def prog(progname):
+def prog(appname, progname):
+    mlogger = logging.getLogger(appname)
     mlogger.info("doing what %s is doing" % (progname,))
     mlogger.info("EVENTOR_STEP_SEQUENCE: %s" % (os.getenv("EVENTOR_STEP_SEQUENCE"),))
     return True

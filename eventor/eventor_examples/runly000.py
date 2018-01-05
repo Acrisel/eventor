@@ -1,4 +1,3 @@
-
 # -*- encoding: utf-8 -*-
 ##############################################################################
 #
@@ -20,75 +19,54 @@
 #    along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 ##############################################################################
-"""
-
-About
-=========
-:synopsis:     example use of grapior
-:moduleauthor: Arnon Sela
-:date:         Oct 18, 2016
-:description:  use gradior dependencies and recovery
-
-Outputs:
--------------------
-N/A
-
-Dependencies:
--------------------
-N/A
-
-**History:**
--------------------
-
-:Author: Arnon Sela
-:Modification:
-   - Initial entry
-:Date: Oct 18, 2016
-
-
-API DOC:
-===============
-"""
-
 import eventor as evr
 import logging
 import os
 
-
-logger = logging.getLogger(__name__)
+appname = os.path.basename(__file__)
+mlogger = logging.getLogger(appname)
 
 
 def prog(progname):
-    logger.info("doing what %s is doing" % progname)
-    logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
+    mlogger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
+    mlogger.info("doing what %s is doing" % progname)
+    mlogger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
     return progname
 
 
-def construct_and_run():
+def build_flow():
+    '''
     db = 'pgdb2'
     config = os.path.abspath('runly.conf')
     ev = evr.Eventor(name=os.path.basename(__file__),
                      config_tag='EVENTOR',
                      config=config, store=db, import_module=__file__)
+    '''
+
+    ev = evr.Eventor(name=appname,
+                     config={'LOGGING':
+                             {'logging_level': logging.INFO}},)
 
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')
     ev3s = ev.add_event('run_step3')
 
-    s1 = ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'},
-                     triggers={evr.STEP_SUCCESS: (ev2s,)})
-    s2 = ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'},
-                     triggers={evr.STEP_SUCCESS: (ev3s,)})
-    s3 = ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
+    kwargs1 = {'progname': 'prog1'}
+    kwargs2 = {'progname': 'prog1'}
+    kwargs3 = {'progname': 'prog1'}
+
+    s1 = ev.add_step('s1', func=prog, kwargs=kwargs1, triggers={evr.STEP_SUCCESS: (ev2s,)})
+    s2 = ev.add_step('s2', func=prog, kwargs=kwargs2, triggers={evr.STEP_SUCCESS: (ev3s,)})
+    s3 = ev.add_step('s3', func=prog, kwargs=kwargs3,)
 
     ev.add_assoc(ev1s, s1)
     ev.add_assoc(ev2s, s2)
     ev.add_assoc(ev3s, s3)
 
     ev.trigger_event(ev1s, '1')
-    ev.run()
-    ev.close()
+    return ev
 
 
 if __name__ == '__main__':
-    construct_and_run()
+    ev = build_flow()
+    ev.run()

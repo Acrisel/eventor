@@ -20,45 +20,16 @@
 #    along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 ##############################################################################
-"""
-
-About
-=========
-:synopsis:     example use of grapior
-:moduleauthor: Arnon Sela
-:date:         Oct 18, 2016
-:description:  use gradior dependencies and recovery
-   
-Outputs:
--------------------
-N/A
-
-Dependencies:
--------------------
-N/A
-      
-**History:**
--------------------
-
-:Author: Arnon Sela
-:Modification:
-   - Initial entry
-:Date: Oct 18, 2016
-
-
-API DOC:
-===============
-"""
 
 import eventor as evr
 import logging
 import os
-import time
 
-logger = logging.getLogger(__name__)
+appname = os.path.basename(__file__)
 
 
 def prog(progname):
+    logger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
     logger.info("doing what %s is doing" % progname)
     logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
     return progname
@@ -66,7 +37,7 @@ def prog(progname):
 
 def build_flow(run_mode):
     config = os.path.abspath('runly.conf')
-    ev = evr.Eventor(run_mode=run_mode, config=config,)
+    ev = evr.Eventor(name=appname, run_mode=run_mode, config=config,)
 
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')

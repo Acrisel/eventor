@@ -27,25 +27,26 @@ import os
 from acris import Mediator
 from eventor import Invoke
 
-logger = logging.getLogger(__name__)
+appname = os.path.basename(__file__)
 
 
 class IterGen(object):
-    def __init__(self, l):
-        self.l = l
+    def __init__(self, level):
+        self.level = level
 
     def __call__(self):
-        return (x for x in self.l)
+        return (x for x in self.level)
 
 
 def prog(progname):
+    logger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
     logger.info("doing what %s is doing" % progname)
     return progname
 
 
 class Container(object):
-    def __init__(self, ev, progname, loop=[1,], iter_triggers=(), end_triggers=()):
-        self.ev=ev
+    def __init__(self, ev, progname, loop=[1, ], iter_triggers=(), end_triggers=()):
+        self.ev = ev
         self.progname = progname
         self.iter_triggers = iter_triggers
         self.end_triggers = end_triggers
@@ -56,13 +57,13 @@ class Container(object):
         # self.initiating_sequence=None
 
     def __call__(self, initial=False, ):
-        # print('max_concurrent', config['max_concurrent'])
+        logger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
         if initial:
             self.iter = Mediator(self.loop())
             todos = 1
             # self.initiating_sequence=self.ev.get_task_sequence()
         else:
-            logger.debug("counting TODOs ")
+            logger.info("counting TODOs ")
             todos = self.ev.count_todos()
 
         if todos == 1 or initial:
@@ -73,12 +74,12 @@ class Container(object):
             if item:
                 self.loop_index += 1
                 for trigger in self.iter_triggers:
-                    logger.debug("Container trigger next %s" % (trigger, ))
+                    logger.info("Container trigger next %s" % (trigger, ))
                     self.ev.trigger_event(trigger, self.loop_index)
                     # self.ev.remote_trigger_event(trigger, self.loop_index,)
             else:
                 for trigger in self.end_triggers:
-                    logger.debug("Container trigger end %s" % (trigger, ))
+                    logger.info("Container trigger end %s" % (trigger, ))
                     self.ev.trigger_event(trigger, self.loop_index)
                     # self.ev.remote_trigger_event(trigger, self.loop_index,)
 
@@ -86,7 +87,7 @@ class Container(object):
 
 
 config = os.path.abspath('runly.conf')
-ev = evr.Eventor(name=os.path.basename(__file__), config=config, store='sqfile00')
+ev = evr.Eventor(name=appname, config=config, store='sqfile00')
 
 ev0first = ev.add_event('s0_start')
 ev0next = ev.add_event('s0_next')

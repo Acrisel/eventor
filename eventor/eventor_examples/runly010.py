@@ -21,65 +21,39 @@
 #    along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 ##############################################################################
-"""
-
-About
-=========
-:synopsis:     example use of Eventor
-:moduleauthor: Arnon Sela
-:date:         Oct 18, 2016
-:description:  use gradior dependencies and recovery
-   
-Outputs:
--------------------
-N/A
-
-Dependencies:
--------------------
-N/A
-      
-**History:**
--------------------
-
-:Author: Arnon Sela
-:Modification:
-   - Initial entry
-:Date: Oct 18, 2016
-
-
-API DOC:
-===============     
-"""
 
 import eventor as evr
 import eventor_examples.program as prog
 import os
 
+appname = os.path.basename(__file__)
+
 
 def construct_and_run():
     config = os.path.abspath('runly.conf')
-    ev=evr.Eventor(name=os.path.basename(__file__), config=config, store='') #store=':memory:')
-    
+    ev = evr.Eventor(name=appname,
+                     config=config, store='')  # store=':memory:')
+
     ev1s = ev.add_event('run_step1')
     ev1d = ev.add_event('done_step1')
     ev2s = ev.add_event('run_step2')
     ev2d = ev.add_event('done_step2')
-    ev3s = ev.add_event('run_step3', expr=(ev1d,ev2d)) 
-    
-    s1 = ev.add_step('s1', func=prog.step1_create_data, kwargs={'outfile': 'source.txt'}, triggers={evr.StepStatus.complete: (ev1d, ev2s,),}) 
-    s2 = ev.add_step('s2', prog.step2_multiple_data, triggers={evr.StepStatus.complete: (ev2d,), })
-    s3 = ev.add_step('s3', prog.step3,)
-    
+    ev3s = ev.add_event('run_step3', expr=(ev1d, ev2d))
+
+    s1 = ev.add_step('s1', func=prog.step1_create_data, kwargs={'outfile': 'source.txt'},
+                     triggers={evr.StepStatus.complete: (ev1d, ev2s)})
+    s2 = ev.add_step('s2', prog.step2_multiple_data, kwargs={},
+                     triggers={evr.StepStatus.complete: (ev2d,), })
+    s3 = ev.add_step('s3', prog.step3, kwargs={})
+
     ev.add_assoc(ev1s, s1)
     ev.add_assoc(ev2s, s2)
     ev.add_assoc(ev3s, s3)
-    
+
     ev.trigger_event(ev1s, 3)
     ev.run()
     ev.close()
 
+
 if __name__ == '__main__':
-    import multiprocessing as mp
-    mp.freeze_support()
-    mp.set_start_method('spawn')
     construct_and_run()

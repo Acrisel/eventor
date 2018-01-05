@@ -25,16 +25,17 @@ Simple Example
         import eventor as evr
         import logging
         from acrilib import LoggerAddHostFilter
+        
+        appname = os.path.basename(__file__)
+        logger = logging.getLogger(appname)
 
         def construct_and_run():
-            logger = logging.getLogger(__name__)
-            logger.addFilter(LoggerAddHostFilter())
 
             def prog(progname):
                 logger.info("doing what %s is doing" % progname)
                 return progname
 
-            ev = evr.Eventor()
+            ev = evr.Eventor(name=appname)
 
             ev1s = ev.add_event('run_step1')
             ev2s = ev.add_event('run_step2')
@@ -87,9 +88,11 @@ Example Highlights
 
     *add_assoc* (e.g., line 22) links event **evs1** and step **s1**.
 
-    *trigger_event* (line 26) marks event **evs1**; when triggers, event is associated with sequence.  This would allow multiple invocation.
+    *trigger_event* (line 26) marks event **evs1**; when triggers, event is associated with sequence. This would allow multiple invocation.
 
-    *ev()* (line 27) invoke Eventor process that would looks for triggers and tasks to act upon.  It ends when there is nothing to do.
+    *ev()* (line 27) invoke Eventor process that would looks for triggers and tasks to act upon. It ends when there is nothing to do.
+    
+    *logger* and *Eventor* names (lines 6 and 14), Eventor is using hierarchical logger based on Eventor name argument. As such naming convention needs to be aligned among all the files participating with the run.
 
 Program Run File
 ================
@@ -149,7 +152,10 @@ Args
         +---------------------+---------------+--------------------------------------------------+
         | envvar_prefix       | EVENTOR_      | | set prefix for naming environment variable     |
         |                     |               | | defined for each step:                         |
-        |                     |               | |    STEP_NAME, STEP_SEQUENCE, and STEP_RECOVERY |
+        |                     |               | |    {envvar_prefix}STEP_NAME                    |
+        |                     |               | |    {envvar_prefix}STEP_SEQUENCE                |
+        |                     |               | |    {envvar_prefix}STEP_RECOVERY                |
+        |                     |               | |    {envvar_prefix}LOGGER_NAME                  |
         +---------------------+---------------+--------------------------------------------------+
         | ssh_config          | ~/.ssh/config | SSH configuration file to use with SSH remote    |
         |                     |               |    Invocation of steps.                          |
@@ -428,10 +434,8 @@ Recovery Example
         import math
         from acrilib import LoggerAddHostFilter
 
-        logger = logging.getLogger(__name__)
-        logger.addFilter(LoggerAddHostFilter())
-
-        logger.setLevel(logging.DEBUG)
+        appname = os.path.basename(__file__)
+        logger = logging.getLogger(appname)
 
         def square(x):
             y = x*x
@@ -451,7 +455,9 @@ Recovery Example
             return z
 
         def build_flow(run_mode=evr.RUN_RESTART, param=9, run_id=None):
-            ev = evr.Eventor(run_mode=run_mode, run_id=run_id)
+            ev = evr.Eventor(name=appname, run_mode=run_mode, run_id=run_id,
+                             config={'LOGGING':
+                                     {'logging_level': logging.INFO}},))
 
             ev1s = ev.add_event('run_step1')
             ev1d = ev.add_event('done_step1')
@@ -561,8 +567,8 @@ Delay Example
         import os
         import time
 
-        logger = logging.getLogger(__name__)
-
+        appname = os.path.basename(__file__)
+        logger = logging.getLogger(appname)
 
         def prog(progname):
             logger.info("doing what %s is doing" % progname)
@@ -571,7 +577,7 @@ Delay Example
             
 
         def build_flow(run_mode):
-            ev = evr.Eventor(run_mode=run_mode,)
+            ev = evr.Eventor(name=appname, run_mode=run_mode,)
 
             ev1s = ev.add_event('run_step1')
             ev2s = ev.add_event('run_step2')
@@ -722,6 +728,7 @@ Change log
     1. SSH remote invocation of steps.
     #. use of socket based logging.
     #. centralized logging of remote agents in prime server.
+    #. Added {envvar_prefix}LOGGER_NAME to allow step logger to be set appropriately.
 
 .. _`Eventor github project`: https://github.com/Acrisel/eventor
 .. _`SSH Pipe`: https://acrisel.github.io/posts/2017/09/ssh-pipe-with-python-subprocess_multiprocessing/

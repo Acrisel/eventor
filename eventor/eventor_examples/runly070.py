@@ -22,21 +22,21 @@
 
 import eventor as evr
 import logging
+import os
 from acris import virtual_resource_pool as rp
-from acrilib import LoggerAddHostFilter
 import eventor_examples.run_types as runtyles
 
 
-logger = logging.getLogger(__name__)
-logger.addFilter(LoggerAddHostFilter())
+appname = os.path.basename(__file__)
 
 
 def prog(progname):
+    logger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
     logger.info("doing what %s is doing" % progname)
     return progname
 
 
-ev = evr.Eventor()  # config={'sleep_between_loops': 1}) # store=':memory:',
+ev = evr.Eventor(name=appname)  # config={'sleep_between_loops': 1}) # store=':memory:',
 
 ev0first = ev.add_event('s0_start')
 ev0next = ev.add_event('s0_next')

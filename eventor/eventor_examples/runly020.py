@@ -19,43 +19,16 @@
 #    along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 ##############################################################################
-"""
 
-About
-=========
-:synopsis:     example use of grapior
-:moduleauthor: Arnon Sela
-:date:         Oct 18, 2016
-:description:  use gradior dependencies and recovery
-   
-Outputs:
--------------------
-N/A
-
-Dependencies:
--------------------
-N/A
-      
-**History:**
--------------------
-
-:Author: Arnon Sela
-:Modification:
-   - Initial entry
-:Date: Oct 18, 2016
-
-
-API DOC:
-===============
-"""
 
 import eventor as evr
 import logging
 import eventor_examples.program as prog
+import os
 
-# logger = logging.getLogger(__name__)
-
-ev = evr.Eventor(run_mode=evr.RUN_RESTART,
+appname = os.path.basename(__file__)
+ev = evr.Eventor(name=appname,
+                 run_mode=evr.RUN_RESTART,
                  config_tag='EVENTOR',
                  config={'EVENTOR':
                          {'shared_db': False,  # will be override to True by Eventor.
@@ -69,12 +42,15 @@ ev2s = ev.add_event('run_step2')
 ev2d = ev.add_event('done_step2')
 ev3s = ev.add_event('run_step3', expr=(ev1d, ev2d))
 
-s1 = ev.add_step('s1', func=prog.step1_create_data, kwargs={'outfile': 'source.txt'},
+s1 = ev.add_step('s1', func=prog.step1_create_data,
+                 kwargs={'outfile': 'source.txt'},
                  triggers={evr.STEP_COMPLETE: (ev1d, ev2s,)},
                  recovery={evr.STEP_FAILURE: evr.STEP_RERUN,
                            evr.STEP_SUCCESS: evr.STEP_SKIP})
-s2 = ev.add_step('s2', prog.step2_multiple_data, triggers={evr.STEP_COMPLETE: (ev2d, ), })
-s3 = ev.add_step('s3', prog.step3,)
+s2 = ev.add_step('s2', prog.step2_multiple_data,
+                 kwargs={},
+                 triggers={evr.STEP_COMPLETE: (ev2d, ), })
+s3 = ev.add_step('s3', prog.step3, kwargs={})
 
 ev.add_assoc(ev1s, s1)
 ev.add_assoc(ev2s, s2)

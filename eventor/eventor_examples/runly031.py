@@ -2,20 +2,19 @@ import eventor as evr
 import logging
 import os
 import time
-from acrilib import LoggerAddHostFilter
 
-logger = logging.getLogger(__name__)
-logger.addFilter(LoggerAddHostFilter())
+appname = os.path.basename(__file__)
 
 
 def prog(progname):
+    logger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
     logger.info("doing what %s is doing" % progname)
     logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
     return progname
 
 
 def build_flow(run_mode):
-    ev = evr.Eventor(run_mode=run_mode,)
+    ev = evr.Eventor(name=appname, run_mode=run_mode,)
 
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')

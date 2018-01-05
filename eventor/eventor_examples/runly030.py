@@ -24,10 +24,9 @@
 import eventor as evr
 import logging
 import math
+import os
 
-logger = logging.getLogger(__name__)
-
-logger.setLevel(logging.DEBUG)
+logger = logging.getLogger()
 
 
 def square(x):
@@ -51,7 +50,9 @@ def divide(x, y):
 
 def build_flow(run_mode=evr.RUN_RESTART, run_id=None, param=9):
     global logger
-    ev = evr.Eventor(run_mode=run_mode, run_id=run_id,
+    appname = os.path.basename(__file__)
+    logger = logging.getLogger(appname)
+    ev = evr.Eventor(name=appname, run_mode=run_mode, run_id=run_id,
                      config={'EVENTOR': {'shared_db': False,
                                          'LOGGING': {'logging_level': logging.DEBUG}}})
     print('Building param: %s' % (param, ))
@@ -103,9 +104,6 @@ def recover(recover=True, run_id=None):
 
 
 if __name__ == '__main__':
-    import multiprocessing as mp
-    mp.freeze_support()
-    mp.set_start_method('spawn')
     run_id = fail()
     recover(run_id=run_id)
     # recover(recover=False)
