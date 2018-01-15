@@ -218,7 +218,7 @@ def check_agent_process(agent,):
 
 def logger_remote_handler(logger_queue, log_info_recv, ssh_host,):
     try:
-        remote_logger_handler = NwLoggerClientHandler(logger_info=log_info_recv, ssh_host=ssh_host,)
+        remote_logger_handler = SSHLoggerClientHandler(logger_info=log_info_recv, ssh_host=ssh_host,)
     except Exception as e:
         raise EventorAgentError("Failed to create NwLoggerClientHandler on: {}; {}".format(ssh_host), repr(e))
 

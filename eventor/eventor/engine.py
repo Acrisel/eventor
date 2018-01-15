@@ -1225,6 +1225,35 @@ class Eventor(object):
         adminq = self.__adminq_th
         adminq.put(result)
 
+    def __validate_process_kwargs(self, kwds, task):
+        result = True
+        for name, value in kwds.items():
+            try:
+                pickle.dumps(value)
+            except Exception as e:
+                mlogger.critical("Cannot pickle kwarg {} of type {}, "
+                                 "object name: {}."
+                                 .format(name, type(value).__name__,
+                                         getattr(value, 'name', 'N/A')))
+                mlogger.exception(e)
+                if hasattr(value, '__dict__'):
+                    for subname, subvalue in value.__dict__.items():
+                        try:
+                            pickle.dumps(subvalue)
+                        except Exception as sube:
+                            mlogger.critical("Cannot pickle name {} of type {}."
+                                             .format(subname,
+                                                     type(subvalue).__name__))
+                            mlogger.exception(sube)
+                            break
+                self.__get_dbapi(create=False)
+                self.__update_task_status(task, TaskStatus.failure)
+                # TODO: (Arnon) if there are already processes running, finish will
+                #  fail since it is not joining/killing those processes
+                result = False
+
+        return result
+
     def __initiate_task(self, task, previous_task=None):
         ''' Playing synchronous action.
 
@@ -1288,30 +1317,9 @@ class Eventor(object):
 
                     # test pickle of kwargs to process
                     if __debug__:
-                        for name, value in kwds.items():
-                            try:
-                                pickle.dumps(value)
-                            except Exception as e:
-                                mlogger.critical("Cannot pickle kwarg {} of type {}, "
-                                                 "object name: {}."
-                                                 .format(name, type(value).__name__,
-                                                         getattr(value, 'name', 'N/A')))
-                                mlogger.exception(e)
-                                if hasattr(value, '__dict__'):
-                                    for subname, subvalue in value.__dict__.items():
-                                        try:
-                                            pickle.dumps(subvalue)
-                                        except Exception as sube:
-                                            mlogger.critical("Cannot pickle name {} of type {}."
-                                                             .format(subname,
-                                                                     type(subvalue).__name__))
-                                            mlogger.exception(sube)
-                                            break
-                                self.__get_dbapi(create=False)
-                                self.__update_task_status(task, TaskStatus.failure)
-                                # TODO: (Arnon) if there are already processes running, finish will
-                                #  fail since it is not joining/killing those processes
-                                return
+                        pass_debug = self.__validate_process_kwargs(kwds, task)
+                        if not pass_debug:
+                            return
                     # end test of kwargs
 
                 task_constructor = get_proc_constructor(task_construct)
