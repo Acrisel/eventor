@@ -497,7 +497,7 @@ class Eventor(object):
             # Logger.get_logger will add logger handler that would start
 
             self._pdebug("logger: {}".format(logger_name))
-            self._pdebug("logger: {}".format(self.memory.logger_info))
+            self._pdebug("logger: {}".format(memory.logger_info))
             mlogger = Logger.get_logger(logger_info=memory.logger_info, name=logger_name)
             self.__logger_info = memory.logger_info
             self.__logger_info['name'] = logger_name

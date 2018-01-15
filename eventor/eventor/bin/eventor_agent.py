@@ -486,7 +486,7 @@ def close_run(listener=None, logger=None, msg=None, err=None):
         logger.stop()
 
 
-def recover(args):
+def recover_eventor(args):
     file = args.file
     if file is None:
         file = last_recvoer_args_file()
@@ -505,4 +505,4 @@ if __name__ == '__main__':
     if args.run:
         run_eventor(args)
     else:
-        recover(args)
+        recover_eventor(args)
