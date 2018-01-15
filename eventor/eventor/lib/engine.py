@@ -21,24 +21,24 @@ from datetime import datetime
 import signal
 import yaml
 from copy import deepcopy
-from eventor.step import Step
-from eventor.event import Event
-from eventor.delay import Delay
-from eventor.assoc import Assoc
-from eventor.dbapi import DbApi
-from eventor.utils import calling_module, traces, rest_sequences
-from eventor.utils import store_from_module, get_delay_id, port_is_open
+from .step import Step
+from .event import Event
+from .delay import Delay
+from .assoc import Assoc
+from .dbapi import DbApi
+from .utils import calling_module, traces, rest_sequences
+from .utils import store_from_module, get_delay_id, port_is_open
 # from eventor.utils import logger_process_lambda
-from eventor.eventor_types import Invoke, EventorError, TaskStatus, LoopControl
-from eventor.eventor_types import step_to_task_status, task_to_step_status
-from eventor.eventor_types import StepStatus, StepReplay, RunMode, DbMode
+from .eventor_types import Invoke, EventorError, TaskStatus, LoopControl
+from .eventor_types import step_to_task_status, task_to_step_status
+from .eventor_types import StepStatus, StepReplay, RunMode, DbMode
 from eventor import __version__, __db_version__
-from eventor.dbschema import Task
-from eventor.conf_handler import merge_configs
-from eventor.etypes import MemEventor
+from .dbschema import Task
+from .conf_handler import merge_configs
+from .etypes import MemEventor
 import sshpipe
 from acrilib import get_hostname, get_ip_address, traced_method, expandmap
-from eventor.utils import decorate_all, print_method
+from .utils import decorate_all, print_method
 
 
 # try:

@@ -67,7 +67,7 @@ def getconfstr(conf=None, key=None, expand=True, expand_map=None, case_sensative
         text = conf
 
     content = yaml.load(text)
-    result = getconfdict(conf=content, key=key, expand=expand, expand_map=expand_map,case_sensative=case_sensative)
+    result = getconfdict(conf=content, key=key, expand=expand, expand_map=expand_map, case_sensative=case_sensative)
     return result
 
 
@@ -124,15 +124,14 @@ def merge_configs(config, defaults, config_tag, envvar_config_tag='EVENTOR_CONFI
 
         rootconfig = getrootconf(conf=config, root=config_tag, case_sensative=False)
         defaults = expandmap(defaults)
-        # defaults = dict([(name, expandvars(value, os.environ)) for name, value in Eventor.config_defaults.items()])
-        _config = MergedChainedDict(rootconfig, defaults, submerge=True) 
+        _config = MergedChainedDict(rootconfig, defaults, submerge=True)
         return _config
 
 
 if __name__ == '__main__':
     from pprint import pprint
     from acrilib import FlatDict
-    
+
     dbconf = {
         "EVENTOR": {
             "DATABASES": {
@@ -149,7 +148,7 @@ if __name__ == '__main__':
                 },
                 "pgdb1": {
                     "dialect": "postgresql",
-                    "drivername" : "psycopg2",
+                    "drivername": "psycopg2",
                     "username": "arnon",
                     "password": "arnon42",
                     "host": "localhost",
@@ -159,7 +158,7 @@ if __name__ == '__main__':
                 },
                 "pgdb2": {
                     "dialect": "postgresql",
-                    "drivername" : "psycopg2",
+                    "drivername": "psycopg2",
                     "username": "arnon",
                     "password": "Chompi42",
                     "host": "192.168.1.70",
@@ -172,12 +171,10 @@ if __name__ == '__main__':
     flat = FlatDict()(dbconf)
     print('RESULT:')
     pprint(flat.asdict())
-    
-    
     pprint(getrootconf(dbconf, 'EVENTOR.DATABASES.default'))
     pprint(getrootconf(conf=dbconf, root='EVENTOR.DATABASES.playpg'))
     pprint(getrootconf(conf=dbconf, root='EVENTOR.DATABASES.playmem'))
     pprint(getrootconf(conf=dbconf, root='EVENTOR.DATABASES.sqfile00'))
     pprint(getrootconf(dbconf, 'EVENTOR.DATABASES.pgdb2'))
-    
+
     pprint(expandmap(dbconf))

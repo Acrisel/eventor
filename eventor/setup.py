@@ -91,7 +91,7 @@ if "install" in sys.argv:
             overlay_warning = True
             break
 
-scripts = ['eventor/eventor_agent.py',]
+scripts = ['eventor/bin/eventor_agent.py',]
 
 setup_info={'name': NAME,
  'version': VERSION,

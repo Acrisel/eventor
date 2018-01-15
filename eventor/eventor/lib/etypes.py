@@ -7,6 +7,7 @@ Created on Aug 26, 2017
 from collections import namedtuple, Mapping
 from namedlist import namedlist
 
+
 def namedtuple_with_defaults(typename, field_names, default_values=()):
     T = namedtuple(typename, field_names)
     T.__new__.__defaults__ = (None,) * len(T._fields)
@@ -17,8 +18,10 @@ def namedtuple_with_defaults(typename, field_names, default_values=()):
     T.__new__.__defaults__ = tuple(prototype)
     return T
 
-#MemEventor = namedtuple_with_defaults("MemEventor", ["steps", "events", "assocs", "delays", "kwargs"], (dict(), dict(), dict(), dict(), dict()))
-#MemEventor = namedlist("MemEventor", [("steps", dict()), ("events", dict()), ("assocs", dict()), ("delays", dict()), ("kwargs", dict()), ("logger_info", None)])
+# MemEventor = namedtuple_with_defaults("MemEventor", ["steps", "events", "assocs", "delays", "kwargs"], (dict(), dict(), dict(), dict(), dict()))
+# MemEventor = namedlist("MemEventor", [("steps", dict()), ("events", dict()), ("assocs", dict()), ("delays", dict()), ("kwargs", dict()), ("logger_info", None)])
+
+
 class MemEventor(object):
     def __init__(self):
         self.steps = dict()
@@ -27,7 +30,7 @@ class MemEventor(object):
         self.delays = dict()
         self.kwargs = dict()
         self.logger_info = None
-        
+
     def __repr__(self):
         result = ['Steps:']
         result.append('    {}'.format(', '.join([name for name in self.steps.keys()])))
@@ -37,8 +40,8 @@ class MemEventor(object):
 
 
 if '__main__' == __name__:
-    mem=MemEventor()
-    mem.steps["ad"]=23
-    mem.events['ty']=45
-    
+    mem = MemEventor()
+    mem.steps["ad"] = 23
+    mem.events['ty'] = 45
+
     print(mem)

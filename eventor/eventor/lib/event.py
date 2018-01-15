@@ -4,7 +4,7 @@ Created on Oct 31, 2016
 @author: arnon
 '''
 
-from eventor.eventor_types import EventorError
+from .eventor_types import EventorError
 import logging
 from _ast import arg
 import collections

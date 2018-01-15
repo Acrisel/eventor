@@ -9,7 +9,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.schema import MetaData
 from sqlalchemy.orm import sessionmaker, scoped_session
 import logging
-from eventor.conf_handler import getrootconf
+from .conf_handler import getrootconf
 import sys
 import sqlite3
 
@@ -212,7 +212,7 @@ if __name__ == '__main__':
         url, connect_args = sqlconf.get_url()
         print(db, url, connect_args)
 
-    from eventor.dbschema import info_table
+    from .dbschema import info_table
     from sqlalchemy.ext.declarative import declarative_base
     sqlconf = SQLAlchemyConf(dbconf, root='EVENTOR.DATABASES', database='default', echo=True)
     metadata = sqlconf.get_metadata()

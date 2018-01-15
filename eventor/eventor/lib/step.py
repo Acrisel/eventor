@@ -5,7 +5,7 @@ Created on Oct 19, 2016
 '''
 import logging
 import pprint
-from eventor.eventor_types import EventorError, TaskStatus
+from .eventor_types import EventorError, TaskStatus
 
 mlogger = logging.getLogger(__name__)
 

@@ -1,11 +1,11 @@
 __version__ = '5.1.5'
 __db_version__ = '1.0.0'
 
-from eventor.engine import Eventor, get_unique_run_id
-from eventor.eventor_types import AssocType, TaskStatus, DbMode, StepStatus, StepReplay
-from eventor.eventor_types import RunMode, Invoke
-from eventor.event import or_
-from eventor.utils import calling_module, store_from_module
+from eventor.lib.engine import Eventor, get_unique_run_id
+from eventor.lib.eventor_types import AssocType, TaskStatus, DbMode, StepStatus, StepReplay
+from eventor.lib.eventor_types import RunMode, Invoke
+from eventor.lib.event import or_
+from eventor.lib.utils import calling_module, store_from_module
 
 STEP_RERUN = StepReplay.rerun  # reruns step regardless if previously succeeded
 STEP_SKIP = StepReplay.skip  # skip step if previously succeeded

@@ -11,11 +11,11 @@ import os
 import threading
 from datetime import datetime
 
-from eventor.dbschema import task_table, trigger_table, delay_table, info_table
-from eventor.dbschema import trigger_from_db, task_from_db, delay_from_db
-from eventor.eventor_types import DbMode
-from eventor.utils import decorate_all, print_method, calling_module
-from eventor.sqladburl import SQLAlchemyConf
+from .dbschema import task_table, trigger_table, delay_table, info_table
+from .dbschema import trigger_from_db, task_from_db, delay_from_db
+from .eventor_types import DbMode
+from .utils import decorate_all, print_method, calling_module
+from .sqladburl import SQLAlchemyConf
 
 mlogger = logging.getLogger(__name__)
 
