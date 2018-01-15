@@ -5,7 +5,7 @@ Created on Aug 30, 2017
 @author: arnon
 '''
 
-from ..lib.engine import Eventor
+from eventor.lib.engine import Eventor
 import pickle
 import sys
 import struct
