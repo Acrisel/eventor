@@ -52,7 +52,7 @@ def build_flow(run_mode=evr.RUN_RESTART, run_id=None, param=9):
     global logger
     appname = os.path.basename(__file__)
     logger = logging.getLogger(appname)
-    ev = evr.Eventor(name=appname, run_mode=run_mode, run_id=run_id,
+    ev = evr.Eventor(name=appname, run_mode=run_mode, run_id=run_id, config_tag='EVENTOR',
                      config={'EVENTOR': {'shared_db': False,
                                          'LOGGING': {'logging_level': logging.DEBUG}}})
     print('Building param: %s' % (param, ))

@@ -31,7 +31,7 @@ def construct_and_run():
     db = 'sqfile00'
     # db = 'pgdb2'
     config = os.path.abspath('runly.conf')
-    ev = evr.Eventor(name=appname, config=config, store=db)
+    ev = evr.Eventor(name=appname, config=config, config_tag='EVENTOR', store=db)
 
     ev0first = ev.add_event('s0_start')
     ev0next = ev.add_event('s0_next')

@@ -65,7 +65,7 @@ def build_flow(run_mode):
     # because OSX adds /var -> /private/var
     if config.startswith('/private'):
         config = config[8:]
-    ev = evr.Eventor(name=os.path.basename(__file__), run_mode=run_mode, logging_level=logging.DEBUG, config=config, store=db, ) #import_module=["examples.example_00_prog",])
+    ev = evr.Eventor(name=os.path.basename(__file__), run_mode=run_mode, logging_level=logging.DEBUG, config=config, config_tag='EVENTOR', store=db, ) #import_module=["examples.example_00_prog",])
     
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')

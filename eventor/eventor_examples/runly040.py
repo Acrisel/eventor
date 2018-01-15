@@ -67,7 +67,7 @@ class MetaProg(object):
         return True
 
 
-ev = evr.Eventor(name=appname,
+ev = evr.Eventor(name=appname, config_tag='EVENTOR',
                  config={'EVENTOR': {'shared_db': True,
                                      'LOGGING': {'logging_level': logging.DEBUG}}})
 

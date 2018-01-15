@@ -36,7 +36,7 @@ from eventor import __version__, __db_version__
 from .dbschema import Task
 from .conf_handler import merge_configs
 from .etypes import MemEventor
-import sshpipe
+import sshpipe as sp
 from acrilib import get_hostname, get_ip_address, traced_method, expandmap
 from .utils import decorate_all, print_method
 
@@ -1788,12 +1788,13 @@ class Eventor(object):
             args.append('--debug')
         agentpy = 'eventor_agent.py'
         kw = ["{} {}".format(name, value) for name, value in kwargs]
-        cmd = "{} act {} {}".format(agentpy, ' '.join(args), " ".join(kw))
+        # cmd = "{} act {} {}".format(agentpy, ' '.join(args), " ".join(kw))
+        cmd = [agentpy, "act", ' '.join(args), " ".join(kw)]
         mlogger.debug('Agent command: {}: {}.'.format(host, cmd))
         sshname = "{}.sshagent.log".format(self.__logger_params['name'])
 
         try:
-            sshagent = sshpipe.SSHPipe(host, cmd, name=sshname, logger=mlogger)
+            sshagent = sp.SSHTunnel(host, cmd, name=sshname, logger=mlogger)
             sshagent.start(wait=0.2)
         except Exception as e:
             mlogger.exception(e)
@@ -1802,7 +1803,7 @@ class Eventor(object):
                              .format(host, response))
             return None
 
-        mlogger.debug('Agent process started: {}:{}.'.format(host, sshagent.pid))
+        mlogger.debug('Agent process started: {}:{}.'.format(host, sshagent.pid()))
         if not sshagent.is_alive():
             response = sshagent.response()
             mlogger.critical('Agent process terminated unexpectedly: {}; response: {}'
@@ -1852,7 +1853,7 @@ class Eventor(object):
         ssh_config_file = self.__get_ssh_config_file()
         ssh_config = {}
         if ssh_config_file is not None:
-            ssh_config = sshpipe.load()
+            ssh_config = sp.load()
             mlogger.debug("Using SSH configuration file {}.".format(ssh_config_file,))
 
         not_accessiable = list()

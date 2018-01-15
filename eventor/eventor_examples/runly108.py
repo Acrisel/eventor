@@ -55,7 +55,7 @@ import logging
 import os
 import time
 
-logger=logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 import examples.run_types as rtypes
 

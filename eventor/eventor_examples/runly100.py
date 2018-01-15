@@ -47,7 +47,7 @@ N/A
 
 
 API DOC:
-===============     
+===============
 """
 
 import eventor as evr
@@ -66,7 +66,7 @@ def construct_and_run():
     if config.startswith('/private'):
         config = config[8:]
     # TODO: assume import_module is __file__ if not provided
-    ev = evr.Eventor(name=os.path.basename(__file__), config=config, store=db)
+    ev = evr.Eventor(name=os.path.basename(__file__), config=config, config_tag='EVENTOR', store=db)
 
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')

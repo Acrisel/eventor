@@ -32,7 +32,7 @@ appname = os.path.basename(__file__)
 def construct_and_run():
     config = os.path.abspath('runly.conf')
     ev = evr.Eventor(name=appname,
-                     config=config, store='')  # store=':memory:')
+                     config=config, config_tag='EVENTOR', store='')  # store=':memory:')
 
     ev1s = ev.add_event('run_step1')
     ev1d = ev.add_event('done_step1')

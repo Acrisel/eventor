@@ -35,7 +35,7 @@ def construct_and_run():
     config = os.path.abspath('runly.conf')
     if config.startswith('/private'):
         config = config[8:]   
-    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, store=db, shared_db=False, import_module=["examples.run_types", ],)
+    ev = evr.Eventor(name=os.path.basename(__file__), logging_level=logging.DEBUG, config=config, config_tag='EVENTOR', store=db, shared_db=False, import_module=["examples.run_types", ],)
     
     ev0first = ev.add_event('s0_start')
     ev0next = ev.add_event('s0_next')

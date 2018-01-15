@@ -11,12 +11,10 @@ import sys
 import struct
 import importlib.util
 import multiprocessing as mp
-from threading import Thread
 from acrilog import SSHLogger as Logger
 from acrilog import SSHLoggerClientHandler
 import logging
 import pprint
-from queue import Empty
 import yaml
 from copy import copy
 import os
@@ -49,7 +47,7 @@ def new_recvoer_args_file(name=None):
 
 def last_recvoer_args_file():
     files = filter(lambda x: os.path.isfile(x) and x.startswith(RECOVER_ARGS_FILE), os.listdir(RECOVER_ARGS_DIR))
-    files = [os.path.join(RECOVER_ARGS_DIR, f) for f in files] # add path to each file
+    files = [os.path.join(RECOVER_ARGS_DIR, f) for f in files]  # add path to each file
     files.sort(key=lambda x: os.path.getmtime(x))
     return files[-1] if len(files) > 0 else None
 
@@ -79,18 +77,21 @@ def cmdargs():
     parser_act.add_argument('--log-info', type=str, dest='log_info',
                             help="""Logger info dictionary json coded.""")
     parser_act.add_argument('--file', type=str, required=False,
-                            help="""File to store or recover memory. With --pipe, it would store memory into file. Without --pipe, it would recover memory from store""")
+                            help=("File to store or recover memory. With --pipe, it would store"
+                                  " memory into file. Without --pipe, it would recover memory from"
+                                  " store"))
     parser_act.add_argument('--pipe', action='store_true',
-                            help="""Indicates that memory should be read from STDIN. If --pipe not provided, --file must be.""")
+                            help=("Indicates that memory should be read from STDIN. If --pipe not"
+                                  " provided, --file must be."))
     parser_act.add_argument('--debug', action='store_true',
-                            help="""Invokes additional debug utilities, e.g., store args for recovery.""")
+                            help="Invokes additional debug utilities, e.g., store args for recovery.")
 
     parser_rec.add_argument('--file', type=str, required=False,
                             help="""File from which to restore previous args""")
     args = parser.parse_args()
 
     assert args.file is not None or args.pipe, "--pipe or --file must be provided."
-    # argsd=vars(args)
+    # argsd = vars(args)
     return args
 
 
@@ -154,7 +155,7 @@ def pull_from_pipe(queue=None,):
     ''' Pipe listener wait for one message.  Once receive (DONE or TERM) it ends.
     '''
     global mlogger
-    
+
     def set_result(msg, e):
         if queue is not None:
             queue.put((msg, e))
@@ -218,9 +219,10 @@ def check_agent_process(agent,):
 
 def logger_remote_handler(logger_queue, log_info_recv, ssh_host,):
     try:
-        remote_logger_handler = SSHLoggerClientHandler(logger_info=log_info_recv, ssh_host=ssh_host,)
+        remote_logger_handler = SSHLoggerClientHandler(logger_info=log_info_recv, ssh_host=ssh_host)
     except Exception as e:
-        raise EventorAgentError("Failed to create NwLoggerClientHandler on: {}; {}".format(ssh_host), repr(e))
+        raise EventorAgentError("Failed to create NwLoggerClientHandler on: {}; {}"
+                                .format(ssh_host), repr(e))
 
     listener = logging.handlers.QueueListener(logger_queue, remote_logger_handler)
     listener.start()
@@ -272,7 +274,7 @@ def run(args):
     logger.start()
 
     logger_info = logger.logger_info()
-    mlogger = Logger.get_logger(logger_info=logger_info,) 
+    mlogger = Logger.get_logger(logger_info=logger_info)
 
     mlogger.debug("Starting agent: {}.".format(args))
 

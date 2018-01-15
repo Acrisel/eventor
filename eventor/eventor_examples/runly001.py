@@ -41,7 +41,7 @@ class MyEnventor(evr.Eventor):
     def __init__(self, ):
         db = 'pgdb2'
         config = os.path.abspath('runly.conf')
-        super().__init__(name=appname, config=config, store=db,)
+        super().__init__(name=appname, config=config, config_tag='EVENTOR', store=db,)
 
     def construct_and_run(self):
         ev1s = self.add_event('run_step1')

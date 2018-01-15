@@ -37,7 +37,7 @@ def prog(progname):
 
 def build_flow(run_mode):
     config = os.path.abspath('runly.conf')
-    ev = evr.Eventor(name=appname, run_mode=run_mode, config=config,)
+    ev = evr.Eventor(name=appname, run_mode=run_mode, config=config, config_tag='EVENTOR')
 
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')

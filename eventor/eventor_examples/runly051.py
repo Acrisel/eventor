@@ -87,7 +87,7 @@ class Container(object):
 
 
 config = os.path.abspath('runly.conf')
-ev = evr.Eventor(name=appname, config=config, store='sqfile00')
+ev = evr.Eventor(name=appname, config=config, config_tag='EVENTOR', store='sqfile00')
 
 ev0first = ev.add_event('s0_start')
 ev0next = ev.add_event('s0_next')

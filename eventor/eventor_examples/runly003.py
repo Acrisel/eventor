@@ -39,7 +39,7 @@ def prog(progname):
 
 
 config = os.path.abspath('runly.conf')
-ev = evr.Eventor(name=appname, config=config)
+ev = evr.Eventor(name=appname, config=config, config_tag='EVENTOR')
 
 ev1s = ev.add_event('run_step1')
 ev2s = ev.add_event('run_step2')
