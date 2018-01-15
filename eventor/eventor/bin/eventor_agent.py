@@ -13,6 +13,7 @@ import importlib.util
 import multiprocessing as mp
 from acrilog import SSHLogger as Logger
 from acrilog import SSHLoggerClientHandler
+import sshpipe as sp
 import logging
 import pprint
 import yaml
@@ -91,7 +92,7 @@ def cmdargs():
     args = parser.parse_args()
 
     assert args.file is not None or args.pipe, "--pipe or --file must be provided."
-    # argsd = vars(args)
+
     return args
 
 
@@ -221,7 +222,7 @@ def logger_remote_handler(logger_queue, log_info_recv, ssh_host,):
     try:
         remote_logger_handler = SSHLoggerClientHandler(logger_info=log_info_recv, ssh_host=ssh_host)
     except Exception as e:
-        raise EventorAgentError("Failed to create NwLoggerClientHandler on: {}; {}"
+        raise EventorAgentError("Failed to create SSHLoggerClientHandler on: {}; {}"
                                 .format(ssh_host), repr(e))
 
     listener = logging.handlers.QueueListener(logger_queue, remote_logger_handler)
@@ -244,21 +245,45 @@ class EventorAgentQueueHandler(logging.handlers.QueueHandler):
         self.emitter.close()
 
 
-def run(args):
-    ''' Runs EventorAgent in remote host.
-
-    Args:
-        log_info
-        imports
-        host
-        file
-        pipe
+class SSHPipeEventorAgent(sp.SSHPipeHandler):
+    ''' SSHPipeSocketHandler modeled over logging.handlers.SocketHandler
     '''
-    global mlogger
 
-    log_info, imports, host, ssh_host, pipe, file = \
+    def __init__(self, args, *args, **kwargs):
+        super(sp.SSHPipeHandler, self).__init__(*args, **kwargs)
+        self.args = args
+        self.mlogger.debug("EventorAgent params:\n{}.".format(self.args))
+
+    def atstart(self, receieved):
+        args = self.args
+        log_info, imports, host, ssh_host, pipe, file = \
         args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file
 
+    def atexit(self, received):
+        # if self.file is not None:
+        #     self.file.close()
+        super(sp.SSHPipeHandler, self).atexit(received)
+        self.mlogger.debug("Closed handlers.")
+
+    def handle(self, received):
+        """
+        Send a pickled string to the socket.
+
+        This function allows for partial sends which can happen when the
+        network is busy.
+        """
+        # self.file.write(str(received))
+        self.emit(received)
+        self.mlogger.debug("Emitted record to socket: {}.".format(received))
+
+
+def run(args):
+    client = SSHPipeEventorAgent(args)
+    client.service_loop()
+
+
+def initiate_logger(log_info):
+    global mlogger
     log_info_recv = yaml.load(log_info)
     handler_kwargs = log_info_recv['handler_kwargs']
     logger_info_local = copy(log_info_recv)
@@ -275,6 +300,26 @@ def run(args):
 
     logger_info = logger.logger_info()
     mlogger = Logger.get_logger(logger_info=logger_info)
+
+    return logger, logger_info_local, logger_queue, log_info_recv, logger_info
+
+
+def run_eventor(args):
+    ''' Runs EventorAgent in remote host.
+
+    Args:
+        log_info
+        imports
+        host
+        file
+        pipe
+    '''
+    global mlogger
+
+    log_info, imports, host, ssh_host, pipe, file = \
+        args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file
+
+    logger, logger_info_local, logger_queue, log_info_recv, logger_info = initiate_logger(log_info)
 
     mlogger.debug("Starting agent: {}.".format(args))
 
@@ -303,6 +348,8 @@ def run(args):
         close_run(logger=logger, msg="TERM", err=e)
         return
 
+    mlogger.debug('Started logger_remote_handler: {}.'.format(ssh_host))
+
     if imports is not None:
         do_imports(imports)
 
@@ -313,8 +360,8 @@ def run(args):
         if e:
             mlogger.critical("Failed to get Eventor memory from pipe.")
             close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
-            return  
-        
+            return
+
         # store memory into file
         if file:
             mlogger.debug("Storing workload to {}.".format(file))
@@ -446,16 +493,16 @@ def recover(args):
     if file is not None:
         with open(file, 'rb') as f:
             saved_args = pickle.load(f)
-        run(saved_args)
+        run_eventor(saved_args)
     else:
         raise EventorAgentError("Trying to run in recovery, but no recovery file found.")
 
 
 if __name__ == '__main__':
-    mp.freeze_support()
-    mp.set_start_method('spawn')
+    # mp.freeze_support()
+    # mp.set_start_method('spawn')
     args = cmdargs()
     if args.run:
-        run(args)
+        run_eventor(args)
     else:
         recover(args)
