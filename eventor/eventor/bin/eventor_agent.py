@@ -249,13 +249,13 @@ class SSHPipeEventorAgent(sp.SSHPipeHandler):
     ''' SSHPipeSocketHandler modeled over logging.handlers.SocketHandler
     '''
 
-    def __init__(self, args, *args, **kwargs):
+    def __init__(self, agent_args, *args, **kwargs):
         super(sp.SSHPipeHandler, self).__init__(*args, **kwargs)
-        self.args = args
+        self.agent_args = agent_args
         self.mlogger.debug("EventorAgent params:\n{}.".format(self.args))
 
     def atstart(self, receieved):
-        args = self.args
+        args = self.agent_args
         log_info, imports, host, ssh_host, pipe, file = \
         args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file
 

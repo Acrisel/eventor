@@ -1772,6 +1772,7 @@ class Eventor(object):
         kwargs = list()
         for imports in self.imports:
             kwargs.append(("--imports", imports))
+
         kwargs.extend([('--host', host),
                        ('--ssh-server-host', self.ssh_host),
                        ('--log-info', '"{}"'.format(yaml.dump(self.__logger_info))),
