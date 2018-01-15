@@ -34,7 +34,7 @@ def prog(progname):
     logger = logging.getLogger(os.getenv("EVENTOR_LOGGER_NAME"))
     logger.info("doing what %s is doing" % progname)
     logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
-    time.sleep(30)
+    time.sleep(5)
     return progname
 
 

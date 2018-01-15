@@ -1875,6 +1875,7 @@ class Eventor(object):
         while agent_count > 0:
             for host, agent in list(self.__agents.items()):
                 if not agent.is_alive():
+                    agent.close()
                     response = agent.response()
                     returncode, stdout, stderr = response
                     stderr = '' if not stderr else '\n'+stderr
