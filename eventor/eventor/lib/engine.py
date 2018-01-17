@@ -1788,12 +1788,11 @@ class Eventor(object):
         args = ['--pipe']
         if self.debug:
             args.append('--debug')
-        agentpy = 'eventor_agent.py'
         kw = reduce(lambda x, y: x + list(y), kwargs, list())
         # kw = ["{} {}".format(name, value) for name, value in kwargs]
         # cmd = "{} act {} {}".format(agentpy, ' '.join(args), " ".join(kw))
-        #cmd = [agentpy, "act", ' '.join(args), " ".join(kw)]
-        cmd = [agentpy, "act"] + args + kw
+        # cmd = [agentpy, "act", ' '.join(args), " ".join(kw)]
+        cmd = ['eventor_agent.py', "act"] + args + kw
         mlogger.debug('Agent command: {}: {}.'.format(host, cmd))
         sshname = "{}.sshagent.log".format(self.__logger_params['name'])
 

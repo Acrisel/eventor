@@ -57,6 +57,10 @@ __pycache__
 *.db
 *.db-journal
 
+# virtually removed #
+#####################
+*.del
+
 # OS generated files #
 ######################
 .DS_Store

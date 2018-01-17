@@ -22,7 +22,7 @@
 
 import eventor as evr
 import os
-import examples.run_types as rtypes
+from .run_types import prog, Container
 
 appname = os.path.basename(__file__)
 
@@ -43,7 +43,7 @@ def construct_and_run():
     ev2success = ev.add_event('s0_s00_s2_success')
     ev3s = ev.add_event('s0_s00_s3_start', expr=(ev2success,))
 
-    metaprog = rtypes.Container(progname='S0', loop=[1, 2],
+    metaprog = Container(progname='S0', loop=[1, 2],
                                 iter_triggers=(ev00first,))
 
     s0first = ev.add_step('s0_start', func=metaprog, kwargs={'initial': True},
@@ -54,7 +54,7 @@ def construct_and_run():
                          config={'task_construct': 'invoke',
                                  'pass_logger_to_task': True})
 
-    metaprog = rtypes.Container(progname='S00', loop=[1, 2],
+    metaprog = Container(progname='S00', loop=[1, 2],
                                 iter_triggers=(ev1s,), end_triggers=(ev0next, ))
 
     s00first = ev.add_step('s0_s00_start', func=metaprog,
@@ -66,13 +66,13 @@ def construct_and_run():
                           config={'task_construct': 'invoke',
                                   'pass_logger_to_task': True})
 
-    s1 = ev.add_step('s0.s00.s1', func=rtypes.prog,
+    s1 = ev.add_step('s0.s00.s1', func=prog,
                      kwargs={'progname': 'prog1'},
                      triggers={evr.STEP_SUCCESS: (ev1success, ), })
-    s2 = ev.add_step('s0.s00.s2', func=rtypes.prog,
+    s2 = ev.add_step('s0.s00.s2', func=prog,
                      kwargs={'progname': 'prog2'},
                      triggers={evr.STEP_SUCCESS: (ev2success, ), })
-    s3 = ev.add_step('s0.s00.s3', func=rtypes.prog,
+    s3 = ev.add_step('s0.s00.s3', func=prog,
                      kwargs={'progname': 'prog3'},
                      triggers={evr.STEP_COMPLETE: (ev00next, ), })
 

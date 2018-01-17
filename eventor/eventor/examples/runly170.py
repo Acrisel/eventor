@@ -24,7 +24,7 @@ import eventor as evr
 import logging
 import os
 from acris import virtual_resource_pool as rp
-import examples.run_types as rtypes
+from .run_types import prog, Container, StepResource
 
 #logger=logging.getLogger(__name__)
 
@@ -47,24 +47,24 @@ ev2s = ev.add_event('s0_s00_s2_start', expr=(ev1success,))
 ev2success = ev.add_event('s0_s00_s2_success')
 ev3s = ev.add_event('s0_s00_s3_start', expr=(ev2success,))
 
-rp1 = rp.ResourcePool('RP1', resource_cls=rtypes.StepResource, policy={'resource_limit': 2, }).load()                   
-rp2 = rp.ResourcePool('RP2', resource_cls=rtypes.StepResource, policy={'resource_limit': 2, }).load()                   
+rp1 = rp.ResourcePool('RP1', resource_cls=StepResource, policy={'resource_limit': 2, }).load()                   
+rp2 = rp.ResourcePool('RP2', resource_cls=StepResource, policy={'resource_limit': 2, }).load()                   
 
-metaprog1 = rtypes.Container(progname='s0', loop=[1,2,], max_concurrent=2, iter_triggers=(ev00first,), end_triggers=(ev0end,))
+metaprog1 = Container(progname='s0', loop=[1,2,], max_concurrent=2, iter_triggers=(ev00first,), end_triggers=(ev0end,))
 s0first = ev.add_step('s0_start', func=metaprog1, kwargs={'initial': True, }, acquires=[(rp1, 1), ], releases=[], 
                     config={'max_concurrent': -1, 'task_construct': 'invoke', 'pass_logger_to_task': True})
 s0next = ev.add_step('s0_next', func=metaprog1, config={'task_construct': 'invoke', 'pass_logger_to_task': True})
 s0end = ev.add_step('s0_end', releases=[(rp1, 1), ], config={'task_construct': 'invoke', 'pass_logger_to_task': True})
   
-metaprog2 = rtypes.Container(progname='00', loop=[1,2,], max_concurrent=2, iter_triggers=(ev1s,), end_triggers=(ev00end,))
+metaprog2 = Container(progname='00', loop=[1,2,], max_concurrent=2, iter_triggers=(ev1s,), end_triggers=(ev00end,))
 s00first = ev.add_step('s0_s00_start', func=metaprog2, kwargs={'initial': True, }, acquires=[(rp2, 1), ], releases=[], 
                      config={'max_concurrent': -1, 'task_construct': 'invoke', 'pass_logger_to_task': True})
 s00next = ev.add_step('s0_s00_next', func=metaprog2, config={'task_construct': 'invoke', 'pass_logger_to_task': True})
 s00end = ev.add_step('s0_s00_end', releases=[(rp2, 1),], config={'task_construct': 'invoke', 'pass_logger_to_task': True}, triggers={evr.StepStatus.success: (ev0next,), })
 
-s1 = ev.add_step('s0.s00.s1', func=rtypes.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
-s2 = ev.add_step('s0.s00.s2', func=rtypes.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), }, host='ubuntud01_eventor')
-s3 = ev.add_step('s0.s00.s3', func=rtypes.prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
+s1 = ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}) 
+s2 = ev.add_step('s0.s00.s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), }, host='ubuntud01_eventor')
+s3 = ev.add_step('s0.s00.s3', func=prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
 
 ev.add_assoc(ev0first, s0first)
 ev.add_assoc(ev0next, s0next)

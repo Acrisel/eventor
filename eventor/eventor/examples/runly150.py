@@ -23,14 +23,13 @@
 import eventor as evr
 import logging
 import os
-
-import examples.run_types as rtypes # import IterGen, Container
+from .run_types import prog, Container
 
 
 logger = logging.getLogger(__name__)
 
 
-def construct_and_run():     
+def construct_and_run():
     db = 'pgdb2'
     config = os.path.abspath('runly.conf')
     if config.startswith('/private'):
@@ -48,21 +47,21 @@ def construct_and_run():
     ev3s = ev.add_event('s0_s00_s3_start', expr=(ev2success,))
     
     # on invoke, Eventor will pass itself as kwargs.
-    metaprog = rtypes.Container(progname='S0', loop=[1,2,], iter_triggers=(ev00first,))
+    metaprog = Container(progname='S0', loop=[1,2,], iter_triggers=(ev00first,))
     s0first = ev.add_step('s0_start', func=metaprog, kwargs={'initial': True, }, config={'max_concurrent': -1, 'task_construct': 'invoke', 'pass_logger_to_task': True})
     s0next = ev.add_step('s0_next', func=metaprog, config={'task_construct': 'invoke', 'pass_logger_to_task': True})
     
-    metaprog = rtypes.Container(progname='S00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
+    metaprog = Container(progname='S00', loop=[1,2,], iter_triggers=(ev1s,), end_triggers=(ev0next,))
     
     #s00first=ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'task_construct': threading.Thread})
     #s00next=ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': threading.Thread})
     s00first = ev.add_step('s0_s00_start', func=metaprog, kwargs={'initial': True}, config={'max_concurrent': -1, 'task_construct': 'invoke', 'pass_logger_to_task': True})
     s00next = ev.add_step('s0_s00_next', func=metaprog, config={'task_construct': 'invoke', 'pass_logger_to_task': True})
     
-    s1 = ev.add_step('s0.s00.s1', func=rtypes.prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}, host='ubuntud01_eventor') 
-    s2 = ev.add_step('s0.s00.s2', func=rtypes.prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
+    s1 = ev.add_step('s0.s00.s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev1success,),}, host='ubuntud01_eventor') 
+    s2 = ev.add_step('s0.s00.s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev2success,), })
     
-    s3 = ev.add_step('s0.s00.s3', func=rtypes.prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
+    s3 = ev.add_step('s0.s00.s3', func=prog, kwargs={'progname': 'prog3'}, triggers={evr.StepStatus.complete: (ev00next,), })
     
     ev.add_assoc(ev0first, s0first)
     ev.add_assoc(ev0next, s0next)

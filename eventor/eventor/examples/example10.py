@@ -7,7 +7,7 @@ Created on Aug 16, 2017
 import eventor as evr
 import logging
 import time
-import eventor_examples.run_types as eprog
+from eventor.examples.run_types import prog
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +19,11 @@ def build_flow(run_mode, run_id=None):
     ev2s = ev.add_event('run_step2')
     ev3s = ev.add_event('run_step3')
 
-    s1 = ev.add_step('s1', func=eprog.prog, kwargs={'progname': 'prog1'},
+    s1 = ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'},
                      triggers={evr.StepStatus.success: (ev2s,)})
-    s2 = ev.add_step('s2', func=eprog.prog, kwargs={'progname': 'prog2'},
+    s2 = ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'},
                      triggers={evr.StepStatus.success: (ev3s,)})
-    s3 = ev.add_step('s3', func=eprog.prog, kwargs={'progname': 'prog3'},)
+    s3 = ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
 
     ev.add_assoc(ev1s, s1, delay=0)
     ev.add_assoc(ev2s, s2, delay=5)

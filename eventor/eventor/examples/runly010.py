@@ -23,7 +23,7 @@
 ##############################################################################
 
 import eventor as evr
-import examples.program as prog
+import eventor.examples.program as prog
 import os
 
 appname = os.path.basename(__file__)

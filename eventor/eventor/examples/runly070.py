@@ -24,7 +24,7 @@ import eventor as evr
 import logging
 import os
 from acris import virtual_resource_pool as rp
-import examples.run_types as runtyles
+from .run_types import Container
 
 
 appname = os.path.basename(__file__)
@@ -62,7 +62,7 @@ rp2o = rp.ResourcePool('RP2', resource_cls=StepResource,
                        policy={'resource_limit': 2})
 rp2 = rp2o.load()
 
-metaprog1 = runtyles.Container(progname='s0', loop=[1, 2],
+metaprog1 = Container(progname='s0', loop=[1, 2],
                                max_concurrent=2,
                                iter_triggers=(ev00first,),
                                end_triggers=(ev0end,))
@@ -80,7 +80,7 @@ s0end = ev.add_step('s0_end', releases=[(rp1, 1), ],
                     config={'task_construct': 'invoke',
                             'pass_logger_to_task': True})
 
-metaprog2 = runtyles.Container(progname='00', loop=[1, 2],
+metaprog2 = Container(progname='00', loop=[1, 2],
                                max_concurrent=2, iter_triggers=(ev1s,),
                                end_triggers=(ev00end,))
 s00first = ev.add_step('s0_s00_start', func=metaprog2,
