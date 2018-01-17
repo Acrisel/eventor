@@ -6,6 +6,7 @@ from eventor.lib.eventor_types import AssocType, TaskStatus, DbMode, StepStatus,
 from eventor.lib.eventor_types import RunMode, Invoke
 from eventor.lib.event import or_
 from eventor.lib.utils import calling_module, store_from_module
+from eventor.lib.conf_handler import merge_configs
 
 STEP_RERUN = StepReplay.rerun  # reruns step regardless if previously succeeded
 STEP_SKIP = StepReplay.skip  # skip step if previously succeeded

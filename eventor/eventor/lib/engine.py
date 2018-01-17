@@ -20,6 +20,7 @@ import time
 from datetime import datetime
 import signal
 import yaml
+from functools import reduce
 from copy import deepcopy
 from .step import Step
 from .event import Event
@@ -1788,9 +1789,11 @@ class Eventor(object):
         if self.debug:
             args.append('--debug')
         agentpy = 'eventor_agent.py'
-        kw = ["{} {}".format(name, value) for name, value in kwargs]
+        kw = reduce(lambda x, y: x + list(y), kwargs, list())
+        # kw = ["{} {}".format(name, value) for name, value in kwargs]
         # cmd = "{} act {} {}".format(agentpy, ' '.join(args), " ".join(kw))
-        cmd = [agentpy, "act", ' '.join(args), " ".join(kw)]
+        #cmd = [agentpy, "act", ' '.join(args), " ".join(kw)]
+        cmd = [agentpy, "act"] + args + kw
         mlogger.debug('Agent command: {}: {}.'.format(host, cmd))
         sshname = "{}.sshagent.log".format(self.__logger_params['name'])
 

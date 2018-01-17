@@ -22,7 +22,7 @@
 
 import eventor as evr
 import os
-import eventor_examples.run_types as rtypes
+import examples.run_types as rtypes
 
 appname = os.path.basename(__file__)
 
