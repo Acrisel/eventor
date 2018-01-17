@@ -24,7 +24,7 @@ import eventor as evr
 import logging
 import os
 from acris import virtual_resource_pool as rp
-import eventor_examples.run_types as runtyles
+import examples.run_types as runtyles
 
 
 appname = os.path.basename(__file__)
