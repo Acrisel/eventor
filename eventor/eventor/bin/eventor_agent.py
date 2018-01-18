@@ -319,12 +319,22 @@ def run_eventor(args):
     log_info, imports, host, ssh_host, pipe, file = \
         args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file
 
+    if not args.pipe:
+        # this is recovery: read args from file
+        with open(file, 'rb') as f:
+            args = pickle.load(f)
+            memory = pickle.load(f)
+            # Dont take pipe from arg file
+            log_info, imports, host, ssh_host, file = \
+                args.log_info, args.imports, args.host, args.ssh_host, args.file
+
     logger, logger_info_local, logger_queue, log_info_recv, logger_info = initiate_logger(log_info)
 
     mlogger.debug("Starting agent: {}.".format(args))
 
     # In case of debug, store arguments.
-    if args.debug:
+    # but, also, it is not recovery (pipe is provided)
+    if args.debug and args.pipe:
         file = new_recvoer_args_file(file)
         try:
             with open(file, 'wb') as f:
@@ -341,7 +351,7 @@ def run_eventor(args):
     mlogger.debug('Module logger:\n{}'.format(log_info))
 
     try:
-        dipatcher_to_remote_logger = logger_remote_handler(logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host,) # logdir=handler_kwargs['logdir'])
+        dipatcher_to_remote_logger = logger_remote_handler(logger_queue, log_info_recv=log_info_recv, ssh_host=ssh_host,)  # logdir=handler_kwargs['logdir'])
     except Exception as e:
         mlogger.exception(e)
         mlogger.debug("Failed to to create remote logger on: {}.".format(ssh_host))
@@ -363,16 +373,17 @@ def run_eventor(args):
             return
 
         # store memory into file
-        if file:
+        if file and args.debug:
             mlogger.debug("Storing workload to {}.".format(file))
             try:
-                with open(file, 'wb') as file:
+                with open(file, 'ab') as file:
                     pickle.dump(memory, file)
             except Exception as e:
                 mlogger.critical("Failed to pickle dump workload to {}.".format(file))
                 mlogger.exception(e)
                 close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
                 return
+    '''
     else:
         mlogger.debug("Fetching workload from file.")
         try:
@@ -383,7 +394,8 @@ def run_eventor(args):
             mlogger.exception(e)
             close_run(dipatcher_to_remote_logger, logger, msg='TERM', err=e)
             return
-
+    '''
+            
     mlogger.debug("Memory received:\n{}".format(pprint.pformat(memory, indent=4, )))
 
     try:
