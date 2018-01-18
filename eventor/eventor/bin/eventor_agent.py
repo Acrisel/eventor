@@ -316,17 +316,19 @@ def run_eventor(args):
     '''
     global mlogger
 
-    log_info, imports, host, ssh_host, pipe, file = \
-        args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file
+    log_info, imports, host, ssh_host, pipe, file, debug = \
+        args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file, args.debug
 
-    if not args.pipe:
+    recovery = not pipe
+
+    if recovery:
         # this is recovery: read args from file
         with open(file, 'rb') as f:
             args = pickle.load(f)
             memory = pickle.load(f)
-            # Dont take pipe from arg file
-            log_info, imports, host, ssh_host, file = \
-                args.log_info, args.imports, args.host, args.ssh_host, args.file
+            # Dont take pipe, and file from arg store
+            log_info, imports, host, ssh_host, debug = \
+                args.log_info, args.imports, args.host, args.ssh_host, args.debug
 
     logger, logger_info_local, logger_queue, log_info_recv, logger_info = initiate_logger(log_info)
 
@@ -334,7 +336,7 @@ def run_eventor(args):
 
     # In case of debug, store arguments.
     # but, also, it is not recovery (pipe is provided)
-    if args.debug and args.pipe:
+    if debug and not recovery and file:
         file = new_recvoer_args_file(file)
         try:
             with open(file, 'wb') as f:
@@ -373,7 +375,7 @@ def run_eventor(args):
             return
 
         # store memory into file
-        if file and args.debug:
+        if not recovery and file and debug:
             mlogger.debug("Storing workload to {}.".format(file))
             try:
                 with open(file, 'ab') as file:
