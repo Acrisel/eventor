@@ -23,7 +23,7 @@
 import eventor as evr
 import logging
 import os
-from .run_types import prog, Container
+from eventor.examples.run_types import prog, Container
 
 
 logger = logging.getLogger(__name__)

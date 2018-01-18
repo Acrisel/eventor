@@ -53,7 +53,7 @@ API DOC:
 import eventor as evr
 import logging
 import os
-from .run_types import prog, Container
+from eventor.examples.run_types import prog
 
 logger = logging.getLogger(__file__)
 
@@ -90,7 +90,7 @@ def construct_and_run():
 
 
 if __name__ == '__main__':
-    import multiprocessing as mp
-    mp.freeze_support()
-    mp.set_start_method('spawn')
+    # import multiprocessing as mp
+    # mp.freeze_support()
+    # mp.set_start_method('spawn')
     construct_and_run()

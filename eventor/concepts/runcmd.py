@@ -6,15 +6,36 @@ Created on Aug 30, 2017
 import subprocess as sp
 import os
 
-heredir = os.path.dirname(os.path.abspath(__file__))
-projdir = os.path.dirname(heredir)
-prog = os.path.join(projdir, 'eventor', 'bin', 'eventor_agent.py')
 
-cmd = [prog, 'act', '--pipe', '--debug', '--host', 'ubuntud01_eventor', '--ssh-server-host', 'mbp_eventor',
-       '--log-info', "datefmt: \'%Y-%m-%d,%H:%M:%S.%f\'\nhandler_kwargs: {atTime: 86400, backupCount: 0, consolidate: false, delay: false,\n  encoding: utf8, file_mode: a, file_prefix: \'\', file_suffix: \'\', interval: 1, key: name,\n  logdir: /Users/arnon/log/eventor, maxBytes: 0, utc: false, when: h}\nhost: localhost\nlevel_formats: !!python/object/new:acrilib.idioms.data_types.MergedChainedDict\n  dictitems: {\'10\': \'[ %(asctime)-15s ][ %(levelname)-7s ][ %(host)s ][ %(processName)-11s\n      ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]\', default: \'[ %(asctime)-15s\n      ][ %(levelname)-7s ][ %(host)s ][ %(processName)-11s ][ %(message)s ]\'}\nlogging_level: 10\nname: runly100.py\nport: 55058\nserver_host: arnon-mbp\n",
-       '--file', '/tmp/runly100.py.dat']
-# cmd = [prog, 'act', '-h']
+def cmdargs(namespace=None):
+    import argparse
+    filename = os.path.basename(__file__)
+    progname = filename.rpartition('.')[0]
+
+    parser = argparse.ArgumentParser(prog=progname, description="runs EventorAgent object.")
+    parser.add_argument('--file', type=str, help="args data file.")
+    args = parser.parse_args(namespace=namespace)
+    return args
 
 
-proc = sp.run(cmd)
-print(proc)
+def runcmd(file):
+    heredir = os.path.dirname(os.path.abspath(__file__))
+    projdir = os.path.dirname(heredir)
+    prog = os.path.join(projdir, 'eventor', 'bin', 'eventor_agent.py')
+
+    # cmd = [prog, 'act', '--pipe', '--debug', '--host', 'ubuntud01_eventor', '--ssh-server-host', 'mbp_eventor',
+    #        '--log-info', "datefmt: \'%Y-%m-%d,%H:%M:%S.%f\'\nhandler_kwargs: {atTime: 86400, backupCount: 0, consolidate: false, delay: false,\n  encoding: utf8, file_mode: a, file_prefix: \'\', file_suffix: \'\', interval: 1, key: name,\n  logdir: /Users/arnon/log/eventor, maxBytes: 0, utc: false, when: h}\nhost: localhost\nlevel_formats: !!python/object/new:acrilib.idioms.data_types.MergedChainedDict\n  dictitems: {\'10\': \'[ %(asctime)-15s ][ %(levelname)-7s ][ %(host)s ][ %(processName)-11s\n      ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]\', default: \'[ %(asctime)-15s\n      ][ %(levelname)-7s ][ %(host)s ][ %(processName)-11s ][ %(message)s ]\'}\nlogging_level: 10\nname: runly100.py\nport: 55058\nserver_host: arnon-mbp\n",
+    #        '--file', '/tmp/runly100.py.dat']
+    cmd = [prog, 'act', '--debug', '--host', 'ubuntud01_eventor', '--ssh-server-host', 'mbp_eventor',
+           '--log-info', "datefmt: \'%Y-%m-%d,%H:%M:%S.%f\'\nhandler_kwargs: {atTime: 86400, backupCount: 0, consolidate: false, delay: false,\n  encoding: utf8, file_mode: a, file_prefix: \'\', file_suffix: \'\', interval: 1, key: name,\n  logdir: /Users/arnon/log/eventor, maxBytes: 0, utc: false, when: h}\nhost: localhost\nlevel_formats: !!python/object/new:acrilib.idioms.data_types.MergedChainedDict\n  dictitems: {\'10\': \'[ %(asctime)-15s ][ %(levelname)-7s ][ %(host)s ][ %(processName)-11s\n      ][ %(message)s ][ %(module)s.%(funcName)s(%(lineno)d) ]\', default: \'[ %(asctime)-15s\n      ][ %(levelname)-7s ][ %(host)s ][ %(processName)-11s ][ %(message)s ]\'}\nlogging_level: 10\nname: runly100.py\nport: 55058\nserver_host: arnon-mbp\n",
+           '--file', file]
+    # cmd = [prog, 'act', '-h']
+
+    proc = sp.run(cmd)
+    print(proc)
+
+
+if __name__ == '__main__':
+    args = cmdargs()
+    runcmd(file=args.file)
+

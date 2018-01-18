@@ -24,7 +24,7 @@ import eventor as evr
 import logging
 import os
 import time
-from .run_types import prog
+from eventor.examples.run_types import prog
 
 appname = os.path.basename(__file__)
 

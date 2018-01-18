@@ -24,9 +24,9 @@ import eventor as evr
 import logging
 import os
 from acris import virtual_resource_pool as rp
-from .run_types import prog, Container, StepResource
+from eventor.examples.run_types import prog, Container, StepResource
 
-#logger=logging.getLogger(__name__)
+# logger=logging.getLogger(__name__)
 
 db = 'pgdb2'
 config=os.path.abspath('runly.conf')
