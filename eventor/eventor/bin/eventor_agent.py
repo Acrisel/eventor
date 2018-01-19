@@ -53,7 +53,7 @@ def last_recvoer_args_file():
     return files[-1] if len(files) > 0 else None
 
 
-def cmdargs():
+def cmdargs(args=None):
     import argparse
 
     filename = os.path.basename(__file__)
@@ -89,11 +89,11 @@ def cmdargs():
 
     parser_rec.add_argument('--file', type=str, required=False,
                             help="""File from which to restore previous args""")
-    args = parser.parse_args()
+    pargs = parser.parse_args(args=args)
 
-    assert args.file is not None or args.pipe, "--pipe or --file must be provided."
+    assert pargs.file is not None or pargs.pipe, "--pipe or --file must be provided."
 
-    return args
+    return pargs
 
 
 def do_imports(imports):
@@ -319,7 +319,8 @@ def run_eventor(args):
     log_info, imports, host, ssh_host, pipe, file, debug = \
         args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file, args.debug
 
-    recovery = not pipe
+    run, recovery = args.run, args.recover
+    print('RECOVERY:', run, recovery, args)
 
     if recovery:
         # this is recovery: read args from file
@@ -500,6 +501,7 @@ def close_run(listener=None, logger=None, msg=None, err=None):
         logger.stop()
 
 
+'''
 def recover_eventor(args):
     file = args.file
     if file is None:
@@ -510,13 +512,23 @@ def recover_eventor(args):
         run_eventor(saved_args)
     else:
         raise EventorAgentError("Trying to run in recovery, but no recovery file found.")
-
+'''
 
 if __name__ == '__main__':
     # mp.freeze_support()
     # mp.set_start_method('spawn')
+    
+    
     args = cmdargs()
+    '''
     if args.run:
         run_eventor(args)
     else:
         recover_eventor(args)
+    '''
+    run_eventor(args)
+    '''
+    args = cmdargs(['rec', '--file', 'myfile'])
+    print(args)
+    '''
+    
