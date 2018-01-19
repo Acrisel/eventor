@@ -140,6 +140,7 @@ def start_eventor(queue, logger_info, **kwargs):
         mlogger.critical("Failed to start EventorAgent.")
         mlogger.exception(e)
         queue.put(('TERM', e))
+        return
 
     mlogger.debug('Initiated EventorAgent object, going to run().')
 
