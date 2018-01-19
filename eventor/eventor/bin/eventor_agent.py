@@ -137,7 +137,9 @@ def start_eventor(queue, logger_info, **kwargs):
     try:
         eventor = Eventor(**kwargs)
     except Exception as e:
-        raise Exception("Failed to start EventorAgent.") from e
+        mlogger.critical("Failed to start EventorAgent.")
+        mlogger.exception(e)
+        queue.put(('TERM', e))
 
     mlogger.debug('Initiated EventorAgent object, going to run().')
 
@@ -316,14 +318,14 @@ def run_eventor(args):
     '''
     global mlogger
 
-    log_info, imports, host, ssh_host, pipe, file, debug = \
-        args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file, args.debug
-
     run, recovery = args.run, args.recover
-    print('RECOVERY:', run, recovery, args)
-
-    if recovery:
+    
+    if run:
+        log_info, imports, host, ssh_host, pipe, file, debug = \
+            args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file, args.debug
+    else:  # recovery:
         # this is recovery: read args from file
+        file = args.file
         with open(file, 'rb') as f:
             args = pickle.load(f)
             memory = pickle.load(f)
@@ -366,7 +368,7 @@ def run_eventor(args):
     if imports is not None:
         do_imports(imports)
 
-    if pipe:
+    if run:
         mlogger.debug("Fetching workload. from pipe.")
 
         memory, e = pull_from_pipe()
