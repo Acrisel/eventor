@@ -56,8 +56,8 @@ AUTHOR and AUTHOR_EMAIL are what they sound like: your name and email address. T
 information is optional, but it's good practice to supply an email address if people 
 want to reach you about the project.
 '''
-AUTHOR = 'Acrisel Team'
-AUTHOR_EMAIL = 'support@acrisel.com'
+AUTHORS = 'Acrisel Team'
+AUTHORS_EMAIL = 'support@acrisel.com'
 
 '''
 URL is the URL for the project. This URL may be a project website, the Github repository, 
@@ -77,33 +77,25 @@ VERSION = setup_utils.read_version(metahost=metahost)
 # still present in site-packages. See #18115.
 overlay_warning = False
 if "install" in sys.argv:
-    lib_paths = [get_python_lib()]
-    if lib_paths[0].startswith("/usr/lib/"):
-        # We have to try also with an explicit prefix of /usr/local in order to
-        # catch Debian's custom user site-packages directory.
-        lib_paths.append(get_python_lib(prefix="/usr/local"))
+    existing_path = setup_utils.existing_package(PACKAGE)
 
-    for lib_path in lib_paths:
-        existing_path = os.path.abspath(os.path.join(lib_path, PACKAGE))
-        if os.path.exists(existing_path):
-            # We note the need for the warning here, but present it after the
-            # command is run, so it's more likely to be seen.
-            overlay_warning = True
-            break
+scripts = setup_utils.scripts(PACKAGE)
 
-scripts = ['eventor/bin/eventor_agent.py']
+# Find all sub packages
+packages = setup_utils.packages(PACKAGE)
+required = setup_utils.read_required(metahost=metahost)
 
 setup_info = {
     'name': NAME,
     'version': VERSION,
     'url': URL,
-    'author': AUTHOR,
-    'author_email': AUTHOR_EMAIL,
+    'author': AUTHORS,
+    'author_email': AUTHORS_EMAIL,
     'description': DESCRIPTION,
     'long_description': open("README.rst", "r").read(),
     'license': 'MIT',
     'keywords': 'project, virtualenv, parameters',
-    'packages': [PACKAGE],
+    'packages': packages,
     'scripts': scripts,
     'install_requires': [
         'SQLAlchemy>=1.1.5',

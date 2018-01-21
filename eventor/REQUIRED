@@ -1,0 +1,7 @@
+SQLAlchemy>=1.1.5
+acrilib>=1.0.2
+acris>=2.0.2
+acrilog>=2.0.11
+pyyaml>=3.12
+namedlist>=1.7
+sshpipe>=0.5
