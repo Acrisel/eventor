@@ -86,7 +86,7 @@ def construct_and_run():
 
     ev.trigger_event(ev1s, '1')
     ev.run()
-    ev.close()
+    # ev.close()
 
 
 if __name__ == '__main__':

@@ -320,7 +320,7 @@ def run_eventor(args):
     global mlogger
 
     run, recovery = args.run, args.recover
-    
+
     if run:
         log_info, imports, host, ssh_host, pipe, file, debug = \
             args.log_info, args.imports, args.host, args.ssh_host, args.pipe, args.file, args.debug
