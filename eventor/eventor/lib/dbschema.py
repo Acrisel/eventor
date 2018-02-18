@@ -64,6 +64,8 @@ def trigger_table(base):
         __tablename__ = 'Trigger'
 
         id_ = Column(Integer, Sequence('trigger_id_seq', metadata=base.metadata), primary_key=True)
+        # TODO: replace change event_id to name and make the system work with eid instead.
+        eid = Column(String, nullable=True)
         run_id = Column(String, nullable=False, default='')
         event_id = Column(String, nullable=False)
         sequence = Column(String, nullable=False)
@@ -96,6 +98,8 @@ def task_table(base):
         __tablename__ = 'Task'
 
         id_ = Column(Integer, Sequence('task_id_seq', metadata=base.metadata), primary_key=True)
+        # TODO: replace change step_id to name and make the system work with sid instead.
+        sid = Column(String, nullable=True)
         run_id = Column(String, default='', )
         step_id = Column(String, )
         sequence = Column(String, )

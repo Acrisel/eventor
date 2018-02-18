@@ -20,15 +20,17 @@
 #
 ##############################################################################
 
+import os
+import sys
 
 import eventor as evr
 import logging
-import eventor.examples.program as prog
-import os
+from examples.program import step1_create_data, step2_multiple_data, step3
+
 
 appname = os.path.basename(__file__)
 ev = evr.Eventor(name=appname,
-                 run_mode=evr.RUN_RESTART,
+                 run_mode=evr.RUN_RECOVER,
                  config_tag='EVENTOR',
                  config={'EVENTOR':
                          {'shared_db': False,  # will be override to True by Eventor.
@@ -42,15 +44,17 @@ ev2s = ev.add_event('run_step2')
 ev2d = ev.add_event('done_step2')
 ev3s = ev.add_event('run_step3', expr=(ev1d, ev2d))
 
-s1 = ev.add_step('s1', func=prog.step1_create_data,
+s1 = ev.add_step('s1', func=step1_create_data,
                  kwargs={'outfile': 'source.txt'},
                  triggers={evr.STEP_COMPLETE: (ev1d, ev2s,)},
                  recovery={evr.STEP_FAILURE: evr.STEP_RERUN,
-                           evr.STEP_SUCCESS: evr.STEP_SKIP})
-s2 = ev.add_step('s2', prog.step2_multiple_data,
+                           evr.STEP_SUCCESS: evr.STEP_RERUN})
+s2 = ev.add_step('s2', step2_multiple_data,
                  kwargs={},
-                 triggers={evr.STEP_COMPLETE: (ev2d, ), })
-s3 = ev.add_step('s3', prog.step3, kwargs={})
+                 triggers={evr.STEP_COMPLETE: (ev2d, ), },
+                 recovery={evr.STEP_FAILURE: evr.STEP_RERUN,
+                           evr.STEP_SUCCESS: evr.STEP_SKIP})
+s3 = ev.add_step('s3', step3, kwargs={})
 
 ev.add_assoc(ev1s, s1)
 ev.add_assoc(ev2s, s2)

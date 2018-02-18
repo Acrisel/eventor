@@ -28,7 +28,7 @@ About
 :moduleauthor: Arnon Sela
 :date:         Oct 18, 2016
 :description:  use gradior dependencies and recovery
-
+   
 Outputs:
 -------------------
 N/A
@@ -47,31 +47,34 @@ N/A
 
 
 API DOC:
-===============
+===============     
 """
 
 import eventor as evr
 import logging
 import os
-from eventor.examples.run_types import prog
+import time
+from examples.run_types import prog
 
-# logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+
+'''
+def prog(progname):
+    logger.info("doing what %s is doing" % progname)
+    logger.info("EVENTOR_STEP_SEQUENCE: %s" % os.getenv("EVENTOR_STEP_SEQUENCE"))
+    return progname
+'''
 
 
 def build_flow(run_mode):
-    db = 'pgdb2'
-    config = os.path.abspath('runly.conf')
-    # because OSX adds /var -> /private/var
-    if config.startswith('/private'):
-        config = config[8:]
-    ev = evr.Eventor(name=os.path.basename(__file__), run_mode=run_mode, logging_level=logging.DEBUG, config=config, config_tag='EVENTOR', store=db, ) #import_module=["examples.example_00_prog",])
+    ev = evr.Eventor(name=os.path.basename(__file__), run_mode=run_mode, logging_level=logging.DEBUG,)
 
     ev1s = ev.add_event('run_step1')
     ev2s = ev.add_event('run_step2')
     ev3s = ev.add_event('run_step3')
 
     s1 = ev.add_step('s1', func=prog, kwargs={'progname': 'prog1'}, triggers={evr.StepStatus.success: (ev2s,)}) 
-    s2 = ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,)}, host='ubuntud01_eventor')
+    s2 = ev.add_step('s2', func=prog, kwargs={'progname': 'prog2'}, triggers={evr.StepStatus.success: (ev3s,)})
     s3 = ev.add_step('s3', func=prog, kwargs={'progname': 'prog3'},)
 
     ev.add_assoc(ev1s, s1, delay=0)
@@ -82,12 +85,26 @@ def build_flow(run_mode):
     return ev
 
 
+def construct_and_run_in_steps():
+    ev = build_flow(run_mode=evr.RunMode.restart)
+    ev.run(max_loops=1)
+    ev.close()
+
+    for loop in range(4):
+        delay = 5 if loop in [1, 2] else 15
+        time.sleep(delay)
+        ev = build_flow(run_mode=evr.RunMode.continue_)
+        result = ev.run(max_loops=1)
+        ev.close()
+        print('Result: %s' % result)
+
+
 def construct_and_run():
     ev = build_flow(run_mode=evr.RunMode.restart)
-    ev.run() #max_loops=1)
-    ev.close()
-    
- 
+    result = ev.run()
+    print('Result: %s' % result)
+
+
 if __name__ == '__main__':
     import multiprocessing as mp
     mp.freeze_support()

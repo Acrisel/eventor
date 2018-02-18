@@ -24,7 +24,7 @@ import eventor as evr
 import logging
 import os
 from acris import virtual_resource_pool as rp
-from eventor.examples.run_types import prog, Container, StepResource
+from examples.run_types import prog, Container, StepResource
 
 # logger=logging.getLogger(__name__)
 

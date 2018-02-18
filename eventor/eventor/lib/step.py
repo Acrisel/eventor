@@ -6,6 +6,7 @@ Created on Oct 19, 2016
 import logging
 import pprint
 from .eventor_types import EventorError, TaskStatus
+from eventor.lib.utils import get_step_id
 
 mlogger = logging.getLogger(__name__)
 
@@ -31,6 +32,8 @@ class Step(object):
 
         self.name = name
         self.id_ = name  # get_step_id()
+        # TODO: get that 
+        self.eid = get_step_id()
         self.func = func
         self.func_args = func_args
         self.func_kwargs = func_kwargs

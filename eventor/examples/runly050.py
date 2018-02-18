@@ -22,7 +22,7 @@
 
 import eventor as evr
 import os
-from eventor.examples.run_types import prog, Container
+from examples.run_types import prog, Container
 
 appname = os.path.basename(__file__)
 

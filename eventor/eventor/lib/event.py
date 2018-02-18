@@ -8,6 +8,7 @@ from .eventor_types import EventorError
 import logging
 from _ast import arg
 import collections
+from eventor.lib.utils import get_event_id
 
 mlogger = logging.getLogger(__name__)
 
@@ -62,6 +63,7 @@ class Event(object):
         if expr:
             self.expr = expr_to_str(expr)
         self.id_ = name  # get_event_id()
+        self.eid = get_event_id()
 
     def __repr__(self):
         expr = ''

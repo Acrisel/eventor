@@ -1,4 +1,4 @@
-__version__ = '5.1.8'
+__version__ = '5.1.9'
 __db_version__ = '1.0.0'
 
 from eventor.lib.engine import Eventor, get_unique_run_id
@@ -22,3 +22,5 @@ RUN_RECOVER = RunMode.recover  # reruns failed steps
 
 # Note: internal use only
 RUN_CONTINUE = RunMode.continue_  # continue from where it left in previous loop
+
+

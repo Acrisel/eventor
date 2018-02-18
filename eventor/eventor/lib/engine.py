@@ -379,24 +379,6 @@ class Eventor(object):
         self.__config = merge_configs(config, Eventor.config_defaults, config_tag,
                                       envvar_config_tag='EVENTOR_CONFIG_TAG', )
 
-        '''
-        if config_tag is None:
-            config_tag = os.environ.get('EVENTOR_CONFIG_TAG', '')
-
-        if isinstance(config, str):
-            frame = inspect.stack()[1]
-            module = inspect.getsourcefile(frame[0])
-            config_path = os.path.join(os.path.dirname(module), config)
-            if os.path.isfile(config_path):
-                config = config
-
-        rootconfig = getrootconf(conf=config, root=config_tag, case_sensative=False)
-        defaults = expandmap(Eventor.config_defaults)
-        # defaults = dict([(name, expandvars(value, os.environ)) for name,
-        #     value in Eventor.config_defaults.items()])
-        self.__config = MergedChainedDict(rootconfig, defaults, submerge=True)
-        '''
-
         self.debug = self.__config['debug']
         # HOSTS configuration mapping of host tags to host names
         hosts_root_name = os.environ.get('EVENTOR_CONFIG_HOSTS_TAG', 'HOSTS')
@@ -1271,6 +1253,7 @@ class Eventor(object):
         step_recovery = StepReplay.rerun
         if previous_task:
             step_recovery = step.recovery[previous_task.status]
+            mlogger.debug("Found previous task in status {}, setting recovery to {}: {}({})".format(previous_task.status, step_recovery.name, task.id_, task.step_id))
 
         if step_recovery == StepReplay.rerun:
             # on rerun, act as before - just run the task
@@ -1975,7 +1958,7 @@ class Eventor(object):
                 self.__agent_loop = False
                 break
 
-    def run(self,  max_loops=-1):
+    def run(self,  max_loops=-1, forced_state=None):
         ''' loops events structures to execute raise events and execute tasks.
 
         Run, do two things:
@@ -1986,6 +1969,17 @@ class Eventor(object):
             max_loops: number of loops to run.  If positive, limits number of loops.
                  defaults to negative, which would run loops until there are no events to raise and
                  no task to run.
+
+            forced_state: a map of two optional lists. list of steps either to skip of to run with optional forced status (as tuple.
+                e.g. {'skip':[s1, (s2, STEP_SUCCESS)]}
+
+                a step will run if it is in run list and not in skip.
+                if run is empty, every steo is in run.
+                if skip is empty, none of the steps in skip.
+
+                If step not is run and not is skip, it would be skipped with SUCCESS.
+
+
 
         '''
         # TODO: (Arnon) remote the use of __term; use self.__state = EventorState.shutdown instead

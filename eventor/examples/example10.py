@@ -7,7 +7,7 @@ Created on Aug 16, 2017
 import eventor as evr
 import logging
 import time
-from eventor.examples.run_types import prog
+from examples.run_types import prog
 
 logger = logging.getLogger(__name__)
 

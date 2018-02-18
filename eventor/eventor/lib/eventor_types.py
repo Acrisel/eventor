@@ -80,6 +80,7 @@ class LoopControl(Enum):
     kill = 5
 
 
+
 class Invoke(object):
     '''
     Invoke is made to support looping super tasks.
